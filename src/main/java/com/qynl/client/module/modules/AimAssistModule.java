@@ -9,39 +9,48 @@ import com.qynl.client.util.SilentAim;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 /**
  * AimAssist — while you hold the attack button, your aim is gently guided
- * toward the nearest monster near your crosshair. It never locks on and never
- * snaps: the {@link HumanAim} engine makes every correction look like the hand
- * of a normal player (mouse-grid steps, reaction delay, wandering aim point,
- * easing curves), so server anti-cheat systems don't confuse accessibility
- * with cheating.
+ * toward the nearest hostile entity near your crosshair.
  *
- * <p>Two modes, chosen in the in-game Settings screen:</p>
+ * <p>The {@link HumanAim} engine makes every correction look like the hand
+ * of a normal player (mouse-grid steps, reaction delay, wandering aim point,
+ * easing curves, configurable strength).</p>
+ *
+ * <p>Settings:</p>
  * <ul>
- *   <li><b>Rotations</b> (default) — the camera itself is eased toward the target.</li>
- *   <li><b>Packets</b> — your camera stays exactly where you point it, but the
- *       server sees the aimed rotation in the movement packets, so your hits
- *       land on the target without the view moving.</li>
+ *   <li><b>Mode</b> — Rotations (camera moves) or Packets (server-only).</li>
+ *   <li><b>Strength</b> — how aggressively the aim pulls (30–150%).</li>
+ *   <li><b>Max angle</b> — only aim at targets within this many degrees from crosshair.</li>
+ *   <li><b>Max distance</b> — only aim at targets within this range.</li>
+ *   <li><b>Target</b> — Monsters only, or Players too (PvP assist).</li>
  * </ul>
  */
 public class AimAssistModule extends Module {
-	private static final double MAX_DISTANCE = 7.0;
-	private static final double MAX_ANGLE = 25.0; // degrees from crosshair
-
 	private final HumanAim humanAim = new HumanAim();
 
 	public AimAssistModule() {
 		super("AimAssist",
-				"Gently guides your aim toward the nearest monster while you attack — humanized so anti-cheat sees a normal hand.",
+				"Gently guides your aim toward the nearest hostile while you attack — humanized for anti-cheat safety.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_O);
 		addSetting(Setting.options("mode", "Mode", "Rotations", "Rotations", "Packets"));
+		addSetting(Setting.range("strength", "Strength", 100.0, 30, 150, 5, "%"));
+		addSetting(Setting.range("maxAngle", "Max angle", 30.0, 10, 90, 5, "°"));
+		addSetting(Setting.range("maxDist", "Max distance", 7.0, 3, 12, 0.5, "b"));
+		addSetting(Setting.options("target", "Target", "Monsters", "Monsters", "Players+Monsters"));
+	}
+
+	@Override
+	public void onEnable() {
+		applySettings();
 	}
 
 	@Override
@@ -49,8 +58,15 @@ public class AimAssistModule extends Module {
 		SilentAim.clear();
 	}
 
+	private void applySettings() {
+		double strength = getDoubleSetting("strength") / 100.0;
+		humanAim.setStrength(strength);
+	}
+
 	@Override
 	public void onTick(Minecraft client) {
+		applySettings();
+
 		Entity target = null;
 		if (client.player != null && client.level != null && client.screen == null
 				&& client.options.keyAttack.isDown() && !client.player.isSpectator()) {
@@ -64,8 +80,6 @@ public class AimAssistModule extends Module {
 		}
 
 		if (getStringSetting("mode").equals("Packets")) {
-			// Server-side aim: swap the rotation only while the movement packet
-			// is built; the camera itself never moves.
 			float[] silent = humanAim.isArmed()
 					? humanAim.stepTowards(client, client.player.getYRot(), client.player.getXRot())
 					: null;
@@ -76,13 +90,10 @@ public class AimAssistModule extends Module {
 				SilentAim.clear();
 			}
 		} else if (humanAim.isArmed()) {
-			// Visual assist: ease the camera itself toward the target.
 			float[] next = humanAim.stepTowards(client, client.player.getYRot(), client.player.getXRot());
 			if (next != null) {
 				client.player.setYRot(next[0]);
 				client.player.setXRot(next[1]);
-				// Keep the head/body rotation in sync so the camera follows even
-				// in views driven by yHeadRot (e.g. while riding).
 				client.player.yHeadRot = next[0];
 				client.player.yHeadRotO = next[0];
 				client.player.yRotO = next[0];
@@ -91,31 +102,15 @@ public class AimAssistModule extends Module {
 		}
 	}
 
-	/**
-	 * Packets mode is only useful if hits actually land on the target, since
-	 * the camera never moves. While the attack button is held, attack the
-	 * silently-aimed target directly — with vanilla attack-cooldown cadence
-	 * and only when the target is within the reach the server will accept.
-	 */
 	private void attackSilentTarget(Minecraft client, Entity target) {
-		if (client.gameMode == null) {
-			return;
-		}
-		// Let AutoClicker (Packets mode) do the clicking if it is already set
-		// up for it, so the two modules never double-attack the same target.
+		if (client.gameMode == null) return;
 		AutoClickerModule clicker = (AutoClickerModule) QynlClient.getInstance()
 				.getModuleManager().find("AutoClicker");
 		if (clicker != null && clicker.isEnabled()
 				&& "Packets".equals(clicker.getStringSetting("mode"))) {
 			return;
 		}
-		// If the crosshair is already on an entity, the vanilla attack loop
-		// handles that click — don't send a second attack packet.
-		if (client.hitResult instanceof EntityHitResult) {
-			return;
-		}
-		// Attack at the same cadence vanilla uses, and only within the reach
-		// the server will accept (entityInteractionRange + 1).
+		if (client.hitResult instanceof EntityHitResult) return;
 		if (client.player.getAttackStrengthScale(0.0F) >= 0.9F
 				&& client.player.canInteractWithEntity(target, 1.0)) {
 			client.gameMode.attack(client.player, target);
@@ -123,41 +118,47 @@ public class AimAssistModule extends Module {
 		}
 	}
 
-	/** Target currently held by the humanized aim (used by AutoClicker in Packets mode). */
 	public Entity getCurrentTarget() {
 		return humanAim.getTarget();
 	}
 
-	/** Whether the humanized aim has finished its reaction delay and is actively locked. */
 	public boolean isAimLocked() {
 		return humanAim.isArmed();
 	}
 
 	private Entity findTarget(Minecraft client) {
+		double maxDist = getDoubleSetting("maxDist");
+		double maxAngle = getDoubleSetting("maxAngle");
+		boolean targetPlayers = "Players+Monsters".equals(getStringSetting("target"));
+
 		Entity best = null;
 		double bestScore = Double.MAX_VALUE;
 		Vec3 eye = client.player.getEyePosition();
 		Vec3 look = client.player.getLookAngle();
+
 		for (Entity entity : client.level.entitiesForRendering()) {
-			if (!(entity instanceof Monster monster)) {
-				continue;
-			}
-			if (!monster.isAlive() || monster.isInvisibleTo(client.player)) {
-				continue;
-			}
-			Vec3 delta = monster.getBoundingBox().getCenter().subtract(eye);
+			if (entity == client.player) continue;
+
+			boolean isMonster = entity instanceof Monster;
+			boolean isPlayer = entity instanceof Player;
+			if (!isMonster && (!targetPlayers || !isPlayer)) continue;
+			if (entity instanceof LivingEntity living
+					&& (!living.isAlive() || living.isInvisibleTo(client.player))) continue;
+
+			Vec3 delta = entity.getBoundingBox().getCenter().subtract(eye);
 			double dist = delta.length();
-			if (dist > MAX_DISTANCE || dist < 0.01) {
-				continue;
-			}
+			if (dist > maxDist || dist < 0.01) continue;
+
 			double angle = Math.toDegrees(Math.acos(Mth.clamp(look.dot(delta.normalize()), -1.0, 1.0)));
-			if (angle > MAX_ANGLE) {
-				continue;
-			}
-			double score = dist + angle / 100.0;
+			if (angle > maxAngle) continue;
+
+			// Score: prioritize closer targets, slightly weighted by angle.
+			// Players get slight priority in mixed mode (closer = more threatening).
+			double score = dist * 0.8 + angle * 0.2;
+			if (isPlayer) score -= 0.5; // slight player priority
 			if (score < bestScore) {
 				bestScore = score;
-				best = monster;
+				best = entity;
 			}
 		}
 		return best;

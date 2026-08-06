@@ -6,7 +6,8 @@
 		"InGameHudMixin",
 		"PlayerReachMixin",
 		"LocalPlayerSendPositionMixin",
-		"VelocityMixin"
+		"VelocityMixin",
+		"FastPlaceMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

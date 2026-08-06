@@ -66,6 +66,50 @@ The mod jar will be in `build/libs/`.
 
 ---
 
+## The assist modules
+
+All assist modules are humanized — they add reaction delays, timing jitter, mouse-grid snapping, and slight inaccuracy so server anti-cheat systems see a normal player, not a robot. Most have configurable settings (press **Settings…** in the QynlClient menu).
+
+| Module | What it does |
+|---|---|
+| **AimAssist** | Gently guides your aim toward the nearest hostile while you attack. Settings: Rotations/Packets mode, strength (30–150%), max angle (10–90°), max distance (3–12 blocks), Monsters or Players+Monsters. |
+| **AutoClicker** | Holds attack for you with humanly irregular timing. Settings: Normal/Packets mode, clicks per second (3–12). |
+| **ReachAssist** | Extends your reach slightly with natural fluctuation. Settings: Subtle/Normal/Aggressive mode, Low/Med/High fluctuation. |
+| **VelocityAssist** | Softens knockback by a percentage you choose. Settings: horizontal reduce (0–90%), vertical reduce (0–90%). |
+| **ShieldAssist** | Auto-blocks when an enemy attacks — quick parry tap (BlockHit mode) or longer hold (Hold mode). Settings: reaction delay (50–350ms), block duration (2–12 ticks). |
+| **CritAssist** | Auto-jumps at the right moment so your hits land as critical strikes. For players who can't time jump + click together. |
+| **BowAssist** | Draws and releases your bow/crossbow at full charge. Right-click once and the mod handles hold+release. |
+| **AutoTotem** | Moves a Totem of Undying into your offhand when health drops below your chosen %. |
+| **AutoSword** | Switches to your strongest weapon when you attack a mob. |
+| **AutoArmor** | Equips the best armor from your inventory automatically. |
+| **AutoEat** | Eats the best food in your hotbar when you're hungry. |
+| **AutoFish** | Reels in fish when they bite and re-casts for you. |
+| **SafeWalk** | Stops you from walking off edges — great for players with tremor or poor depth perception. |
+| **ScaffoldWalk** | Places blocks under you automatically while you walk (sneak to use). |
+| **ToggleSneak** | Sneak stays on until you press the key again. |
+| **AutoSprint** | Sprint stays on while you move forward. |
+| **AutoJump** | Jumps automatically while you walk. |
+| **AutoMine** | Keeps mining a block until it breaks — you don't have to hold the button. |
+| **AutoTool** | Switches to the right tool for the block you're looking at. |
+| **AutoTorch** | Places torches from your hotbar when the light level is too low. |
+| **AutoRespawn** | Clicks the respawn button for you when you die. |
+| **AutoWalk** | Walks forward so you don't have to hold W. |
+| **AntiDrown** | Swims up when you're about to drown. |
+| **AutoClimb** | Climbs ladders and vines automatically. |
+| **AutoStep** | Steps up one-block-high edges without jumping. |
+| **AutoSwim** | Swims up automatically when underwater. |
+| **AutoPotion** | Splashes potions automatically when their effects run out. |
+| **AntiAfk** | Moves you slightly every so often so you don't get kicked for being AFK. |
+| **ChestStealer** | Quickly takes everything from a chest when you open it. |
+| **InvWalk** | Lets you walk while your inventory is open. |
+| **NoFall** | Prevents fall damage (for players with depth-perception issues). |
+| **Zoom** | Hold a key to zoom in (like OptiFine's zoom). |
+| **Fullbright** | Makes everything bright so you can see in the dark. |
+
+Plus info modules: **InfoHUD**, **Keystrokes**, **TargetInfo**, **EffectTimers**, **DurabilityWarn**, **DeathCoords**, **CoordConvert**.
+
+---
+
 ## Support
 
 Found a bug or have an idea? Open an issue at [github.com/Qynl/Qynlclient](https://github.com/Qynl/Qynlclient/issues).

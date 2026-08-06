@@ -15,12 +15,15 @@ import com.qynl.client.module.modules.AutoMineModule;
 import com.qynl.client.module.modules.AutoRespawnModule;
 import com.qynl.client.module.modules.AutoSprintModule;
 import com.qynl.client.module.modules.AutoStepModule;
+import com.qynl.client.module.modules.FastPlaceAssistModule;
 import com.qynl.client.module.modules.AutoTorchModule;
 import com.qynl.client.module.modules.AutoToolModule;
 import com.qynl.client.module.modules.AutoWalkModule;
+import com.qynl.client.module.modules.BowAssistModule;
 import com.qynl.client.module.modules.ChestStealerModule;
 import com.qynl.client.module.modules.ClickGuiModule;
 import com.qynl.client.module.modules.CoordConvertModule;
+import com.qynl.client.module.modules.CritAssistModule;
 import com.qynl.client.module.modules.DeathCoordsModule;
 import com.qynl.client.module.modules.SafeWalkModule;
 import com.qynl.client.module.modules.DurabilityWarnModule;
@@ -35,6 +38,7 @@ import com.qynl.client.module.modules.AutoClimbModule;
 import com.qynl.client.module.modules.AutoPotionModule;
 import com.qynl.client.module.modules.ReachAssistModule;
 import com.qynl.client.module.modules.ScaffoldWalkModule;
+import com.qynl.client.module.modules.ShieldAssistModule;
 import com.qynl.client.module.modules.AutoSwimModule;
 import com.qynl.client.module.modules.TargetInfoModule;
 import com.qynl.client.module.modules.ToggleSneakModule;
@@ -88,6 +92,10 @@ public class ModuleManager {
 		register(new TargetInfoModule());
 		register(new CoordConvertModule());
 		register(new VelocityAssistModule());
+		register(new ShieldAssistModule());
+		register(new CritAssistModule());
+		register(new BowAssistModule());
+		register(new FastPlaceAssistModule());
 		register(new ClickGuiModule());
 	}
 

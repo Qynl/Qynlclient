@@ -17,12 +17,14 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li><b>Mouse grid (GCD)</b> — every correction is rounded to whole mouse
  *       pixels, the same grid a real mouse produces.</li>
- *   <li><b>Human inaccuracy</b> — it aims at a slightly random point on the
- *       body, not the exact center, and that point wanders a little.</li>
- *   <li><b>Curves instead of straight lines</b> — the turn speed eases in
+ *   <li><b>Human inaccuracy</b> — aims at a slightly random point on the
+ *       body, not the exact center, and that point wanders.</li>
+ *   <li><b>Curves instead of straight lines</b> — turn speed eases in
  *       and out instead of moving at a constant rate.</li>
  *   <li><b>Reaction delay</b> — assistance only starts 150–300 ms after the
  *       target appears, and backs off when you move the mouse yourself.</li>
+ *   <li><b>Configurable strength</b> — turn speed scales with the user's
+ *       chosen aggressiveness, from gentle guidance to firm assist.</li>
  * </ul>
  */
 public final class HumanAim {
@@ -38,10 +40,13 @@ public final class HumanAim {
 	private int wanderTimer;
 	private double wanderPhase;
 
+	// Configurable parameters set by AimAssistModule
+	private double strength = 1.0;       // 0.3–2.0: how aggressive the pull is
+	private double maxTurnSpeed = 1.9;   // base turn speed, scaled by strength
+	private int reactionDelayTicks = 5;  // base reaction delay before aim engages
+
 	/** Called every tick with the current target (null when none). */
 	public void update(Minecraft client, Entity newTarget) {
-		// If the player is moving the mouse themselves, assist backs off for a
-		// few ticks so it never fights the user — natural and anti-cheat safe.
 		double mouseX = client.mouseHandler.xpos();
 		double mouseY = client.mouseHandler.ypos();
 		double move = Math.hypot(mouseX - lastMouseX, mouseY - lastMouseY);
@@ -55,8 +60,7 @@ public final class HumanAim {
 
 		if (newTarget != target) {
 			target = newTarget;
-			// Human reaction time: ~150–300 ms before the assist engages.
-			reactionTicks = target != null ? 3 + random.nextInt(4) : 0;
+			reactionTicks = target != null ? reactionDelayTicks + random.nextInt(3) : 0;
 			wanderTimer = 0;
 			if (target != null) {
 				reWander();
@@ -66,10 +70,21 @@ public final class HumanAim {
 				reactionTicks--;
 			}
 			if (--wanderTimer <= 0) {
-				wanderTimer = 4 + random.nextInt(5);
+				wanderTimer = 3 + random.nextInt(6);
 				reWander();
 			}
 		}
+	}
+
+	/** Configure how aggressively the aim pulls. 1.0 = default, 0.5 = gentle, 2.0 = firm. */
+	public void setStrength(double strength) {
+		this.strength = Mth.clamp(strength, 0.3, 2.5);
+		this.maxTurnSpeed = 1.3 + this.strength * 0.8;
+	}
+
+	/** How many ticks before aim locks on after target switch (3 = ~150ms). */
+	public void setReactionTicks(int ticks) {
+		this.reactionDelayTicks = Mth.clamp(ticks, 1, 12);
 	}
 
 	public boolean isArmed() {
@@ -80,10 +95,11 @@ public final class HumanAim {
 		return target;
 	}
 
-	/** Pick a slightly off-center aim point so the assist never locks onto the exact middle. */
 	private void reWander() {
-		aimYawOffset = (random.nextDouble() - 0.5) * 3.0;
-		aimPitchOffset = (random.nextDouble() - 0.5) * 4.0;
+		// Wander amount scales inversely with strength — stronger aim wanders less.
+		double wanderScale = 1.0 / Math.max(0.5, strength);
+		aimYawOffset = (random.nextDouble() - 0.5) * 3.0 * wanderScale;
+		aimPitchOffset = (random.nextDouble() - 0.5) * 4.0 * wanderScale;
 	}
 
 	/**
@@ -104,8 +120,7 @@ public final class HumanAim {
 		double yawTo = Math.toDegrees(Math.atan2(-delta.x, delta.z)) + aimYawOffset;
 		double pitchTo = Math.toDegrees(Math.asin(-delta.y / dist)) + aimPitchOffset;
 
-		// The mouse grid: the smallest yaw/pitch step a real mouse can make
-		// at the current sensitivity. All corrections snap to multiples of it.
+		// Mouse grid: smallest step a real mouse can make at current sensitivity.
 		double sens = client.options.sensitivity().get();
 		double f = sens * 0.6 + 0.2;
 		double gcdStep = (f * f * f) * 8.0 * 0.15;
@@ -113,16 +128,15 @@ public final class HumanAim {
 		double yawDelta = Mth.wrapDegrees(yawTo - currentYaw);
 		double pitchDelta = Mth.clamp(pitchTo - currentPitch, -90.0, 90.0);
 
-		// Ease in/out: fast when far away, gentle when close — a curve, not a line.
-		double maxTurn = 1.9;
-		double easeYaw = maxTurn * (0.35 + 0.65 * Math.min(1.0, Math.abs(yawDelta) / 20.0));
-		double easePitch = maxTurn * (0.35 + 0.65 * Math.min(1.0, Math.abs(pitchDelta) / 20.0));
+		// Turn speed: scales with strength. Fast when far, gentle when close.
+		double speed = maxTurnSpeed * strength;
+		double easeYaw = speed * (0.35 + 0.65 * Math.min(1.0, Math.abs(yawDelta) / 20.0));
+		double easePitch = speed * (0.35 + 0.65 * Math.min(1.0, Math.abs(pitchDelta) / 20.0));
 
 		double stepYaw = Mth.clamp(yawDelta, -easeYaw, easeYaw);
 		double stepPitch = Mth.clamp(pitchDelta, -easePitch, easePitch);
 
-		// Snap to the mouse grid — and always move at least one pixel when the
-		// crosshair still wants to move, so it never freezes perfectly still.
+		// Snap to mouse grid — always move at least one pixel when needed.
 		if (gcdStep > 1e-6) {
 			double snappedYaw = Math.round(stepYaw / gcdStep) * gcdStep;
 			if (Math.abs(stepYaw) > 1e-4 && Math.abs(snappedYaw) < gcdStep * 0.5) {
@@ -136,9 +150,8 @@ public final class HumanAim {
 			stepPitch = snappedPitch;
 		}
 
-		// A tiny tremor so the crosshair dithers between pixels instead of
-		// resting with unnatural, machine-like constancy.
-		double wobble = Math.sin(wanderPhase) * 0.04;
+		// Tremor so crosshair never rests perfectly still.
+		double wobble = Math.sin(wanderPhase) * 0.04 * (1.0 / Math.max(0.5, strength));
 		wanderPhase += 0.5 + random.nextDouble() * 0.3;
 
 		return new float[]{

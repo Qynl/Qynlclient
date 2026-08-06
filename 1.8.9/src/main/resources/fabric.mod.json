@@ -1,0 +1,31 @@
+{
+    "schemaVersion": 1,
+    "id": "qynlclient189",
+    "version": "${version}",
+    "name": "QynlClient 1.8.9",
+    "description": "Assistive client for Minecraft 1.8.9 — blockhit, aim assist, reach assist and more for players with disabilities.",
+    "authors": ["Qynl"],
+    "contact": {
+        "homepage": "https://github.com/Qynl/Qynlclient",
+        "sources": "https://github.com/Qynl/Qynlclient",
+        "issues": "https://github.com/Qynl/Qynlclient/issues"
+    },
+    "license": "MIT",
+    "icon": "assets/qynlclient189/icon.png",
+    "environment": "client",
+    "entrypoints": {
+        "client": [
+            "com.qynl.client189.QynlClient189"
+        ]
+    },
+    "mixins": [
+        {
+            "config": "qynlclient189.mixins.json",
+            "environment": "client"
+        }
+    ],
+    "depends": {
+        "fabricloader": ">=0.15.0",
+        "minecraft": "1.8.9"
+    }
+}
