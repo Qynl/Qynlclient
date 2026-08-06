@@ -73,7 +73,7 @@ public class KeybindScreen extends Screen {
 					|| keyCode == GLFW.GLFW_KEY_BACKSPACE
 					|| keyCode == GLFW.GLFW_KEY_DELETE) {
 				setBind(waitingModule, -1);
-			} else if (keyCode > 0 && !isModifierKey(keyCode) && !isReservedKey(keyCode)) {
+			} else if (keyCode > 0 && !isModifierKey(keyCode) && !isGameCriticalKey(keyCode)) {
 				setBind(waitingModule, keyCode);
 			}
 			return true;
@@ -85,12 +85,16 @@ public class KeybindScreen extends Screen {
 		return keyCode >= GLFW.GLFW_KEY_LEFT_SHIFT && keyCode <= GLFW.GLFW_KEY_LAST;
 	}
 
-	/** Keys that belong to the game itself and are never offered as module binds. */
-	private boolean isReservedKey(int keyCode) {
-		return (keyCode >= GLFW.GLFW_KEY_F1 && keyCode <= GLFW.GLFW_KEY_F12)
-				|| (keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9)
-				|| keyCode == GLFW.GLFW_KEY_T // chat
-				|| keyCode == GLFW.GLFW_KEY_F; // swap items
+	/** Only a handful of keys the game absolutely needs stay reserved.
+	 *  Everything else (including F-keys and numbers) is available so
+	 *  every player can find a key that works for them. */
+	private boolean isGameCriticalKey(int keyCode) {
+		return keyCode == GLFW.GLFW_KEY_ENTER
+				|| keyCode == GLFW.GLFW_KEY_KP_ENTER
+				|| keyCode == GLFW.GLFW_KEY_SLASH
+				|| keyCode == GLFW.GLFW_KEY_TAB
+				|| keyCode == GLFW.GLFW_KEY_F1   // debug / shift-F1 pie chart
+				|| keyCode == GLFW.GLFW_KEY_F2;  // always reserved for the game
 	}
 
 	@Override

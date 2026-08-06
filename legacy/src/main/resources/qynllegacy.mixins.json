@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.qynl.legacy.mixin",
+	"compatibilityLevel": "JAVA_8",
+	"client": [
+		"MinecraftClientMixin",
+		"PlayerEntityMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

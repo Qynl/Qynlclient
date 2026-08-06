@@ -2,6 +2,7 @@ package com.qynl.client.module.modules;
 
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
+import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
@@ -23,6 +24,7 @@ public class AutoTotemModule extends Module {
 		super("AutoTotem", "Keeps a Totem of Undying in your offhand automatically when you have one.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_F4);
+		addSetting(Setting.range("healthPct", "Health %", 30.0, 0, 100, 5, "%"));
 	}
 
 	@Override
@@ -38,6 +40,11 @@ public class AutoTotemModule extends Module {
 			return;
 		}
 
+		// Only equip a totem when low enough on health (or always if set to 100%).
+		float healthPct = client.player.getHealth() / client.player.getMaxHealth() * 100.0F;
+		if (healthPct > getDoubleSetting("healthPct")) {
+			return;
+		}
 		// Nothing to do if a totem is already in the offhand.
 		if (client.player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
 			return;

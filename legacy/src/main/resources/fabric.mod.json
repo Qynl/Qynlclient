@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "qynlclient-legacy",
+	"version": "${version}",
+	"name": "QynlClient Legacy",
+	"description": "Assistive Minecraft client for 1.8.9 — BlockHit, aim assist, reach, velocity, and more. For players who need a little help.",
+	"authors": ["Qynl"],
+	"contact": {
+		"homepage": "https://github.com/Qynl/Qynlclient",
+		"sources": "https://github.com/Qynl/Qynlclient"
+	},
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.qynl.legacy.QynlLegacyClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "qynllegacy.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.14.0",
+		"minecraft": "1.8.9"
+	}
+}

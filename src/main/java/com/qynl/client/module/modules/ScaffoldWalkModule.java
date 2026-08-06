@@ -2,6 +2,7 @@ package com.qynl.client.module.modules;
 
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
+import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -21,13 +22,13 @@ import org.lwjgl.glfw.GLFW;
  * floor builds itself.
  */
 public class ScaffoldWalkModule extends Module {
-	private static final int PLACE_COOLDOWN = 3; // ticks between placements
 	private int cooldown = 0;
 
 	public ScaffoldWalkModule() {
 		super("ScaffoldWalk", "Places blocks under you as you walk, so you never fall.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_B);
+		addSetting(Setting.range("cooldown", "Place delay", 3.0, 1, 10, 1, "t"));
 	}
 
 	@Override
@@ -36,6 +37,7 @@ public class ScaffoldWalkModule extends Module {
 			cooldown--;
 			return;
 		}
+		int placeCooldown = (int) getDoubleSetting("cooldown");
 		if (client.player == null || client.level == null || client.gameMode == null) {
 			return;
 		}
@@ -89,7 +91,7 @@ public class ScaffoldWalkModule extends Module {
 		}
 		player.swing(InteractionHand.MAIN_HAND);
 		client.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, hit);
-		cooldown = PLACE_COOLDOWN;
+		cooldown = placeCooldown;
 	}
 
 	/** Finds a solid block to place the target block against. */

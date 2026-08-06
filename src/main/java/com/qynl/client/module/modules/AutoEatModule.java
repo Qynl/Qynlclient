@@ -2,6 +2,7 @@ package com.qynl.client.module.modules;
 
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
+import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
@@ -16,6 +17,7 @@ public class AutoEatModule extends Module {
 	public AutoEatModule() {
 		super("AutoEat", "Eat the best food in your hotbar automatically when you are hungry.", Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_U);
+		addSetting(Setting.range("hungerPct", "Hunger %", 18.0, 6, 20, 1));
 	}
 
 	@Override
@@ -36,7 +38,7 @@ public class AutoEatModule extends Module {
 		if (client.options.keyUse.isDown()) {
 			return;
 		}
-		if (player.isUsingItem() || player.getFoodData().getFoodLevel() >= 18) {
+		if (player.isUsingItem() || player.getFoodData().getFoodLevel() >= (int) getDoubleSetting("hungerPct")) {
 			return;
 		}
 

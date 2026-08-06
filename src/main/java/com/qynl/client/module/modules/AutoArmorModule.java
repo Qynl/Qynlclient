@@ -2,6 +2,7 @@ package com.qynl.client.module.modules;
 
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
+import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
@@ -22,6 +23,7 @@ public class AutoArmorModule extends Module {
 		super("AutoArmor", "Automatically equip the best armor you have — no fiddly inventory dragging.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_J);
+		addSetting(Setting.range("swapDelay", "Swap delay", 20.0, 5, 40, 5, "t"));
 	}
 
 	@Override
@@ -88,7 +90,7 @@ public class AutoArmorModule extends Module {
 			if (!client.player.containerMenu.getCarried().isEmpty()) {
 				client.gameMode.handleInventoryMouseClick(containerId, fromSlot, 0, ClickType.PICKUP, client.player);
 			}
-			cooldown = 20;
+			cooldown = (int) getDoubleSetting("swapDelay");
 			return;
 		}
 	}

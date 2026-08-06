@@ -10,6 +10,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
+import com.qynl.client.module.Setting;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -19,10 +20,13 @@ import org.lwjgl.glfw.GLFW;
  * button and the client makes sure your best sword or axe is in your hand.
  */
 public class AutoSwordModule extends Module {
+	private double prevDamage = 0.0;
+
 	public AutoSwordModule() {
 		super("AutoSword", "Automatically switches to your strongest weapon when you attack a mob.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_F8);
+		addSetting(Setting.range("minAdvantage", "Min advantage", 0.5, 0.0, 3.0, 0.5));
 	}
 
 	@Override
@@ -53,8 +57,10 @@ public class AutoSwordModule extends Module {
 				bestSlot = i;
 			}
 		}
-		if (bestSlot != inventory.selected) {
+		double minAdv = getDoubleSetting("minAdvantage");
+		if (bestSlot != inventory.selected && (bestDamage - prevDamage) >= minAdv) {
 			inventory.selected = bestSlot;
+			prevDamage = bestDamage;
 		}
 	}
 

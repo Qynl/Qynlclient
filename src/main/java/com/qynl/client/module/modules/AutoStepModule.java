@@ -2,6 +2,7 @@ package com.qynl.client.module.modules;
 
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
+import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
@@ -15,9 +16,10 @@ import org.lwjgl.glfw.GLFW;
  */
 public class AutoStepModule extends Module {
 	public AutoStepModule() {
-		super("AutoStep", "Automatically climbs one-block ledges while you walk.",
+		super("AutoStep", "Automatically climbs ledges while you walk.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_F6);
+		addSetting(Setting.options("height", "Height", "1.0", "1.0", "1.25"));
 	}
 
 	@Override
@@ -44,12 +46,21 @@ public class AutoStepModule extends Module {
 		BlockPos ahead = player.blockPosition().offset(
 				(int) Math.round(dx * 1.5), 0, (int) Math.round(dz * 1.5));
 		BlockState state = client.level.getBlockState(ahead);
-		// Only a one-block step: solid at foot level, open air above.
+		// Check the step height: solid at foot level, open air above.
 		if (state.getCollisionShape(client.level, ahead).isEmpty()) {
 			return;
 		}
 		if (!client.level.getBlockState(ahead.above()).isAir()) {
 			return;
+		}
+		// 1.25 mode: also check one block higher.
+		if ("1.25".equals(getStringSetting("height"))) {
+			BlockPos higher = ahead.above();
+			BlockState higherState = client.level.getBlockState(higher);
+			if (!higherState.getCollisionShape(client.level, higher).isEmpty()
+					|| !client.level.getBlockState(higher.above()).isAir()) {
+				return;
+			}
 		}
 		player.input.jumping = true;
 	}
