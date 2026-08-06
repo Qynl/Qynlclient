@@ -4,6 +4,8 @@ import com.qynl.client.QynlClient;
 import com.qynl.client.QynlClientConfig;
 import com.qynl.client.module.modules.AimAssistModule;
 import com.qynl.client.module.modules.AntiAfkModule;
+import com.qynl.client.module.modules.AutoSwordModule;
+import com.qynl.client.module.modules.AutoTotemModule;
 import com.qynl.client.module.modules.AutoArmorModule;
 import com.qynl.client.module.modules.AutoClickerModule;
 import com.qynl.client.module.modules.AutoEatModule;
@@ -76,6 +78,8 @@ public class ModuleManager {
 		register(new AntiDrownModule());
 		register(new AutoClimbModule());
 		register(new AutoPotionModule());
+		register(new AutoTotemModule());
+		register(new AutoSwordModule());
 		register(new AntiAfkModule());
 		register(new KeystrokesModule());
 		register(new InfoHudModule());
