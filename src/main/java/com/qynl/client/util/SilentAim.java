@@ -21,8 +21,12 @@ public final class SilentAim {
 	private SilentAim() {
 	}
 
-	/** Capture the current visual rotation before the packet is sent. */
-	public static void beginSession(float visualYaw, float visualPitch) {
+	/**
+	 * Capture the player's real rotation at the moment the packet is about to
+	 * be built, so the post-packet restore puts the camera back exactly where
+	 * the player is looking — even if they moved the mouse mid-tick.
+	 */
+	public static void captureVisual(float visualYaw, float visualPitch) {
 		SilentAim.visualYaw = visualYaw;
 		SilentAim.visualPitch = visualPitch;
 	}

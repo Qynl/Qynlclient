@@ -22,6 +22,9 @@ public abstract class LocalPlayerSendPositionMixin {
 	private void qynlclient$silentAimHead(CallbackInfo ci) {
 		if (SilentAim.isArmed()) {
 			LocalPlayer self = (LocalPlayer) (Object) this;
+			// Remember exactly where the player's camera really is right now, so
+			// the TAIL hook can restore it without any visible snap.
+			SilentAim.captureVisual(self.getYRot(), self.getXRot());
 			self.setYRot(SilentAim.getSilentYaw());
 			self.setXRot(SilentAim.getSilentPitch());
 		}

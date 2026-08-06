@@ -1,5 +1,6 @@
 package com.qynl.client.module.modules;
 
+import com.qynl.client.QynlClient;
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
@@ -9,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
@@ -64,12 +66,12 @@ public class AimAssistModule extends Module {
 		if (getStringSetting("mode").equals("Packets")) {
 			// Server-side aim: swap the rotation only while the movement packet
 			// is built; the camera itself never moves.
-			SilentAim.beginSession(client.player.getYRot(), client.player.getXRot());
 			float[] silent = humanAim.isArmed()
 					? humanAim.stepTowards(client, client.player.getYRot(), client.player.getXRot())
 					: null;
 			if (silent != null) {
 				SilentAim.set(silent[0], silent[1]);
+				attackSilentTarget(client, target);
 			} else {
 				SilentAim.clear();
 			}
@@ -79,9 +81,45 @@ public class AimAssistModule extends Module {
 			if (next != null) {
 				client.player.setYRot(next[0]);
 				client.player.setXRot(next[1]);
+				// Keep the head/body rotation in sync so the camera follows even
+				// in views driven by yHeadRot (e.g. while riding).
+				client.player.yHeadRot = next[0];
+				client.player.yHeadRotO = next[0];
 				client.player.yRotO = next[0];
 				client.player.xRotO = next[1];
 			}
+		}
+	}
+
+	/**
+	 * Packets mode is only useful if hits actually land on the target, since
+	 * the camera never moves. While the attack button is held, attack the
+	 * silently-aimed target directly — with vanilla attack-cooldown cadence
+	 * and only when the target is within the reach the server will accept.
+	 */
+	private void attackSilentTarget(Minecraft client, Entity target) {
+		if (client.gameMode == null) {
+			return;
+		}
+		// Let AutoClicker (Packets mode) do the clicking if it is already set
+		// up for it, so the two modules never double-attack the same target.
+		AutoClickerModule clicker = (AutoClickerModule) QynlClient.getInstance()
+				.getModuleManager().find("AutoClicker");
+		if (clicker != null && clicker.isEnabled()
+				&& "Packets".equals(clicker.getStringSetting("mode"))) {
+			return;
+		}
+		// If the crosshair is already on an entity, the vanilla attack loop
+		// handles that click — don't send a second attack packet.
+		if (client.hitResult instanceof EntityHitResult) {
+			return;
+		}
+		// Attack at the same cadence vanilla uses, and only within the reach
+		// the server will accept (entityInteractionRange + 1).
+		if (client.player.getAttackStrengthScale(0.0F) >= 0.9F
+				&& client.player.canInteractWithEntity(target, 1.0)) {
+			client.gameMode.attack(client.player, target);
+			client.player.resetAttackStrengthTicker();
 		}
 	}
 

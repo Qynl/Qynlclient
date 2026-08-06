@@ -17,7 +17,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class ReachAssistModule extends Module {
 	private static final RandomSource RANDOM = RandomSource.create();
-	private static double currentBonus = 0.9;
+	private static double currentBonus = 0.8;
 	private int walkTimer = 0;
 
 	public ReachAssistModule() {
@@ -31,11 +31,14 @@ public class ReachAssistModule extends Module {
 	public void onTick(Minecraft client) {
 		if (--walkTimer <= 0) {
 			walkTimer = 4 + RANDOM.nextInt(4);
-			currentBonus = Mth.clamp(currentBonus + (RANDOM.nextDouble() - 0.5) * 0.25, 0.55, 1.15);
+			// Capped so that base reach (3.0) + bonus stays under the ~4.0 blocks
+			// that a vanilla server accepts for attacks — otherwise distant hits
+			// would be silently rejected on multiplayer.
+			currentBonus = Mth.clamp(currentBonus + (RANDOM.nextDouble() - 0.5) * 0.2, 0.5, 0.95);
 		}
 	}
 
-	/** The current reach extension in blocks, fluctuating between ~0.55 and ~1.15. */
+	/** The current reach extension in blocks, fluctuating between ~0.5 and ~0.95. */
 	public static double currentBonus() {
 		return currentBonus;
 	}
