@@ -3,7 +3,8 @@
 	"package": "com.qynl.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"InGameHudMixin"
+		"InGameHudMixin",
+		"PlayerReachMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -2,7 +2,7 @@
 
 **QynlClient** is a free, open-source **assistive Minecraft client** for Fabric **1.21.1**.
 
-It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off.
+It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off. Recent versions focus on the things that matter most in a fight and on the way there: a little extra reach, gentle aim help, automatic step-climbing and automatic torch placement.
 
 It is **not** a cheat client: no combat hacks, no unfair advantages — just assistance that keeps the game honest while making it playable for everyone.
 
@@ -40,13 +40,14 @@ You need **two** files:
 1. Press **Win + R** (Windows) and run `%appdata%\.minecraft`, or open `~/Library/Application Support/minecraft` on macOS.
 2. Open the **`mods`** folder (create it if it doesn't exist).
 3. Copy **both** jar files into it.
-4. *(Optional)* Also grab **Qynl Performance+** from the release and drop it into the **`resourcepacks`** folder, then enable it in-game under **Options → Resource Packs** for smoother performance.
+4. *(Optional)* Also grab **Qynl Performance+** (a small zip, also attached to the release) and drop it into the **`resourcepacks`** folder, then enable it in-game under **Options → Resource Packs** for smoother performance.
 
 ### 4. Play
 
 1. Start the game with the **fabric-loader-1.21.1** profile.
 2. In-game, press **Right Shift** to open the QynlClient menu.
 3. Turn on whatever assistance you want — it's saved automatically.
+4. Want a different key for something? Open **Keybinds…** in the QynlClient menu and press any key.
 
 ---
 
