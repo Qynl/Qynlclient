@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "qynlclient",
+	"version": "${version}",
+	"name": "QynlClient",
+	"description": "An assistive Minecraft client: helpful modules for easier play, a toggleable HUD and smooth performance.",
+	"authors": [
+		"Qynl"
+	],
+	"contact": {
+		"homepage": "https://github.com/Qynl/Qynlclient",
+		"sources": "https://github.com/Qynl/Qynlclient",
+		"issues": "https://github.com/Qynl/Qynlclient/issues"
+	},
+	"license": "MIT",
+	"icon": "assets/qynlclient/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.qynl.client.QynlClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "qynlclient.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

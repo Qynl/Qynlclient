@@ -1,0 +1,49 @@
+name: Build mod
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew --no-daemon build
+
+      - name: Package resource pack
+        run: |
+          cd resourcepack
+          zip -r ../QynlPerformance+.zip .
+
+      - name: Upload mod artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qynlclient-jars
+          path: |
+            build/libs/*.jar
+            QynlPerformance+.zip
+
+      - name: Draft release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/libs/*.jar
+            QynlPerformance+.zip
+          draft: true
