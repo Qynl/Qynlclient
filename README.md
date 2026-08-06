@@ -2,7 +2,7 @@
 
 **QynlClient** is a free, open-source **assistive Minecraft client** for Fabric **1.21.1**.
 
-It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off. Recent versions focus on the things that matter most in a fight and on the way there: a little extra reach, gentle aim help, automatic step-climbing and automatic torch placement.
+It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off. Recent versions focus on the things that matter most: a little extra reach, gentle aim help, automatic step-climbing, torch placement, a floor that builds itself under your feet as you walk, help getting out of the water in time, auto-climbing ladders and auto-drinking healing potions when you're hurt.
 
 It is **not** a cheat client: no combat hacks, no unfair advantages — just assistance that keeps the game honest while making it playable for everyone.
 
