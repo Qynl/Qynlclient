@@ -20,6 +20,7 @@ public class QynlClientConfig {
 
 	private final Map<String, Boolean> moduleStates = new LinkedHashMap<>();
 	private final Map<String, Integer> moduleKeys = new LinkedHashMap<>();
+	private final Map<String, Map<String, String>> moduleSettings = new LinkedHashMap<>();
 
 	public void setModuleState(String name, boolean enabled) {
 		moduleStates.put(name, enabled);
@@ -37,6 +38,14 @@ public class QynlClientConfig {
 		return moduleKeys.getOrDefault(name, fallback);
 	}
 
+	public void setModuleSetting(String module, String key, String value) {
+		moduleSettings.computeIfAbsent(module, k -> new LinkedHashMap<>()).put(key, value);
+	}
+
+	public Map<String, String> getModuleSettings(String module) {
+		return moduleSettings.getOrDefault(module, Map.of());
+	}
+
 	public void save() {
 		JsonObject root = new JsonObject();
 		JsonObject modules = new JsonObject();
@@ -49,6 +58,13 @@ public class QynlClientConfig {
 			keys.addProperty(entry.getKey(), entry.getValue());
 		}
 		root.add("keys", keys);
+		JsonObject settings = new JsonObject();
+		for (Map.Entry<String, Map<String, String>> entry : moduleSettings.entrySet()) {
+			JsonObject module = new JsonObject();
+			entry.getValue().forEach(module::addProperty);
+			settings.add(entry.getKey(), module);
+		}
+		root.add("settings", settings);
 		try {
 			Files.writeString(path(), GSON.toJson(root));
 		} catch (IOException e) {
@@ -70,6 +86,17 @@ public class QynlClientConfig {
 				JsonObject keys = root.get("keys").getAsJsonObject();
 				keys.entrySet().forEach(entry ->
 						cfg.moduleKeys.put(entry.getKey(), entry.getValue().getAsInt()));
+			}
+			if (root.has("settings") && root.get("settings").isJsonObject()) {
+				JsonObject settings = root.get("settings").getAsJsonObject();
+				settings.entrySet().forEach(module -> {
+					if (module.getValue().isJsonObject()) {
+						Map<String, String> values = new LinkedHashMap<>();
+						module.getValue().getAsJsonObject().entrySet().forEach(e ->
+								values.put(e.getKey(), e.getValue().getAsString()));
+						cfg.moduleSettings.put(module.getKey(), values);
+					}
+				});
 			}
 		} catch (Exception ignored) {
 			// First run or unreadable config: start fresh with defaults.

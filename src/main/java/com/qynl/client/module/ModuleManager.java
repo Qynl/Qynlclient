@@ -36,8 +36,11 @@ import com.qynl.client.module.modules.ScaffoldWalkModule;
 import com.qynl.client.module.modules.AutoSwimModule;
 import com.qynl.client.module.modules.TargetInfoModule;
 import com.qynl.client.module.modules.ToggleSneakModule;
+import com.qynl.client.module.modules.VelocityAssistModule;
 import com.qynl.client.module.modules.ZoomModule;
 import net.minecraft.client.Minecraft;
+
+import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,6 +83,7 @@ public class ModuleManager {
 		register(new DurabilityWarnModule());
 		register(new TargetInfoModule());
 		register(new CoordConvertModule());
+		register(new VelocityAssistModule());
 		register(new ClickGuiModule());
 	}
 
@@ -126,6 +130,9 @@ public class ModuleManager {
 			if (key != module.getKeyCode()) {
 				module.setKeyCode(key);
 			}
+			for (Map.Entry<String, String> entry : config.getModuleSettings(module.getName()).entrySet()) {
+				module.applySetting(entry.getKey(), entry.getValue());
+			}
 		}
 	}
 
@@ -137,6 +144,9 @@ public class ModuleManager {
 		for (Module module : modules) {
 			config.setModuleState(module.getName(), module.isEnabled());
 			config.setModuleKey(module.getName(), module.getKeyCode());
+			for (Setting<?> setting : module.getSettings()) {
+				config.setModuleSetting(module.getName(), setting.getKey(), setting.valueAsString());
+			}
 		}
 		config.save();
 	}

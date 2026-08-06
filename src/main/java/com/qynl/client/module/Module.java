@@ -8,10 +8,15 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public abstract class Module {
 	private final String name;
 	private final String description;
 	private final Category category;
+	private final Map<String, Setting<?>> settings = new LinkedHashMap<>();
 	private KeyMapping keyMapping;
 	private String keyLabel = "";
 	private int keyCode = -1;
@@ -126,5 +131,42 @@ public abstract class Module {
 
 	public boolean isEnabled() {
 		return enabled;
+	}
+
+	// ------------------------------------------------------------------
+	// Settings (per-module options shown in the in-game Settings screen)
+	// ------------------------------------------------------------------
+
+	protected void addSetting(Setting<?> setting) {
+		settings.put(setting.getKey(), setting);
+	}
+
+	public Setting<?> getSetting(String key) {
+		return settings.get(key);
+	}
+
+	public Collection<Setting<?>> getSettings() {
+		return settings.values();
+	}
+
+	public boolean hasSettings() {
+		return !settings.isEmpty();
+	}
+
+	public String getStringSetting(String key) {
+		Setting<?> s = settings.get(key);
+		return s == null ? "" : String.valueOf(s.getValue());
+	}
+
+	public double getDoubleSetting(String key) {
+		Setting<?> s = settings.get(key);
+		return s == null ? 0 : s.asDouble();
+	}
+
+	public void applySetting(String key, String value) {
+		Setting<?> s = settings.get(key);
+		if (s != null) {
+			s.setFromString(value);
+		}
 	}
 }

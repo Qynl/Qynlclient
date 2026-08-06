@@ -3,6 +3,7 @@ package com.qynl.client.hud;
 import com.qynl.client.QynlClient;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
+import com.qynl.client.module.Setting;
 import com.qynl.client.module.modules.CoordConvertModule;
 import com.qynl.client.module.modules.DeathCoordsModule;
 import com.qynl.client.module.modules.DurabilityWarnModule;
@@ -149,8 +150,19 @@ public class HudRenderer {
 			g.fill(x + 8, y + rowHeight / 2 - 2, x + 12, y + rowHeight / 2 + 2, ACCENT);
 			g.drawString(client.font, Component.literal(module.getName()), x + 16, y + 3, WHITE, false);
 			String key = module.getKeyLabel();
-			if (!key.isEmpty() && !"None".equals(key)) {
-				g.drawString(client.font, Component.literal(key), x + maxWidth - client.font.width(key) - 3, y + 3, GRAY, false);
+			boolean packetMode = false;
+			Setting<?> mode = module.getSetting("mode");
+			if (mode != null && "Packets".equals(String.valueOf(mode.getValue()))) {
+				packetMode = true;
+			}
+			String keyText = key.isEmpty() || "None".equals(key) ? "" : key;
+			int keyX = x + maxWidth - client.font.width(keyText) - 3;
+			if (packetMode) {
+				int pWidth = client.font.width("\u00b7P");
+				g.drawString(client.font, Component.literal("\u00b7P"), keyX - pWidth - 5, y + 3, ACCENT, false);
+			}
+			if (!keyText.isEmpty()) {
+				g.drawString(client.font, Component.literal(keyText), keyX, y + 3, GRAY, false);
 			}
 			moduleRects.add(new int[]{x, y, x + maxWidth + 4, y + rowHeight});
 			moduleRowModules.add(module);

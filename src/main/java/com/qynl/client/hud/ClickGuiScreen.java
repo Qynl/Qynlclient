@@ -54,9 +54,12 @@ public class ClickGuiScreen extends Screen {
 
 		this.addRenderableWidget(Button.builder(Component.literal("Keybinds\u2026"), b ->
 						this.minecraft.setScreen(new KeybindScreen()))
-				.bounds(centerX - 120, y + 10, 117, 20).build());
+				.bounds(centerX - 120, y + 10, 76, 20).build());
+		this.addRenderableWidget(Button.builder(Component.literal("Settings\u2026"), b ->
+						this.minecraft.setScreen(new ModuleSettingsScreen()))
+				.bounds(centerX - 40, y + 10, 76, 20).build());
 		this.addRenderableWidget(Button.builder(Component.literal("Close"), b -> this.onClose())
-				.bounds(centerX + 3, y + 10, 117, 20).build());
+				.bounds(centerX + 40, y + 10, 76, 20).build());
 	}
 
 	private void refreshButtons() {
@@ -76,7 +79,7 @@ public class ClickGuiScreen extends Screen {
 		this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
 		guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFFFF);
 		guiGraphics.drawCenteredString(this.font,
-				Component.literal("Click a module to toggle it \u00b7 Keybinds\u2026 to change keys \u00b7 right-click to close"),
+				Component.literal("Click a module to toggle it \u00b7 Keybinds\u2026 / Settings\u2026 below \u00b7 right-click to close"),
 				this.width / 2, 28, 0xFF9CA3AF);
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 	}

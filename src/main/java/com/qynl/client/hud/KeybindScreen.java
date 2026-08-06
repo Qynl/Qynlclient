@@ -39,7 +39,7 @@ public class KeybindScreen extends Screen {
 		int y = START_Y;
 
 		StringWidget hint = new StringWidget(
-				Component.literal("Click a module, then press the key you want. Esc / Backspace clears a bind."),
+				Component.literal("Click a module, then press the key. Esc / right-click / Backspace = no key. F-keys, numbers, T and F are kept for the game."),
 				this.font);
 		hint.setX(centerX - 150);
 		hint.setY(28);
@@ -73,7 +73,7 @@ public class KeybindScreen extends Screen {
 					|| keyCode == GLFW.GLFW_KEY_BACKSPACE
 					|| keyCode == GLFW.GLFW_KEY_DELETE) {
 				setBind(waitingModule, -1);
-			} else if (keyCode > 0 && !isModifierKey(keyCode) && keyCode != GLFW.GLFW_KEY_F4) {
+			} else if (keyCode > 0 && !isModifierKey(keyCode) && !isReservedKey(keyCode)) {
 				setBind(waitingModule, keyCode);
 			}
 			return true;
@@ -83,6 +83,14 @@ public class KeybindScreen extends Screen {
 
 	private boolean isModifierKey(int keyCode) {
 		return keyCode >= GLFW.GLFW_KEY_LEFT_SHIFT && keyCode <= GLFW.GLFW_KEY_LAST;
+	}
+
+	/** Keys that belong to the game itself and are never offered as module binds. */
+	private boolean isReservedKey(int keyCode) {
+		return (keyCode >= GLFW.GLFW_KEY_F1 && keyCode <= GLFW.GLFW_KEY_F12)
+				|| (keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9)
+				|| keyCode == GLFW.GLFW_KEY_T // chat
+				|| keyCode == GLFW.GLFW_KEY_F; // swap items
 	}
 
 	@Override
@@ -108,6 +116,23 @@ public class KeybindScreen extends Screen {
 						false);
 			}
 		}
+	}
+
+	/** Right-clicking a module row removes its keybind (leaves it unbound). */
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		if (button == 1) {
+			int centerX = this.width / 2;
+			for (int i = 0; i < rows.size(); i++) {
+				double rowY = START_Y + i * ROW_HEIGHT;
+				if (mouseX >= centerX - 150 && mouseX <= centerX + 150
+						&& mouseY >= rowY && mouseY <= rowY + 20) {
+					setBind(rows.get(i), -1);
+					return true;
+				}
+			}
+		}
+		return super.mouseClicked(mouseX, mouseY, button);
 	}
 
 	@Override

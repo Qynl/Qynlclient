@@ -4,7 +4,9 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"InGameHudMixin",
-		"PlayerReachMixin"
+		"PlayerReachMixin",
+		"LocalPlayerSendPositionMixin",
+		"VelocityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

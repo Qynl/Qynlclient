@@ -2,7 +2,9 @@
 
 **QynlClient** is a free, open-source **assistive Minecraft client** for Fabric **1.21.1**.
 
-It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off. Recent versions focus on the things that matter most: a little extra reach, gentle aim help, automatic step-climbing, torch placement, a floor that builds itself under your feet as you walk, help getting out of the water in time, auto-climbing ladders and auto-drinking healing potions when you're hurt.
+It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off, an in-game settings screen to fine-tune each assist, and keybinds you can set — or remove — yourself.
+
+The assist modules are deliberately tuned to look like the hand of a normal player: aim corrections snap to the mouse's own pixel grid, react with a human delay, wander slightly instead of locking perfectly, clicks come at irregular intervals, reach fluctuates a little, and knockback is softened by a percentage rather than removed. The goal is that server anti-cheat systems never mistake accessibility help for cheating. You can also switch AimAssist and AutoClicker between **Rotations** (the view moves) and **Packets** (only the server sees the aimed direction, your camera stays where you point it) to find what works best for you.
 
 It is **not** a cheat client: no combat hacks, no unfair advantages — just assistance that keeps the game honest while making it playable for everyone.
 
@@ -47,7 +49,8 @@ You need **two** files:
 1. Start the game with the **fabric-loader-1.21.1** profile.
 2. In-game, press **Right Shift** to open the QynlClient menu.
 3. Turn on whatever assistance you want — it's saved automatically.
-4. Want a different key for something? Open **Keybinds…** in the QynlClient menu and press any key.
+4. Want a different key for something? Open **Keybinds…** in the QynlClient menu and press any key (press **Esc** or **right-click** to leave a module without a key). F-keys and number keys are kept for the game, so they can't be stolen by accident.
+5. Open **Settings…** to switch assists between **Rotations** and **Packets** mode, and to fine-tune things like click speed and knockback reduction.
 
 ---
 

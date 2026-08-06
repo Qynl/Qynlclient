@@ -16,14 +16,14 @@ public abstract class PlayerReachMixin {
 	@Inject(method = "entityInteractionRange", at = @At("RETURN"), cancellable = true)
 	private void qynlclient$extendEntityReach(CallbackInfoReturnable<Double> cir) {
 		if (ReachAssistModule.isActive()) {
-			cir.setReturnValue(cir.getReturnValue() + ReachAssistModule.BONUS);
+			cir.setReturnValue(cir.getReturnValue() + ReachAssistModule.currentBonus());
 		}
 	}
 
 	@Inject(method = "blockInteractionRange", at = @At("RETURN"), cancellable = true)
 	private void qynlclient$extendBlockReach(CallbackInfoReturnable<Double> cir) {
 		if (ReachAssistModule.isActive()) {
-			cir.setReturnValue(cir.getReturnValue() + ReachAssistModule.BONUS);
+			cir.setReturnValue(cir.getReturnValue() + ReachAssistModule.currentBonus());
 		}
 	}
 }

@@ -2,6 +2,9 @@ package com.qynl.client.module.modules;
 
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
+import com.qynl.client.module.Setting;
+import com.qynl.client.util.HumanAim;
+import com.qynl.client.util.SilentAim;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -10,61 +13,86 @@ import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * AimAssist — while you hold the attack button, your view is gently eased
- * toward the nearest monster near your crosshair. It never locks on and
- * never snaps: it just takes the strain out of the last bit of aiming,
- * which is a huge help when fine mouse control is hard.
+ * AimAssist — while you hold the attack button, your aim is gently guided
+ * toward the nearest monster near your crosshair. It never locks on and never
+ * snaps: the {@link HumanAim} engine makes every correction look like the hand
+ * of a normal player (mouse-grid steps, reaction delay, wandering aim point,
+ * easing curves), so server anti-cheat systems don't confuse accessibility
+ * with cheating.
+ *
+ * <p>Two modes, chosen in the in-game Settings screen:</p>
+ * <ul>
+ *   <li><b>Rotations</b> (default) — the camera itself is eased toward the target.</li>
+ *   <li><b>Packets</b> — your camera stays exactly where you point it, but the
+ *       server sees the aimed rotation in the movement packets, so your hits
+ *       land on the target without the view moving.</li>
+ * </ul>
  */
 public class AimAssistModule extends Module {
 	private static final double MAX_DISTANCE = 7.0;
 	private static final double MAX_ANGLE = 25.0; // degrees from crosshair
-	private static final float TURN_SPEED = 1.5F; // degrees per tick (30°/s, gentle)
+
+	private final HumanAim humanAim = new HumanAim();
 
 	public AimAssistModule() {
-		super("AimAssist", "Gently eases your aim toward the nearest monster while you attack.",
+		super("AimAssist",
+				"Gently guides your aim toward the nearest monster while you attack — humanized so anti-cheat sees a normal hand.",
 				Category.ASSIST);
 		bindKey(GLFW.GLFW_KEY_O);
+		addSetting(Setting.options("mode", "Mode", "Rotations", "Rotations", "Packets"));
+	}
+
+	@Override
+	public void onDisable() {
+		SilentAim.clear();
 	}
 
 	@Override
 	public void onTick(Minecraft client) {
-		if (client.player == null || client.level == null || client.screen != null) {
-			return;
+		Entity target = null;
+		if (client.player != null && client.level != null && client.screen == null
+				&& client.options.keyAttack.isDown() && !client.player.isSpectator()) {
+			target = findTarget(client);
 		}
-		// Only help while the player is actually trying to attack.
-		if (!client.options.keyAttack.isDown()) {
-			return;
-		}
-		var player = client.player;
-		if (player.isSpectator()) {
-			return;
-		}
-		Entity target = findTarget(client);
+		humanAim.update(client, target);
+
 		if (target == null) {
+			SilentAim.clear();
 			return;
 		}
 
-		Vec3 eye = player.getEyePosition();
-		Vec3 delta = target.getBoundingBox().getCenter().subtract(eye);
-		double dist = delta.length();
-		if (dist < 0.001) {
-			return;
+		if (getStringSetting("mode").equals("Packets")) {
+			// Server-side aim: swap the rotation only while the movement packet
+			// is built; the camera itself never moves.
+			SilentAim.beginSession(client.player.getYRot(), client.player.getXRot());
+			float[] silent = humanAim.isArmed()
+					? humanAim.stepTowards(client, client.player.getYRot(), client.player.getXRot())
+					: null;
+			if (silent != null) {
+				SilentAim.set(silent[0], silent[1]);
+			} else {
+				SilentAim.clear();
+			}
+		} else if (humanAim.isArmed()) {
+			// Visual assist: ease the camera itself toward the target.
+			float[] next = humanAim.stepTowards(client, client.player.getYRot(), client.player.getXRot());
+			if (next != null) {
+				client.player.setYRot(next[0]);
+				client.player.setXRot(next[1]);
+				client.player.yRotO = next[0];
+				client.player.xRotO = next[1];
+			}
 		}
+	}
 
-		double yawTo = Math.toDegrees(Math.atan2(-delta.x, delta.z));
-		double pitchTo = Math.toDegrees(Math.asin(-delta.y / dist));
+	/** Target currently held by the humanized aim (used by AutoClicker in Packets mode). */
+	public Entity getCurrentTarget() {
+		return humanAim.getTarget();
+	}
 
-		float yaw = player.getYRot();
-		float pitch = player.getXRot();
-		float newYaw = yaw + Mth.clamp((float) Mth.wrapDegrees(yawTo - yaw), -TURN_SPEED, TURN_SPEED);
-		float newPitch = Mth.clamp(pitch + (float) Mth.clamp(pitchTo - pitch, -TURN_SPEED, TURN_SPEED),
-				-90.0F, 90.0F);
-
-		player.setYRot(newYaw);
-		player.setXRot(newPitch);
-		// Keep the interpolated rotation in sync so the view glides, not snaps.
-		player.yRotO = newYaw;
-		player.xRotO = newPitch;
+	/** Whether the humanized aim has finished its reaction delay and is actively locked. */
+	public boolean isAimLocked() {
+		return humanAim.isArmed();
 	}
 
 	private Entity findTarget(Minecraft client) {
