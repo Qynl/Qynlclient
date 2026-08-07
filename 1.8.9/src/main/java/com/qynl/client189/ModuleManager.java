@@ -15,6 +15,8 @@ public class ModuleManager {
         register(new AimAssistModule());
         register(new ReachAssistModule());
         register(new AutoClickerModule());
+        register(new TriggerBotModule());
+        register(new StrafeAssistModule());
         register(new VelocityAssistModule());
         register(new CritAssistModule());
         register(new NinjaBridgeModule());
