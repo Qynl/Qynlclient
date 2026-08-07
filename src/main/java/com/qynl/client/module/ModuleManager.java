@@ -38,6 +38,7 @@ import com.qynl.client.module.modules.AutoClimbModule;
 import com.qynl.client.module.modules.AutoPotionModule;
 import com.qynl.client.module.modules.ReachAssistModule;
 import com.qynl.client.module.modules.ScaffoldWalkModule;
+import com.qynl.client.module.modules.StreamerModeModule;
 import com.qynl.client.module.modules.ShieldAssistModule;
 import com.qynl.client.module.modules.AutoSwimModule;
 import com.qynl.client.module.modules.TargetInfoModule;
@@ -98,6 +99,7 @@ public class ModuleManager {
 		register(new BowAssistModule());
 		register(new FastPlaceAssistModule());
 		        register(new NinjaBridgeModule());
+                register(new StreamerModeModule());
         register(new ClickGuiModule());
 	}
 
