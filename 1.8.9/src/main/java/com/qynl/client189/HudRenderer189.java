@@ -9,18 +9,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Minimal HUD renderer for 1.8.9.
+ * Clean HUD renderer for 1.8.9.
  *
- * <p>Draws the enabled module list in the top-left corner, showing the
- * active mode of each assist (e.g. "AimAssist · Silent"). Everything is
- * hidden when StreamerMode is on, so recordings stay OBS-safe.</p>
+ * <p>Draws the title and the enabled module list in the top-left corner as a
+ * single soft panel with an accent edge, showing the active mode of each
+ * assist (e.g. "AimAssist · Silent") and the toggle key on the right.
+ * Everything is hidden when StreamerMode is on, so recordings stay
+ * OBS-safe.</p>
  *
  * <p>Uses only stable 1.8.9 Yarn APIs: {@link DrawableHelper#fill},
  * {@link TextRenderer#draw} and {@link TextRenderer#getStringWidth}.</p>
  */
 public final class HudRenderer189 {
 
-    public static final int BG = 0x66000000;
+    public static final int PANEL = 0x40000000;
     public static final int ACCENT = 0xFF6EE7A0;
     public static final int WHITE = 0xFFFFFFFF;
     public static final int GRAY = 0xFF9CA3AF;
@@ -33,6 +35,11 @@ public final class HudRenderer189 {
         ModuleManager modules = QynlClient189.getInstance().getModuleManager();
         TextRenderer font = client.textRenderer;
 
+        // Title
+        String title = "QynlClient";
+        font.draw(title, 4, 4, ACCENT);
+        font.draw("v" + QynlClient189.VERSION, 4 + font.getStringWidth(title) + 6, 6, GRAY);
+
         List<Module> enabled = new ArrayList<>();
         for (Module m : modules.getModules()) {
             if (m.isEnabled() && !"ClickGUI".equals(m.getName())) {
@@ -41,40 +48,48 @@ public final class HudRenderer189 {
         }
         if (enabled.isEmpty()) return;
 
-        // Compute max label width
+        // Compute max label width (name + mode suffix, or the key when wider)
         int maxWidth = 0;
         for (Module m : enabled) {
-            int w = font.getStringWidth(m.getName() + modeSuffix(m));
+            String label = m.getName() + modeSuffix(m);
+            String key = m.getKeyLabel();
+            int w = font.getStringWidth(label);
+            if (key != null && !key.isEmpty() && !"None".equals(key)) {
+                w = Math.max(w, font.getStringWidth(key) + 4);
+            }
             maxWidth = Math.max(maxWidth, w);
         }
 
         int x = 4;
-        int y = 26;
-        int rowHeight = font.fontHeight + 6;
+        int y = 22;
+        int rowHeight = 11;
+        int padX = 7;
+        int panelW = maxWidth + padX * 2 + 2;
+        int panelH = enabled.size() * rowHeight + 4;
 
+        // Single panel + left accent edge
+        DrawableHelper.fill(x, y, x + panelW, y + panelH, PANEL);
+        DrawableHelper.fill(x, y, x + 2, y + panelH, ACCENT);
+
+        int rowY = y + 2;
         for (Module m : enabled) {
-            // Row background
-            fill(client, x, y, x + maxWidth + 22, y + rowHeight, BG);
-            // Accent bar
-            fill(client, x, y, x + 2, y + rowHeight, ACCENT);
-
-            // Name
-            font.draw(m.getName(), x + 16, y + 3, WHITE);
+            int nameX = x + padX + 2;
+            font.draw(m.getName(), nameX, rowY, WHITE);
 
             // Mode suffix
             String suffix = modeSuffix(m);
             if (!suffix.isEmpty()) {
-                font.draw(suffix, x + 16 + font.getStringWidth(m.getName()), y + 3, ACCENT);
+                font.draw(suffix, nameX + font.getStringWidth(m.getName()), rowY, ACCENT);
             }
 
             // Key on the right
             String key = m.getKeyLabel();
             if (key != null && !key.isEmpty() && !"None".equals(key)) {
-                int keyX = x + maxWidth + 22 - font.getStringWidth(key) - 3;
-                font.draw(key, keyX, y + 3, GRAY);
+                int keyX = x + panelW - padX - font.getStringWidth(key);
+                font.draw(key, keyX, rowY, GRAY);
             }
 
-            y += rowHeight;
+            rowY += rowHeight;
         }
     }
 
@@ -85,9 +100,5 @@ public final class HudRenderer189 {
         String v = String.valueOf(mode.getValue());
         if (v.isEmpty() || "Default".equals(v)) return "";
         return " \u00b7 " + v;
-    }
-
-    private static void fill(MinecraftClient client, int x1, int y1, int x2, int y2, int color) {
-        DrawableHelper.fill(x1, y1, x2, y2, color);
     }
 }

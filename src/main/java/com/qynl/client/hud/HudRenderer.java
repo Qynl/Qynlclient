@@ -19,14 +19,26 @@ import net.minecraft.world.effect.MobEffectInstance;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+/**
+ * HUD renderer for 1.21.1 — clean, single-panel design.
+ *
+ * <p>Top-left: the title and one soft panel holding every enabled module,
+ * each row clickable (hover highlights the row). Right side: one soft panel
+ * per info section (InfoHUD, TargetInfo, EffectTimers, DeathCoords,
+ * CoordConvert) with an accent edge instead of per-line boxes. Everything is
+ * hidden while StreamerMode is active so recordings stay OBS-safe.</p>
+ */
 public class HudRenderer {
-	public static final int MODULE_BG = 0x66000000;
+	public static final int PANEL = 0x40000000;
+	public static final int PANEL_HOVER = 0x14FFFFFF;
 	public static final int ACCENT = 0xFF6EE7A0;
 	public static final int WHITE = 0xFFFFFFFF;
 	public static final int GRAY = 0xFF9CA3AF;
 	public static final int RED = 0xFFFF6B6B;
+	public static final int RED_BG = 0xB33D0000;
 
 	private final List<int[]> moduleRects = new ArrayList<>();
 	private final List<Module> moduleRowModules = new ArrayList<>();
@@ -61,60 +73,48 @@ public class HudRenderer {
 
 	private int renderRightColumn(GuiGraphics g, Minecraft client, ModuleManager modules) {
 		int y = 18;
-		int rightX = client.getWindow().getGuiScaledWidth() - 8;
+		int rightX = client.getWindow().getGuiScaledWidth() - 6;
 
 		InfoHudModule info = (InfoHudModule) modules.find("InfoHUD");
 		if (info != null && info.isEnabled()) {
-			List<String> lines = List.of(
+			List<String> lines = new ArrayList<>();
+			for (String line : List.of(
 					info.fps(client), info.coords(client), info.direction(client),
-					info.biome(client), info.time(client), info.ping(client));
-			for (String line : lines) {
-				if (line.isEmpty()) {
-					continue;
+					info.biome(client), info.time(client), info.ping(client))) {
+				if (!line.isEmpty()) {
+					lines.add(line);
 				}
-				int width = client.font.width(line);
-				g.fill(rightX - width - 6, y - 1, rightX, y + 9, MODULE_BG);
-				g.drawString(client.font, line, rightX - width - 3, y, WHITE, false);
-				y += 11;
 			}
-			y += 4;
+			y = drawRightSection(g, client, lines, WHITE, rightX, y) + 5;
 		}
 
 		TargetInfoModule target = (TargetInfoModule) modules.find("TargetInfo");
 		if (target != null && target.isEnabled()) {
 			String line = target.getInfo(client);
 			if (!line.isEmpty()) {
-				int width = client.font.width(line);
-				g.fill(rightX - width - 6, y - 1, rightX, y + 9, MODULE_BG);
-				g.drawString(client.font, line, rightX - width - 3, y, ACCENT, false);
-				y += 11;
+				y = drawRightSection(g, client, List.of(line), ACCENT, rightX, y) + 5;
 			}
-			y += 4;
 		}
 
 		EffectTimersModule effects = (EffectTimersModule) modules.find("EffectTimers");
 		if (effects != null && effects.isEnabled()) {
+			List<String> lines = new ArrayList<>();
+			List<Integer> colors = new ArrayList<>();
 			for (MobEffectInstance effect : effects.getEffects(client)) {
 				String name = Component.translatable(effect.getEffect().value().getDescriptionId()).getString();
-				String time = formatTime(effect.getDuration());
-				String line = name + roman(effect.getAmplifier()) + "  " + time;
-				int width = client.font.width(line);
+				String line = name + roman(effect.getAmplifier()) + "  " + formatTime(effect.getDuration());
 				boolean shortTime = effect.getDuration() > 0 && effect.getDuration() / 20 <= 5;
-				int color = shortTime ? RED : WHITE;
-				g.fill(rightX - width - 6, y - 1, rightX, y + 9, MODULE_BG);
-				g.drawString(client.font, line, rightX - width - 3, y, color, false);
-				y += 11;
+				lines.add(line);
+				colors.add(shortTime ? RED : WHITE);
 			}
+			y = drawRightSection(g, client, lines, colors, rightX, y) + 5;
 		}
 
 		DeathCoordsModule death = (DeathCoordsModule) modules.find("DeathCoords");
 		if (death != null && death.isEnabled()) {
 			String line = death.getHudLine(client);
 			if (!line.isEmpty()) {
-				int width = client.font.width(line);
-				g.fill(rightX - width - 6, y - 1, rightX, y + 9, MODULE_BG);
-				g.drawString(client.font, line, rightX - width - 3, y, RED, false);
-				y += 11;
+				y = drawRightSection(g, client, List.of(line), RED, rightX, y) + 5;
 			}
 		}
 
@@ -122,13 +122,39 @@ public class HudRenderer {
 		if (convert != null && convert.isEnabled()) {
 			String line = convert.getInfo(client);
 			if (!line.isEmpty()) {
-				int width = client.font.width(line);
-				g.fill(rightX - width - 6, y - 1, rightX, y + 9, MODULE_BG);
-				g.drawString(client.font, line, rightX - width - 3, y, GRAY, false);
-				y += 11;
+				y = drawRightSection(g, client, List.of(line), GRAY, rightX, y) + 5;
 			}
 		}
 		return y;
+	}
+
+	/** Draws one soft panel with right-aligned lines and a left accent edge. */
+	private int drawRightSection(GuiGraphics g, Minecraft client, List<String> lines, int color, int rightX, int y) {
+		if (lines.isEmpty()) {
+			return y;
+		}
+		return drawRightSection(g, client, lines, Collections.nCopies(lines.size(), color), rightX, y);
+	}
+
+	private int drawRightSection(GuiGraphics g, Minecraft client, List<String> lines, List<Integer> colors, int rightX, int y) {
+		if (lines.isEmpty()) {
+			return y;
+		}
+		int maxWidth = 0;
+		for (String line : lines) {
+			maxWidth = Math.max(maxWidth, client.font.width(line));
+		}
+		int pad = 7;
+		int lineH = 11;
+		int panelW = maxWidth + pad * 2;
+		int panelH = lines.size() * lineH + 4;
+		int panelX = rightX - panelW;
+		g.fill(panelX, y, rightX + 2, y + panelH, PANEL);
+		g.fill(panelX, y, panelX + 2, y + panelH, ACCENT);
+		for (int i = 0; i < lines.size(); i++) {
+			g.drawString(client.font, lines.get(i), panelX + pad, y + 3 + i * lineH, colors.get(i), false);
+		}
+		return y + panelH;
 	}
 
 	private void renderModuleList(GuiGraphics g, Minecraft client, ModuleManager modules) {
@@ -144,62 +170,67 @@ public class HudRenderer {
 
 		int maxWidth = 0;
 		for (Module module : enabled) {
-			String label = module.getName() + modeSuffix(module) + keySuffix(module);
-			maxWidth = Math.max(maxWidth, client.font.width(label) + 18);
+			String label = module.getName() + modeSuffix(module);
+			String key = module.getKeyLabel();
+			int w = client.font.width(label);
+			if (!key.isEmpty() && !"None".equals(key)) {
+				w = Math.max(w, client.font.width(key) + 4);
+			}
+			maxWidth = Math.max(maxWidth, w);
 		}
 
 		int x = 4;
-		int y = 26;
-		int rowHeight = client.font.lineHeight + 6;
+		int y = 22;
+		int rowHeight = 11;
+		int padX = 7;
+		int panelW = maxWidth + padX * 2 + 2;
+		int panelH = enabled.size() * rowHeight + 4;
+
+		g.fill(x, y, x + panelW, y + panelH, PANEL);
+		g.fill(x, y, x + 2, y + panelH, ACCENT);
+
+		double scale = client.getWindow().getGuiScale();
+		int mouseX = (int) (client.mouseHandler.xpos() / scale);
+		int mouseY = (int) (client.mouseHandler.ypos() / scale);
+
+		int rowY = y + 2;
 		for (Module module : enabled) {
-			g.fill(x, y, x + maxWidth + 4, y + rowHeight, MODULE_BG);
-			g.fill(x, y, x + 2, y + rowHeight, ACCENT);
-			g.fill(x + 8, y + rowHeight / 2 - 2, x + 12, y + rowHeight / 2 + 2, ACCENT);
+			if (mouseX >= x && mouseX < x + panelW && mouseY >= rowY - 1 && mouseY < rowY + rowHeight - 1) {
+				g.fill(x, rowY - 1, x + panelW, rowY + rowHeight - 1, PANEL_HOVER);
+			}
 
-			// Name
-			int nameColor = WHITE;
-			int nameX = x + 16;
-			g.drawString(client.font, Component.literal(module.getName()), nameX, y + 3, nameColor, false);
+			int nameX = x + padX + 2;
+			g.drawString(client.font, Component.literal(module.getName()), nameX, rowY, WHITE, false);
 
-			// Mode suffix (e.g. "· Silent") — shows what the assist is doing
 			int cursorX = nameX + client.font.width(module.getName());
 			String modeText = modeSuffix(module);
 			if (!modeText.isEmpty()) {
-				g.drawString(client.font, Component.literal(modeText), cursorX, y + 3, ACCENT, false);
-				cursorX += client.font.width(modeText);
+				g.drawString(client.font, Component.literal(modeText), cursorX, rowY, ACCENT, false);
 			}
 
-			// Key suffix
 			String key = module.getKeyLabel();
-			String keyText = key.isEmpty() || "None".equals(key) ? "" : key;
-			if (!keyText.isEmpty()) {
-				int keyX = x + maxWidth - client.font.width(keyText) - 3;
-				g.drawString(client.font, Component.literal(keyText), keyX, y + 3, GRAY, false);
+			if (!key.isEmpty() && !"None".equals(key)) {
+				int keyX = x + panelW - padX - client.font.width(key);
+				g.drawString(client.font, Component.literal(key), keyX, rowY, GRAY, false);
 			}
 
-			moduleRects.add(new int[]{x, y, x + maxWidth + 4, y + rowHeight});
+			moduleRects.add(new int[]{x, rowY - 1, x + panelW, rowY + rowHeight - 1});
 			moduleRowModules.add(module);
-			y += rowHeight;
+			rowY += rowHeight;
 		}
 	}
 
-	/** Shows the active mode of assist modules, e.g. "· Silent". */
+	/** Shows the active mode of assist modules, e.g. " · Silent". */
 	private String modeSuffix(Module module) {
 		Setting<?> mode = module.getSetting("mode");
 		if (mode == null) {
 			return "";
 		}
 		String v = String.valueOf(mode.getValue());
-		// Only show when it's a meaningful non-default option
 		if (v.isEmpty() || "Default".equals(v)) {
 			return "";
 		}
 		return " \u00b7 " + v;
-	}
-
-	private String keySuffix(Module module) {
-		String key = module.getKeyLabel();
-		return key.isEmpty() || "None".equals(key) ? "" : "  " + key;
 	}
 
 	private void renderKeystrokes(GuiGraphics g, Minecraft client, ModuleManager modules) {
@@ -230,9 +261,9 @@ public class HudRenderer {
 	}
 
 	private void drawKey(GuiGraphics g, Minecraft client, KeystrokesModule keystrokes,
-						 int key, int x, int y, int width, int height, String label) {
+						int key, int x, int y, int width, int height, String label) {
 		boolean down = keystrokes.isKeyDown(client, key);
-		int bg = down ? ACCENT : MODULE_BG;
+		int bg = down ? ACCENT : PANEL;
 		g.fill(x, y, x + width, y + height, bg);
 		if (down) {
 			g.fill(x, y, x + width, y + 1, 0xFF2E7D4F);
@@ -255,7 +286,7 @@ public class HudRenderer {
 		int width = client.font.width(text);
 		int x = (client.getWindow().getGuiScaledWidth() - width) / 2;
 		int y = 24;
-		g.fill(x - 6, y - 2, x + width + 6, y + 10, 0xCC4A0000);
+		g.fill(x - 6, y - 2, x + width + 6, y + 10, RED_BG);
 		g.drawString(client.font, text, x, y, RED, false);
 	}
 

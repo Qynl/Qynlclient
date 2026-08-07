@@ -158,7 +158,7 @@ public class ModuleDetailScreen extends Screen {
 				centerX, 28, 0xFF9CA3AF);
 
 		// Panel background
-		guiGraphics.fill(panelLeft - 8, 40, centerX + PANEL_W / 2 + 8, this.height - 24, HudRenderer.MODULE_BG);
+		guiGraphics.fill(panelLeft - 8, 40, centerX + PANEL_W / 2 + 8, this.height - 24, HudRenderer.PANEL);
 
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 	}
