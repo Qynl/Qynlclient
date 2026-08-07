@@ -4,122 +4,118 @@ import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * CritAssist — when you are on the ground attacking a mob, this
- * automatically jumps at the right moment so your next hit lands as a
- * critical strike (1.5× damage). The jump timing is slightly varied and
- * never perfectly mechanical, so anti-cheat sees a normal player trying
- * to crit.
+ * CritAssist — silent, packet-based critical hits.
  *
- * <p>Critical hits happen when a player attacks while falling (i.e.
- * after a jump, before landing). This module jumps for you while you
- * hold the attack button so every swing can be a crit — essential for
- * players who cannot time jumps and clicks together.</p>
+ * <p>Instead of jumping to trigger crits (which looks obvious and can get
+ * you banned), this module spoofs {@code onGround = false} in the
+ * movement packets that the server uses to determine whether a hit is
+ * critical. The server sees you as airborne, grants the 1.5× crit
+ * damage, but your camera stays perfectly still — no jumping required.</p>
+ *
+ * <p>Checked by {@link com.qynl.client.mixin.CritAssistMixin} which
+ * hooks {@code LocalPlayer.sendPosition()}.</p>
  */
 public class CritAssistModule extends Module {
-	private static final RandomSource RANDOM = RandomSource.create();
 
-	private boolean jumpQueued = false;
-	private int jumpCooldown = 0;
-	private int attackTimer = 0;
+    /** A single-instance snapshot so the mixin can forward calls without reflection. */
+    private static CritAssistModule instance;
 
-	public CritAssistModule() {
-		super("CritAssist",
-				"Auto-jumps so your hits land as critical strikes — for players who can't time jump + attack together.",
-				Category.ASSIST);
-		bindKey(GLFW.GLFW_KEY_F10);
-		addSetting(Setting.range("minHealth", "Min enemy health", 10.0, 0, 40, 2, "hp"));
-		addSetting(Setting.range("jumpDelay", "Jump delay", 2.0, 1, 8, 1, "t"));
-	}
+    /** Temporary storage so the HEAD/TAIL hooks in the mixin can save & restore. */
+    private static Boolean capturedGround = null;
 
-	@Override
-	public void onTick(Minecraft client) {
-		if (client.player == null || client.level == null || client.gameMode == null) {
-			reset();
-			return;
-		}
-		if (client.player.isDeadOrDying() || client.screen != null || client.player.isPassenger()) {
-			reset();
-			return;
-		}
+    public CritAssistModule() {
+        super("CritAssist",
+                "Silent crits — spoofs onGround in packets so every hit is a crit. No jumping needed.",
+                Category.ASSIST);
+        instance = this;
+        bindKey(GLFW.GLFW_KEY_F10);
+        addSetting(Setting.options("mode",      "Mode",       "Always", "Always", "Sprinting", "Moving"));
+        addSetting(Setting.range("minHealth",   "Min HP",      0.0,    0, 40, 2, "hp"));
+        addSetting(Setting.range("chance",      "Chance",     100.0,  50, 100, 5, "%"));
+    }
 
-		if (jumpCooldown > 0) {
-			jumpCooldown--;
-		}
+    // ── static API for the mixin ─────────────────────────────────
 
-		// Only help while the player is actively attacking.
-		if (!client.options.keyAttack.isDown()) {
-			reset();
-			return;
-		}
+    public static CritAssistModule getInstance() {
+        return instance;
+    }
 
-		// Must be aiming at a living entity.
-		if (client.hitResult == null || client.hitResult.getType() != HitResult.Type.ENTITY) {
-			reset();
-			return;
-		}
-		if (!(client.hitResult instanceof EntityHitResult entityHit)
-				|| !(entityHit.getEntity() instanceof LivingEntity target)) {
-			reset();
-			return;
-		}
-		if (!target.isAlive()) {
-			reset();
-			return;
-		}
+    public static boolean isActive() {
+        return instance != null && instance.isEnabled();
+    }
 
-		// Don't waste crits on nearly-dead enemies.
-		if (target.getHealth() < getDoubleSetting("minHealth")) {
-			reset();
-			return;
-		}
+    /**
+     * Called by the mixin HEAD hook — decides whether this position
+     * update should be spoofed.
+     */
+    public static boolean shouldSpoof(net.minecraft.client.player.LocalPlayer player) {
+        if (instance == null || !instance.isEnabled()) return false;
+        return instance.checkShouldSpoof(player);
+    }
 
-		// Must be on the ground to jump for a crit.
-		if (!client.player.onGround()) {
-			return;
-		}
+    public static void captureGround(boolean current) {
+        capturedGround = current;
+    }
 
-		// Must not be on cooldown.
-		if (jumpCooldown > 0) {
-			return;
-		}
+    public static boolean hasCapturedGround() {
+        return capturedGround != null;
+    }
 
-		// Respect attack cooldown: jump right before the swing lands.
-		float charge = client.player.getAttackStrengthScale(0.0F);
-		if (charge < 0.85F) {
-			return;
-		}
+    public static boolean releaseGround() {
+        boolean val = capturedGround != null ? capturedGround : true;
+        capturedGround = null;
+        return val;
+    }
 
-		// Don't spam jumps — only jump when a hit is about to go through.
-		attackTimer++;
-		int threshold = (int) (20.0 / Math.max(1, getDoubleSetting("jumpDelay")));
-		if (attackTimer < threshold) {
-			return;
-		}
-		attackTimer = 0;
+    // ── instance logic ───────────────────────────────────────────
 
-		// Jump! Slight variation so it doesn't look like a metronome.
-		client.player.jumpFromGround();
-		jumpQueued = true;
+    private boolean checkShouldSpoof(net.minecraft.client.player.LocalPlayer player) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || player == null) return false;
 
-		// Cooldown before next jump — humanized with ±1 tick jitter.
-		jumpCooldown = 10 + RANDOM.nextInt(5);
-	}
+        // Must be attacking
+        if (!client.options.keyAttack.isDown()) return false;
 
-	private void reset() {
-		jumpQueued = false;
-		attackTimer = 0;
-	}
+        // Must be aiming at a living entity
+        if (client.hitResult == null || client.hitResult.getType() != HitResult.Type.ENTITY) return false;
+        if (!(client.hitResult instanceof EntityHitResult ehr)) return false;
+        if (!(ehr.getEntity() instanceof LivingEntity target)) return false;
+        if (!target.isAlive()) return false;
 
-	@Override
-	public void onDisable() {
-		reset();
-		jumpCooldown = 0;
-	}
+        // Min health check — don't waste crits on nearly-dead mobs
+        double minHp = getDoubleSetting("minHealth");
+        if (minHp > 0 && target.getHealth() < minHp) return false;
+
+        // Mode checks
+        String mode = getStringSetting("mode");
+        if ("Sprinting".equals(mode) && !player.isSprinting()) return false;
+        if ("Moving".equals(mode)) {
+            double dx = player.getX() - player.xOld;
+            double dz = player.getZ() - player.zOld;
+            if (dx * dx + dz * dz < 0.0001) return false;
+        }
+
+        // Chance check — random variation so not every hit is a crit
+        double chance = getDoubleSetting("chance") / 100.0;
+        if (chance < 1.0) {
+            if (Math.random() > chance) return false;
+        }
+
+        // Player must actually be on the ground for spoofing to make sense
+        // (spoofing airborne when you're already airborne is pointless and might flag)
+        if (!player.onGround()) return false;
+
+        return true;
+    }
+
+    @Override
+    public void onDisable() {
+        capturedGround = null;
+    }
 }

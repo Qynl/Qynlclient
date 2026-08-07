@@ -11,4 +11,10 @@ public interface PlayerMoveC2SPacketAccessor {
 
     @Accessor("pitch")
     void setPitch(float pitch);
+
+    @Accessor("onGround")
+    void setOnGround(boolean onGround);
+
+    @Accessor("onGround")
+    boolean getOnGround();
 }
