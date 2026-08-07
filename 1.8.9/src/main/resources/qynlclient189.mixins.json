@@ -8,10 +8,10 @@
         "VelocityMixin",
         "KeyBindingAccessor",
         "LivingEntityAccessor",
-        "MinecraftClientInvoker",
-        "ClientPlayerSendMovementMixin",
-        "PlayerMoveC2SPacketAccessor",
-        "InGameHudMixin189"
+        "MinecraftClientInvoker",		"ClientPlayerSendMovementMixin",
+		"PlayerMoveC2SPacketAccessor",
+		"InGameHudMixin189",
+		"CritAttackMixin"
     ],
     "injectors": {
         "defaultRequire": 1

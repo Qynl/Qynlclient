@@ -10,7 +10,8 @@
 		"FastPlaceMixin",
 		"InputMixin",
 		"KeyMappingAccessor",
-		"CritAssistMixin"
+		"CritAssistMixin",
+		"CritAttackMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -4,43 +4,55 @@ import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * CritAssist — silent, packet-based critical hits.
+ * CritAssist — critical hits without jumping.
  *
- * <p>Instead of jumping to trigger crits (which looks obvious and can get
- * you banned), this module spoofs {@code onGround = false} in the
- * movement packets that the server uses to determine whether a hit is
- * critical. The server sees you as airborne, grants the 1.5× crit
- * damage, but your camera stays perfectly still — no jumping required.</p>
+ * <p>Two techniques are available:</p>
  *
- * <p>Checked by {@link com.qynl.client.mixin.CritAssistMixin} which
- * hooks {@code LocalPlayer.sendPosition()}.</p>
+ * <ul>
+ *   <li><b>MiniJump</b> (default) — right before each attack two tiny
+ *       position packets are sent: one that moves you slightly up
+ *       (Y + 0.06), then one that drops you slightly down (Y + 0.01), both
+ *       flagged airborne (onGround = false). The server sees a tiny fall and
+ *       grants the 1.5× critical, while your real position and camera never
+ *       move. Hooked by {@link com.qynl.client.mixin.CritAttackMixin} in
+ *       {@code MultiPlayerGameMode.attack()}.</li>
+ *   <li><b>Silent</b> — spoofs {@code onGround = false} in the normal
+ *       outgoing movement packets while attacking (no extra packets). Hooked
+ *       by {@link com.qynl.client.mixin.CritAssistMixin} in
+ *       {@code LocalPlayer.sendPosition()}.</li>
+ * </ul>
  */
 public class CritAssistModule extends Module {
 
-    /** A single-instance snapshot so the mixin can forward calls without reflection. */
+    /** A single-instance snapshot so the mixins can forward calls without reflection. */
     private static CritAssistModule instance;
 
-    /** Temporary storage so the HEAD/TAIL hooks in the mixin can save & restore. */
+    /** Temporary storage so the HEAD/TAIL hooks in the silent mixin can save & restore. */
     private static Boolean capturedGround = null;
 
     public CritAssistModule() {
         super("CritAssist",
-                "Silent crits — spoofs onGround in packets so every hit is a crit. No jumping needed.",
+                "Mini-jump packet crits (Y+0.06 up, Y+0.01 down) before each hit — no jumping needed.",
                 Category.ASSIST);
         instance = this;
         bindKey(GLFW.GLFW_KEY_F10);
+        addSetting(Setting.options("technique", "Technique", "MiniJump", "MiniJump", "Silent"));
+        addSetting(Setting.range("upOffset",   "Up offset",   0.06, 0.02, 0.20, 0.01, "b"));
+        addSetting(Setting.range("downOffset", "Down offset", 0.01, 0.00, 0.10, 0.01, "b"));
         addSetting(Setting.options("mode",      "Mode",       "Always", "Always", "Sprinting", "Moving"));
         addSetting(Setting.range("minHealth",   "Min HP",      0.0,    0, 40, 2, "hp"));
         addSetting(Setting.range("chance",      "Chance",     100.0,  50, 100, 5, "%"));
     }
 
-    // ── static API for the mixin ─────────────────────────────────
+    // ── static API for the mixins ─────────────────────────────────
 
     public static CritAssistModule getInstance() {
         return instance;
@@ -51,12 +63,38 @@ public class CritAssistModule extends Module {
     }
 
     /**
-     * Called by the mixin HEAD hook — decides whether this position
-     * update should be spoofed.
+     * Silent mode gating — the {@code sendPosition} mixin only spoofs when the
+     * Silent technique is selected.
      */
-    public static boolean shouldSpoof(net.minecraft.client.player.LocalPlayer player) {
+    public static boolean shouldSpoof(LocalPlayer player) {
         if (instance == null || !instance.isEnabled()) return false;
+        if (!"Silent".equals(instance.getStringSetting("technique"))) return false;
         return instance.checkShouldSpoof(player);
+    }
+
+    /**
+     * MiniJump mode — called right before the attack executes
+     * ({@code MultiPlayerGameMode.attack} HEAD). Sends the up/down position
+     * packets so the server sees a tiny fall and grants a critical hit.
+     */
+    public static void onPreAttack(Minecraft client) {
+        if (instance == null || !instance.isEnabled()) return;
+        if (!"MiniJump".equals(instance.getStringSetting("technique"))) return;
+        if (client.player == null || client.getConnection() == null) return;
+        if (!instance.checkShouldSpoof(client.player)) return;
+
+        double up = instance.getDoubleSetting("upOffset");
+        double down = instance.getDoubleSetting("downOffset");
+        LocalPlayer player = client.player;
+
+        double x = player.getX();
+        double y = player.getY();
+        double z = player.getZ();
+
+        // 1) Slightly up — becomes airborne.
+        client.getConnection().send(new ServerboundMovePlayerPacket.Pos(x, y + up, z, false));
+        // 2) Slightly down — lands near the ground, still flagged airborne.
+        client.getConnection().send(new ServerboundMovePlayerPacket.Pos(x, y + down, z, false));
     }
 
     public static void captureGround(boolean current) {
@@ -75,7 +113,7 @@ public class CritAssistModule extends Module {
 
     // ── instance logic ───────────────────────────────────────────
 
-    private boolean checkShouldSpoof(net.minecraft.client.player.LocalPlayer player) {
+    private boolean checkShouldSpoof(LocalPlayer player) {
         Minecraft client = Minecraft.getInstance();
         if (client == null || player == null) return false;
 
