@@ -60,6 +60,7 @@ public class NinjaBridgeModule extends Module {
 
         if (!isHoldingBlock(client)) {
             if (sneaking) releaseSneak(client);
+            releaseWalkKeys(client);
             return;
         }
 

@@ -24,6 +24,11 @@ public class VelocityAssistModule extends Module {
     private static VelocityAssistModule instance;
     private static final Random RANDOM = new Random();
 
+    /** Timestamp (millis) when VelocityMixin last dampened a hit. Lets the
+     *  per-tick fallback know the mixin already handled this knockback window,
+     *  so the configured reduction is never applied twice. */
+    private static long lastDampenedAtMs = -1;
+
     public VelocityAssistModule() {
         super("VelocityAssist", "Reduces knockback naturally — varies slightly each hit to feel legit.", Category.ASSIST);
         instance = this;
@@ -54,6 +59,17 @@ public class VelocityAssistModule extends Module {
         return Math.max(0.0, Math.min(0.95, 1.0 - factor));
     }
 
+    /** Called by VelocityMixin right after it dampens a knockback hit. */
+    public static void markMixinDampened() {
+        lastDampenedAtMs = System.currentTimeMillis();
+    }
+
+    /** True while the mixin's dampening of the current hit is still in effect
+     *  (the hurtTime knockback window is 10 ticks = 500 ms). */
+    private static boolean mixinDampenedRecently(MinecraftClient client) {
+        return lastDampenedAtMs >= 0 && System.currentTimeMillis() - lastDampenedAtMs <= 600;
+    }
+
     // ── per-tick fallback: catches knockback the mixin missed ────
 
     @Override
@@ -65,6 +81,10 @@ public class VelocityAssistModule extends Module {
         // gate the fallback would also slow normal walking and jumping,
         // because movement input produces velocity every tick.
         if (client.player.hurtTime <= 0) return;
+
+        // If VelocityMixin already dampened this hit, skip — otherwise the
+        // configured reduction would be applied a second time on top of it.
+        if (mixinDampenedRecently(client)) return;
 
         double hKeep = horizontalFactor(); // already 1.0 - reduction%
         double vKeep = verticalFactor();

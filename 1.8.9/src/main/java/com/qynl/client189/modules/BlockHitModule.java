@@ -30,6 +30,7 @@ public class BlockHitModule extends Module {
     private int rhythmPhase = 0; // 0=idle, 1=attacked, 2=blocking, 3=releasing
     private int rhythmTimer = 0;
     private int lastEnemyId = -1;
+    private int noThreatTicks = 0;
 
     public BlockHitModule() {
         super("BlockHit", "1.8.9 sword blocking — predicts swings, blocks on reaction, releases fast for counter-attacks.", Category.ASSIST);
@@ -90,6 +91,7 @@ public class BlockHitModule extends Module {
         LivingEntity threat = findBestThreat(client);
         if (threat != null) {
             lastEnemyId = threat.getEntityId();
+            noThreatTicks = 0;
 
             // Did this enemy just swing?
             Integer lastSwing = swingTicks.get(threat.getEntityId());
@@ -101,6 +103,10 @@ public class BlockHitModule extends Module {
                 triggerBlock(client);
                 return;
             }
+        } else if (++noThreatTicks > 10) {
+            // No enemy in range for a while — stop the rhythmic blockhitting
+            // so we don't keep blocking while swinging at nothing.
+            lastEnemyId = -1;
         }
 
         // Rhythmic blockhitting when in melee combat
@@ -253,6 +259,8 @@ public class BlockHitModule extends Module {
         attackGateTicks = 0;
         rhythmPhase = 0;
         rhythmTimer = 0;
+        lastEnemyId = -1;
+        noThreatTicks = 0;
     }
 
     @Override

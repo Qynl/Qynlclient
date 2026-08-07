@@ -45,5 +45,9 @@ public abstract class VelocityMixin {
         client.player.velocityX += hx;
         client.player.velocityY += hy;
         client.player.velocityZ += hz;
+
+        // Remember that the mixin handled this hit so the per-tick fallback in
+        // VelocityAssistModule doesn't reduce the same knockback a second time.
+        VelocityAssistModule.markMixinDampened();
     }
 }

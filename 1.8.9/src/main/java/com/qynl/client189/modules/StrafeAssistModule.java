@@ -31,8 +31,7 @@ import java.util.Random;
 public class StrafeAssistModule extends Module {
     private static final Random RANDOM = new Random();
 
-    private int strafeTimer = 0;
-    private int switchInterval = 20;
+    private int switchTicksRemaining = 0;
     private boolean strafingLeft = true;
     private boolean keysHeld = false;
 
@@ -77,13 +76,9 @@ public class StrafeAssistModule extends Module {
             return;
         }
 
-        // Direction switching with slight humanized randomness.
-        switchInterval = (int) getDoubleSetting("interval") + RANDOM.nextInt(4) - 1;
-        if (switchInterval < 4) switchInterval = 4;
-
-        strafeTimer++;
-        if (strafeTimer >= switchInterval) {
-            strafeTimer = 0;
+        // Direction switching on a stable interval with slight humanized randomness.
+        if (switchTicksRemaining <= 0) {
+            switchTicksRemaining = Math.max(4, (int) getDoubleSetting("interval") + RANDOM.nextInt(4) - 1);
             String dir = getStringSetting("direction");
             if ("Left".equals(dir)) {
                 strafingLeft = true;
@@ -92,6 +87,8 @@ public class StrafeAssistModule extends Module {
             } else {
                 strafingLeft = !strafingLeft; // Alternate
             }
+        } else {
+            switchTicksRemaining--;
         }
 
         // Hold the strafe key (+ sprint so 1.8.9 doesn't cancel it).
@@ -107,14 +104,12 @@ public class StrafeAssistModule extends Module {
     private LivingEntity findEnemy(MinecraftClient client) {
         double maxDist = getDoubleSetting("range");
         double maxDistSq = maxDist * maxDist;
-        boolean targetPlayers = true; // strafe around players too
 
         for (Entity entity : client.world.entities) {
             if (!(entity instanceof LivingEntity)) continue;
             LivingEntity living = (LivingEntity) entity;
             if (living == client.player || !living.isAlive()) continue;
             if (!(living instanceof MobEntity) && !(living instanceof PlayerEntity)) continue;
-            if (living instanceof PlayerEntity && !targetPlayers) continue;
 
             double dx = living.x - client.player.x;
             double dy = living.y - client.player.y;
@@ -134,7 +129,7 @@ public class StrafeAssistModule extends Module {
             ((KeyBindingAccessor) client.options.keySprint).setPressed(false);
         }
         keysHeld = false;
-        strafeTimer = 0;
+        switchTicksRemaining = 0;
         strafingLeft = true;
     }
 
