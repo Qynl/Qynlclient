@@ -8,6 +8,14 @@ import org.lwjgl.input.Keyboard;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * ClickGuiScreen for 1.8.9 — the in-game module manager.
+ *
+ * <p>Left-click a module to toggle it on/off.
+ * Right-click a module row to open its detail panel — the bigger view
+ * with the module's description, toggle, keybind editor and all settings.
+ * Right-click outside any row closes the GUI.</p>
+ */
 public class ClickGuiScreen extends Screen {
     private static final int ROW_HEIGHT = 22;
     private static final int COL_WIDTH = 220;
@@ -73,11 +81,34 @@ public class ClickGuiScreen extends Screen {
     }
 
     @Override
+    protected void mouseClicked(int mouseX, int mouseY, int button) {
+        int centerX = this.width / 2;
+        int halfW = COL_WIDTH / 2;
+
+        if (button == 1) {
+            // Right-click: open the detail panel for the module under the cursor.
+            for (int i = 0; i < rows.size(); i++) {
+                int ry = rowY.get(i);
+                if (mouseX >= centerX - halfW && mouseX <= centerX + halfW
+                        && mouseY >= ry && mouseY <= ry + ROW_HEIGHT - 2) {
+                    MinecraftClient.getInstance().openScreen(new ModuleDetailScreen189(rows.get(i)));
+                    return;
+                }
+            }
+            // Right-click outside any row → close the GUI.
+            MinecraftClient.getInstance().openScreen(null);
+            return;
+        }
+
+        super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public void render(int mouseX, int mouseY, float tickDelta) {
         renderBackground();
         int centerX = this.width / 2;
         this.drawCenteredString(this.textRenderer, "QynlClient 1.8.9 - Module Manager", centerX, 12, 0x55FF55);
-        this.drawCenteredString(this.textRenderer, "Left-click = toggle  |  RShift = close", centerX, 24, 0xAAAAAA);
+        this.drawCenteredString(this.textRenderer, "Left-click = toggle  |  Right-click = module settings  |  RShift = close", centerX, 24, 0xAAAAAA);
 
         int y = START_Y + 14;
         for (Category category : Category.values()) {
@@ -93,5 +124,10 @@ public class ClickGuiScreen extends Screen {
         }
 
         super.render(mouseX, mouseY, tickDelta);
+    }
+
+    @Override
+    public boolean shouldPauseGame() {
+        return false;
     }
 }

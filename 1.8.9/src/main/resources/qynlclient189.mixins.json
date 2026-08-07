@@ -10,7 +10,8 @@
         "LivingEntityAccessor",
         "MinecraftClientInvoker",
         "ClientPlayerSendMovementMixin",
-        "PlayerMoveC2SPacketAccessor"
+        "PlayerMoveC2SPacketAccessor",
+        "InGameHudMixin189"
     ],
     "injectors": {
         "defaultRequire": 1

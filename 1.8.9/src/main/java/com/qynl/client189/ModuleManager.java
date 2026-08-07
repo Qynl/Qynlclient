@@ -19,6 +19,7 @@ public class ModuleManager {
         register(new CritAssistModule());
         register(new NinjaBridgeModule());
         register(new FullbrightModule());
+        register(new StreamerModeModule());
     }
 
     private void register(Module module) { modules.add(module); }
