@@ -137,7 +137,7 @@ public class HudRenderer {
 
 		int maxWidth = 0;
 		for (Module module : enabled) {
-			String label = module.getName() + keySuffix(module);
+			String label = module.getName() + modeSuffix(module) + keySuffix(module);
 			maxWidth = Math.max(maxWidth, client.font.width(label) + 18);
 		}
 
@@ -148,26 +148,46 @@ public class HudRenderer {
 			g.fill(x, y, x + maxWidth + 4, y + rowHeight, MODULE_BG);
 			g.fill(x, y, x + 2, y + rowHeight, ACCENT);
 			g.fill(x + 8, y + rowHeight / 2 - 2, x + 12, y + rowHeight / 2 + 2, ACCENT);
-			g.drawString(client.font, Component.literal(module.getName()), x + 16, y + 3, WHITE, false);
+
+			// Name
+			int nameColor = WHITE;
+			int nameX = x + 16;
+			g.drawString(client.font, Component.literal(module.getName()), nameX, y + 3, nameColor, false);
+
+			// Mode suffix (e.g. "· Silent") — shows what the assist is doing
+			int cursorX = nameX + client.font.width(module.getName());
+			String modeText = modeSuffix(module);
+			if (!modeText.isEmpty()) {
+				g.drawString(client.font, Component.literal(modeText), cursorX, y + 3, ACCENT, false);
+				cursorX += client.font.width(modeText);
+			}
+
+			// Key suffix
 			String key = module.getKeyLabel();
-			boolean packetMode = false;
-			Setting<?> mode = module.getSetting("mode");
-			if (mode != null && "Packets".equals(String.valueOf(mode.getValue()))) {
-				packetMode = true;
-			}
 			String keyText = key.isEmpty() || "None".equals(key) ? "" : key;
-			int keyX = x + maxWidth - client.font.width(keyText) - 3;
-			if (packetMode) {
-				int pWidth = client.font.width("\u00b7P");
-				g.drawString(client.font, Component.literal("\u00b7P"), keyX - pWidth - 5, y + 3, ACCENT, false);
-			}
 			if (!keyText.isEmpty()) {
+				int keyX = x + maxWidth - client.font.width(keyText) - 3;
 				g.drawString(client.font, Component.literal(keyText), keyX, y + 3, GRAY, false);
 			}
+
 			moduleRects.add(new int[]{x, y, x + maxWidth + 4, y + rowHeight});
 			moduleRowModules.add(module);
 			y += rowHeight;
 		}
+	}
+
+	/** Shows the active mode of assist modules, e.g. "· Silent". */
+	private String modeSuffix(Module module) {
+		Setting<?> mode = module.getSetting("mode");
+		if (mode == null) {
+			return "";
+		}
+		String v = String.valueOf(mode.getValue());
+		// Only show when it's a meaningful non-default option
+		if (v.isEmpty() || "Default".equals(v)) {
+			return "";
+		}
+		return " \u00b7 " + v;
 	}
 
 	private String keySuffix(Module module) {

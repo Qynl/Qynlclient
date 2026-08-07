@@ -10,7 +10,6 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,9 +18,10 @@ import java.util.List;
  * ClickGuiScreen — the in-game module manager.
  *
  * <p>Left-click a module to toggle it on/off.
- * Right-click a module row to change its keybind: a "Press a key\u2026"
- * indicator appears, and the next valid key press becomes the new toggle key.
- * Press Esc / Backspace / Delete to remove the keybind.</p>
+ * Right-click a module row to open its detail panel — the bigger view
+ * with the module's description, on/off toggle, keybind editor and all
+ * of its settings in one place.
+ * Right-click outside any row closes the GUI.</p>
  */
 public class ClickGuiScreen extends Screen {
 	private static final int ROW_HEIGHT = 22;
@@ -30,7 +30,6 @@ public class ClickGuiScreen extends Screen {
 
 	private final List<Module> rows = new ArrayList<>();
 	private final List<Integer> rowY = new ArrayList<>();
-	private Module waitingForBind = null;
 
 	public ClickGuiScreen() {
 		super(Component.literal("QynlClient \u2014 Module Manager"));
@@ -40,7 +39,6 @@ public class ClickGuiScreen extends Screen {
 	protected void init() {
 		rows.clear();
 		rowY.clear();
-		waitingForBind = null;
 
 		int centerX = this.width / 2;
 		int y = START_Y;
@@ -63,10 +61,9 @@ public class ClickGuiScreen extends Screen {
 			for (Module module : categoryModules) {
 				rows.add(module);
 				rowY.add(y);
-				final Module m = module;
 				this.addRenderableWidget(Button.builder(
-						rowLabel(m),
-						b -> { /* left-click = toggle — handled in mouseClicked below */ })
+						rowLabel(module),
+						b -> { /* handled in mouseClicked below */ })
 						.bounds(centerX - COL_WIDTH / 2, y, COL_WIDTH, ROW_HEIGHT - 2).build());
 				y += ROW_HEIGHT;
 			}
@@ -92,9 +89,6 @@ public class ClickGuiScreen extends Screen {
 		} else {
 			key = "[" + key + "]";
 		}
-		if (waitingForBind == m) {
-			key = "\u00ab Press a key\u2026 \u00bb";
-		}
 		int pad = Math.max(0, 28 - name.length());
 		return Component.literal(name + "  " + state + spaces(pad) + key);
 	}
@@ -113,7 +107,7 @@ public class ClickGuiScreen extends Screen {
 		this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
 		guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFFFF);
 		guiGraphics.drawCenteredString(this.font,
-				Component.literal("Left-click = toggle  \u00b7  Right-click = rebind key  \u00b7  right-click outside = close"),
+				Component.literal("Left-click = toggle  \u00b7  Right-click = module settings & keybind  \u00b7  right-click outside = close"),
 				this.width / 2, 28, 0xFF9CA3AF);
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 	}
@@ -124,13 +118,12 @@ public class ClickGuiScreen extends Screen {
 		int halfW = COL_WIDTH / 2;
 
 		if (button == 1) {
-			// Right-click: find the module row under the cursor → start rebind.
+			// Right-click: find the module row under the cursor → open detail panel.
 			for (int i = 0; i < rows.size(); i++) {
 				int ry = rowY.get(i);
 				if (mouseX >= centerX - halfW && mouseX <= centerX + halfW
 						&& mouseY >= ry && mouseY <= ry + ROW_HEIGHT - 2) {
-					waitingForBind = rows.get(i);
-					refreshButtons();
+					this.minecraft.setScreen(new ModuleDetailScreen(rows.get(i)));
 					return true;
 				}
 			}
@@ -158,39 +151,7 @@ public class ClickGuiScreen extends Screen {
 	}
 
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (waitingForBind != null) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE
-					|| keyCode == GLFW.GLFW_KEY_BACKSPACE
-					|| keyCode == GLFW.GLFW_KEY_DELETE) {
-				// Clear the keybind.
-				waitingForBind.setKeyCode(-1);
-			} else if (keyCode > 0 && !isGameCriticalKey(keyCode)) {
-				waitingForBind.setKeyCode(keyCode);
-			}
-			QynlClient.getInstance().getModuleManager().saveToConfig();
-			waitingForBind = null;
-			refreshButtons();
-			return true;
-		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
-	}
-
-	/** Only a handful of keys the game absolutely needs stay reserved.
-	 *  Everything else (including F-keys and numbers) is available so
-	 *  every player can find a key that works for them. */
-	private boolean isGameCriticalKey(int keyCode) {
-		return keyCode == GLFW.GLFW_KEY_ENTER
-				|| keyCode == GLFW.GLFW_KEY_KP_ENTER
-				|| keyCode == GLFW.GLFW_KEY_SLASH
-				|| keyCode == GLFW.GLFW_KEY_TAB
-				|| keyCode == GLFW.GLFW_KEY_F1   // debug / shift-F1 pie chart
-				|| keyCode == GLFW.GLFW_KEY_F2;  // always reserved for the game
-	}
-
-	@Override
 	public void onClose() {
-		waitingForBind = null;
 		super.onClose();
 		Module clickGui = QynlClient.getInstance().getModuleManager().find("ClickGUI");
 		if (clickGui != null && clickGui.isEnabled()) {
