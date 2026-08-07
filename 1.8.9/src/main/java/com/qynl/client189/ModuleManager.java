@@ -22,6 +22,14 @@ public class ModuleManager {
         register(new NinjaBridgeModule());
         register(new FullbrightModule());
         register(new StreamerModeModule());
+        // Info HUD modules (mirror of the 1.21.1 client)
+        register(new InfoHudModule());
+        register(new TargetInfoModule());
+        register(new EffectTimersModule());
+        register(new DeathCoordsModule());
+        register(new CoordConvertModule());
+        register(new DurabilityWarnModule());
+        register(new KeystrokesModule());
     }
 
     private void register(Module module) { modules.add(module); }

@@ -3,6 +3,7 @@ package com.qynl.client189;
 public enum Category {
     ASSIST("Assist"),
     RENDER("Render"),
+    INFO("Info"),
     GUI("GUI");
 
     private final String label;
