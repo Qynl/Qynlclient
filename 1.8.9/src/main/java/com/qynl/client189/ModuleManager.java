@@ -16,6 +16,7 @@ public class ModuleManager {
         register(new ReachAssistModule());
         register(new AutoClickerModule());
         register(new VelocityAssistModule());
+        register(new NinjaBridgeModule());
         register(new FullbrightModule());
     }
 

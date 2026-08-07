@@ -44,6 +44,7 @@ import com.qynl.client.module.modules.TargetInfoModule;
 import com.qynl.client.module.modules.ToggleSneakModule;
 import com.qynl.client.module.modules.VelocityAssistModule;
 import com.qynl.client.module.modules.ZoomModule;
+import com.qynl.client.module.modules.NinjaBridgeModule;
 import net.minecraft.client.Minecraft;
 
 import java.util.Map;
@@ -96,7 +97,8 @@ public class ModuleManager {
 		register(new CritAssistModule());
 		register(new BowAssistModule());
 		register(new FastPlaceAssistModule());
-		register(new ClickGuiModule());
+		        register(new NinjaBridgeModule());
+        register(new ClickGuiModule());
 	}
 
 	private void register(Module module) {
