@@ -8,6 +8,8 @@
 		"LocalPlayerSendPositionMixin",
 		"VelocityMixin",
 		"FastPlaceMixin",
+		"InputMixin",
+		"KeyMappingAccessor",
 		"CritAssistMixin"
 	],
 	"injectors": {

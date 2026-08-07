@@ -15,31 +15,40 @@ import org.lwjgl.glfw.GLFW;
  * so one missed jump never stops you from getting somewhere.
  */
 public class AutoStepModule extends Module {
+	private static AutoStepModule instance;
+
 	public AutoStepModule() {
 		super("AutoStep", "Automatically climbs ledges while you walk.",
 				Category.ASSIST);
+		instance = this;
 		bindKey(GLFW.GLFW_KEY_F6);
 		addSetting(Setting.options("height", "Height", "1.0", "1.0", "1.25"));
 	}
 
-	@Override
-	public void onTick(Minecraft client) {
+	/**
+	 * True when the player is walking into a low ledge and should jump.
+	 * Checked by InputMixin at the correct moment in the tick.
+	 */
+	public static boolean shouldJump(Minecraft client) {
+		if (instance == null || !instance.isEnabled()) {
+			return false;
+		}
 		if (client.player == null || client.level == null) {
-			return;
+			return false;
 		}
 		var player = client.player;
 		if (!player.onGround() || player.isCrouching() || player.isPassenger()
 				|| player.isInWater() || player.isSpectator() || player.isUsingItem()) {
-			return;
+			return false;
 		}
 		if (player.input.forwardImpulse <= 0.0F) {
-			return;
+			return false;
 		}
 
 		Vec3 look = player.getLookAngle();
 		double len = Math.sqrt(look.x * look.x + look.z * look.z);
 		if (len < 0.01) {
-			return;
+			return false;
 		}
 		double dx = look.x / len;
 		double dz = look.z / len;
@@ -48,20 +57,20 @@ public class AutoStepModule extends Module {
 		BlockState state = client.level.getBlockState(ahead);
 		// Check the step height: solid at foot level, open air above.
 		if (state.getCollisionShape(client.level, ahead).isEmpty()) {
-			return;
+			return false;
 		}
 		if (!client.level.getBlockState(ahead.above()).isAir()) {
-			return;
+			return false;
 		}
 		// 1.25 mode: also check one block higher.
-		if ("1.25".equals(getStringSetting("height"))) {
+		if ("1.25".equals(instance.getStringSetting("height"))) {
 			BlockPos higher = ahead.above();
 			BlockState higherState = client.level.getBlockState(higher);
 			if (!higherState.getCollisionShape(client.level, higher).isEmpty()
 					|| !client.level.getBlockState(higher.above()).isAir()) {
-				return;
+				return false;
 			}
 		}
-		player.input.jumping = true;
+		return true;
 	}
 }

@@ -10,6 +10,7 @@ import com.qynl.client.module.modules.DurabilityWarnModule;
 import com.qynl.client.module.modules.EffectTimersModule;
 import com.qynl.client.module.modules.InfoHudModule;
 import com.qynl.client.module.modules.KeystrokesModule;
+import com.qynl.client.module.modules.StreamerModeModule;
 import com.qynl.client.module.modules.TargetInfoModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -37,12 +38,18 @@ public class HudRenderer {
 
 		ModuleManager modules = QynlClient.getInstance().getModuleManager();
 
-		renderTitle(guiGraphics, client);
-		int rightY = renderRightColumn(guiGraphics, client, modules);
-		renderModuleList(guiGraphics, client, modules);
-		renderKeystrokes(guiGraphics, client, modules);
-		renderDurabilityWarn(guiGraphics, client, modules);
-		// rightY unused placeholder kept simple: effects drawn inside right column
+		boolean hideList = StreamerModeModule.shouldHide("all");
+		boolean hideHud = StreamerModeModule.shouldHide("hud");
+
+		if (!hideList) {
+			renderTitle(guiGraphics, client);
+			renderModuleList(guiGraphics, client, modules);
+		}
+		if (!hideHud) {
+			renderRightColumn(guiGraphics, client, modules);
+			renderKeystrokes(guiGraphics, client, modules);
+			renderDurabilityWarn(guiGraphics, client, modules);
+		}
 	}
 
 	private void renderTitle(GuiGraphics g, Minecraft client) {

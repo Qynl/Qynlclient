@@ -71,7 +71,9 @@ public class AutoArmorModule extends Module {
 			if (bestIndex[idx] < 0) {
 				continue;
 			}
-			ItemStack equipped = inventory.getArmor(idx);
+			// Vanilla's armor list is ordered [FEET, LEGS, CHEST, HEAD], so the
+			// equipped piece for our HEAD..FEET index (0..3) lives at 3 - idx.
+			ItemStack equipped = inventory.getArmor(3 - idx);
 			float currentScore = 0.0F;
 			if (equipped.getItem() instanceof ArmorItem armor) {
 				currentScore = armor.getDefense() + armor.getToughness() * 0.5F;

@@ -4,6 +4,7 @@ import com.qynl.client189.Category;
 import com.qynl.client189.Module;
 import com.qynl.client189.Setting;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.LivingEntity;
 import org.lwjgl.input.Keyboard;
 
 import java.util.Random;
@@ -59,15 +60,13 @@ public class CritAssistModule extends Module {
         if (!client.options.keyAttack.isPressed()) return false;
 
         // Must be on ground (spoofing is pointless if already airborne)
-        if (!client.player.onGround) return false;
-
-        // Min HP check — don't waste on low-HP enemies
-        // We can't check crosshair entity in this mapping,
-        // so we use a cooldown-based approach instead
+        if (!client.player.onGround) return false;		// Min HP check — don't waste crits on nearly-dead enemies.
+        // 1.8.9 MinecraftClient has a public targetedEntity field holding
+        // the entity under the crosshair while attacking.
         double minHp = getDoubleSetting("minHp");
-        if (minHp > 0) {
-            // We still spoof — the HP check is optional in this version
-            // since we can't access the targeted entity from movement packets
+        if (minHp > 0 && client.targetedEntity instanceof LivingEntity) {
+            LivingEntity targeted = (LivingEntity) client.targetedEntity;
+            if (targeted.getHealth() < minHp) return false;
         }
 
         // Mode filters

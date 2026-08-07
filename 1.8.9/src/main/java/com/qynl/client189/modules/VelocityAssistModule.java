@@ -54,31 +54,26 @@ public class VelocityAssistModule extends Module {
         return Math.max(0.0, Math.min(0.95, 1.0 - factor));
     }
 
-    // ── per-tick fallback: reduces any existing velocity ─────────
+    // ── per-tick fallback: catches knockback the mixin missed ────
 
     @Override
     public void onTick(MinecraftClient client) {
         if (client.player == null) return;
 
-        // Every tick, apply a gentle ongoing reduction to the player's velocity.
-        // This catches knockback that the mixin missed (different Yarn builds, etc.)
-        // The per-tick multiplier is small since velocity decays naturally anyway;
-        // we add an extra ~10-40% reduction per tick on top of natural decay.
+        // Only dampen while the player is in the post-hit knockback window
+        // (hurtTime counts down from 10 right after being hit). Without this
+        // gate the fallback would also slow normal walking and jumping,
+        // because movement input produces velocity every tick.
+        if (client.player.hurtTime <= 0) return;
+
         double hKeep = horizontalFactor(); // already 1.0 - reduction%
         double vKeep = verticalFactor();
 
-        // Only apply if there's actually velocity to reduce
-        boolean hasMotion = Math.abs(client.player.velocityX) > 0.001
-                || Math.abs(client.player.velocityY) > 0.001
-                || Math.abs(client.player.velocityZ) > 0.001;
-
-        if (hasMotion) {
-            // Per-tick multiplier: nth-root so over ~5 ticks it reaches the target
-            double hPerTick = Math.pow(hKeep, 1.0 / 5.0);
-            double vPerTick = Math.pow(vKeep, 1.0 / 5.0);
-            client.player.velocityX *= hPerTick;
-            client.player.velocityZ *= hPerTick;
-            client.player.velocityY *= vPerTick;
-        }
+        // Per-tick multiplier: nth-root so over ~5 ticks it reaches the target
+        double hPerTick = Math.pow(hKeep, 1.0 / 5.0);
+        double vPerTick = Math.pow(vKeep, 1.0 / 5.0);
+        client.player.velocityX *= hPerTick;
+        client.player.velocityZ *= hPerTick;
+        client.player.velocityY *= vPerTick;
     }
 }

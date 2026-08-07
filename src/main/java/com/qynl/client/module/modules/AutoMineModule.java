@@ -26,15 +26,16 @@ public class AutoMineModule extends Module {
 		if (!client.options.keyAttack.isDown()) {
 			return;
 		}
-		if (client.gameMode.isDestroying()) {
-			return;
-		}
-
 		BlockHitResult hit = (BlockHitResult) client.hitResult;
 		BlockPos pos = hit.getBlockPos();
 		Direction side = hit.getDirection();
-		if (!client.level.isEmptyBlock(pos)) {
+		if (client.level.isEmptyBlock(pos)) {
+			return;
+		}
+		if (client.gameMode.isDestroying()) {
 			client.gameMode.continueDestroyBlock(pos, side);
+		} else {
+			client.gameMode.startDestroyBlock(pos, side);
 		}
 	}
 }
