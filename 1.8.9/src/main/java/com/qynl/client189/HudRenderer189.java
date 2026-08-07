@@ -232,9 +232,12 @@ public final class HudRenderer189 {
         }
     }
 
-    /** Shows the active mode of assist modules, e.g. " · Silent". */
+    /** Shows the active mode of assist modules, e.g. " · Silent" or " · Auto". */
     private static String modeSuffix(Module m) {
         Setting<?> mode = m.getSetting("mode");
+        if (mode == null) {
+            mode = m.getSetting("version"); // e.g. VersionAssist's target version
+        }
         if (mode == null) {
             return "";
         }

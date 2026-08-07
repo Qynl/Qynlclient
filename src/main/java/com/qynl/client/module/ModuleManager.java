@@ -45,6 +45,7 @@ import com.qynl.client.module.modules.TargetInfoModule;
 import com.qynl.client.module.modules.ToggleSneakModule;
 import com.qynl.client.module.modules.VelocityAssistModule;
 import com.qynl.client.module.modules.ZoomModule;
+import com.qynl.client.module.modules.FlyAssistModule;
 import com.qynl.client.module.modules.NinjaBridgeModule;
 import net.minecraft.client.Minecraft;
 
@@ -99,6 +100,7 @@ public class ModuleManager {
 		register(new BowAssistModule());
 		register(new FastPlaceAssistModule());
 		        register(new NinjaBridgeModule());
+        register(new FlyAssistModule());
                 register(new StreamerModeModule());
         register(new ClickGuiModule());
 	}

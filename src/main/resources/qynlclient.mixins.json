@@ -11,7 +11,8 @@
 		"InputMixin",
 		"KeyMappingAccessor",
 		"CritAssistMixin",
-		"CritAttackMixin"
+		"CritAttackMixin",
+		"FlyGroundSpoofMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

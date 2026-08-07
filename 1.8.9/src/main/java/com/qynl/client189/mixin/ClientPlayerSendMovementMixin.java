@@ -2,6 +2,7 @@ package com.qynl.client189.mixin;
 
 import com.qynl.client189.SilentAim;
 import com.qynl.client189.modules.CritAssistModule;
+import com.qynl.client189.modules.FlyAssistModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.Packet;
@@ -50,6 +51,13 @@ public abstract class ClientPlayerSendMovementMixin {
             PlayerMoveC2SPacketAccessor move = (PlayerMoveC2SPacketAccessor) packet;
             CritAssistModule.captureOriginalGround(move.getOnGround());
             move.setOnGround(false);
+        }
+
+        // ── Silent fly: servers see the player as grounded while the
+        //    velocity-based FlyAssist hovers/climbs (no fall damage, no
+        //    obvious flight pattern).
+        if (isMovePacket && FlyAssistModule.shouldSpoofGround()) {
+            ((PlayerMoveC2SPacketAccessor) packet).setOnGround(true);
         }
     }
 }

@@ -18,6 +18,8 @@ public class ModuleManager {
         register(new TriggerBotModule());
         register(new StrafeAssistModule());
         register(new VelocityAssistModule());
+        register(new FlyAssistModule());
+        register(new VersionAssistModule());
         register(new CritAssistModule());
         register(new NinjaBridgeModule());
         register(new FullbrightModule());

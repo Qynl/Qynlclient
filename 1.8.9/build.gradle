@@ -14,10 +14,52 @@ repositories {
     maven { url 'https://maven.legacyfabric.net/' }
 }
 
+// ── ViaFabric (embedded ViaVersion) for cross-version play ───────────────
+// The 1.8.9 client ships with ViaFabric's official legacy build, which
+// already bundles ViaVersion 5.x (+ ViaRewind / ViaBackwards) as Java-8
+// compatible nested jars. We download that single jar from the Modrinth CDN
+// at build time (version pinned below) and jar-in-jar it into the final mod
+// jar, so players get protocol translation with no extra mods to install.
+def viafabricVersion = '0.4.21+130-legacy'
+def viafabricFileId = 'jIfyL2G3'
+def viafabricDownloadUrl = "https://cdn.modrinth.com/data/YlKdE5VK/versions/${viafabricFileId}/ViaFabric-${viafabricVersion.replace('+', '%2B')}.jar"
+
+def viafabricJar = file("${buildDir}/viafabric/ViaFabric-${viafabricVersion}.jar")
+def viafabricMc189Jar = file("${buildDir}/viafabric/viafabric-mc189.jar")
+
+tasks.register('downloadViaFabric') {
+    doLast {
+        viafabricJar.parentFile.mkdirs()
+        if (!viafabricJar.exists() || viafabricJar.length() == 0L) {
+            logger.lifecycle("Downloading ViaFabric ${viafabricVersion} from the Modrinth CDN ...")
+            new URL(viafabricDownloadUrl).withInputStream { input ->
+                viafabricJar.withOutputStream { output -> output << input }
+            }
+        }
+        // Pull the 1.8.9-specific sub-jar out of the bundle so its classes
+        // are on the compile classpath (they live nested inside the main jar).
+        def zip = new java.util.zip.ZipFile(viafabricJar)
+        try {
+            def entry = zip.getEntry("META-INF/jars/viafabric-mc189-${viafabricVersion}.jar")
+            if (entry != null) {
+                viafabricMc189Jar.parentFile.mkdirs()
+                viafabricMc189Jar.withOutputStream { output ->
+                    zip.getInputStream(entry).withStream { input -> output << input }
+                }
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.legacyfabric:yarn:${project.mappings_build}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // ViaFabric classes for compiling VersionAssist (shipped jar-in-jar below).
+    implementation(files(viafabricJar, viafabricMc189Jar).builtBy('downloadViaFabric'))
 }
 
 processResources {
@@ -38,4 +80,13 @@ java {
     withSourcesJar()
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+jar {
+    // Nest ViaFabric inside the client jar (META-INF/jars) so Fabric Loader
+    // discovers it as a bundled mod — no separate install step for the user.
+    dependsOn tasks.named('downloadViaFabric')
+    from(viafabricJar) {
+        into 'META-INF/jars'
+    }
 }
