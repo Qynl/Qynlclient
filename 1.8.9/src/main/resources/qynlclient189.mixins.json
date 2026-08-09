@@ -11,7 +11,9 @@
         "MinecraftClientInvoker",		"ClientPlayerSendMovementMixin",
 		"PlayerMoveC2SPacketAccessor",
 		"InGameHudMixin189",
-		"CritAttackMixin"
+		"CritAttackMixin",
+		"ChronoTimerMixin",
+		"ChronoCameraMixin"
     ],
     "injectors": {
         "defaultRequire": 1

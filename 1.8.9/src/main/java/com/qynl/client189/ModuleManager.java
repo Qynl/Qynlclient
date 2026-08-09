@@ -20,6 +20,7 @@ public class ModuleManager {
         register(new VelocityAssistModule());
         register(new FlyAssistModule());
         register(new VersionAssistModule());
+        register(new ChronostasisModule());
         register(new CritAssistModule());
         register(new NinjaBridgeModule());
         register(new FullbrightModule());
