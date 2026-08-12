@@ -1,5 +1,6 @@
 package com.qynl.client;
 
+import com.qynl.client.agent.AgentRuntime;
 import com.qynl.client.hud.HudRenderer;
 import com.qynl.client.module.ModuleManager;
 import net.fabricmc.api.ClientModInitializer;
@@ -8,45 +9,51 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class QynlClient implements ClientModInitializer {
-	public static final String MOD_ID = "qynlclient";
-	public static final String VERSION = "1.11.0";
+    public static final String MOD_ID = "qynlclient";
+    public static final String VERSION = "1.12.0";
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-	private static QynlClient instance;
+    private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    private static QynlClient instance;
 
-	private final ModuleManager moduleManager = new ModuleManager();
-	private final HudRenderer hudRenderer = new HudRenderer();
-	private QynlClientConfig config;
+    private final ModuleManager moduleManager = new ModuleManager();
+    private final HudRenderer hudRenderer = new HudRenderer();
+    private final AgentRuntime agentRuntime = new AgentRuntime();
+    private QynlClientConfig config;
 
-	@Override
-	public void onInitializeClient() {
-		instance = this;
+    @Override
+    public void onInitializeClient() {
+        instance = this;
 
-		config = QynlClientConfig.load();
-		moduleManager.registerDefaults();
-		moduleManager.loadFromConfig(config);
+        config = QynlClientConfig.load();
+        moduleManager.registerDefaults();
+        moduleManager.loadFromConfig(config);
 
-		ClientTickEvents.END_CLIENT_TICK.register(client -> {
-			moduleManager.tick(client);
-			hudRenderer.handleClick(client);
-		});
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            moduleManager.tick(client);
+            hudRenderer.handleClick(client);
+            agentRuntime.tick(client);
+        });
 
-		LOGGER.info("QynlClient v{} initialized", VERSION);
-	}
+        LOGGER.info("QynlClient v{} initialized with local agent adapter", VERSION);
+    }
 
-	public static QynlClient getInstance() {
-		return instance;
-	}
+    public static QynlClient getInstance() {
+        return instance;
+    }
 
-	public ModuleManager getModuleManager() {
-		return moduleManager;
-	}
+    public ModuleManager getModuleManager() {
+        return moduleManager;
+    }
 
-	public HudRenderer getHudRenderer() {
-		return hudRenderer;
-	}
+    public HudRenderer getHudRenderer() {
+        return hudRenderer;
+    }
 
-	public QynlClientConfig getConfig() {
-		return config;
-	}
+    public QynlClientConfig getConfig() {
+        return config;
+    }
+
+    public AgentRuntime getAgentRuntime() {
+        return agentRuntime;
+    }
 }
