@@ -4,11 +4,32 @@
 
 It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off, an in-game settings screen to fine-tune each assist, and keybinds you can set — or remove — yourself.
 
-The assist modules are deliberately tuned to look like the hand of a normal player: aim corrections snap to the mouse's own pixel grid, react with a human delay, wander slightly instead of locking perfectly, clicks come at irregular intervals, reach fluctuates a little, and knockback is softened by a percentage rather than removed. The goal is that server anti-cheat systems never mistake accessibility help for cheating.
+## Agent / Vision Adapter (1.12.0)
 
-It is **not** a cheat client: no combat hacks, no unfair advantages — just assistance that keeps the game honest while making it playable for everyone.
+QynlClient now includes a production-oriented local adapter for building a Minecraft agent around the client without coupling the mod to a specific AI provider.
 
----
+### Adapter layers
+
+- **Screen / Vision** — `ScreenVisionAdapter` captures the desktop as PNG frames for a vision pipeline. Capture is lazy so headless initialization does not immediately create a desktop capture device.
+- **Minecraft Input** — `AgentInput` exposes explicit movement key actions and a release-all operation. Input is **gated to single-player worlds** by design.
+- **World-State Extraction** — `MinecraftAgentAdapter` produces a compact `AgentState` containing player pose/health/hunger, dimension, nearby entities, targeted entity, inventory totals, and basic environment information.
+- **Runtime facade** — `AgentRuntime` is the single entry point for integrating an external local agent. It keeps the latest world snapshot and exposes screen capture and input permission checks.
+
+The adapter contains no model, network server, or API-key logic. An external agent can therefore choose its own transport and vision/model stack. The single-player input gate is intentional: the adapter should remain useful for local AI experiments without becoming a multiplayer automation layer.
+
+### Example integration shape
+
+```text
+MinecraftClient
+      │
+      ├── ScreenVisionAdapter ──► PNG frame ──► vision model
+      │
+      ├── MinecraftAgentAdapter ──► AgentState ──► planner/model
+      │
+      └── AgentInput ◄── action commands ◄── planner/model
+                    │
+                    └── single-player safety gate
+```
 
 ## Versions
 
@@ -195,17 +216,21 @@ chmod +x gradlew
 
 All keybinds are saved to your config and can be changed from the **Keybinds…** screen in the QynlClient menu. Press **Esc** or **right-click** to clear a keybind.
 
----
-
 ## Project Structure
 
 ```
 ├── src/                  # 1.21.1 Fabric mod source
+│   └── main/java/com/qynl/client/agent/
+│       ├── AgentInput.java
+│       ├── AgentRuntime.java
+│       ├── AgentState.java
+│       ├── MinecraftAgentAdapter.java
+│       └── ScreenVisionAdapter.java
 ├── 1.8.9/src/            # 1.8.9 Legacy Fabric mod source
 ├── build.gradle          # 1.21.1 build script
 ├── 1.8.9/build.gradle    # 1.8.9 build script (embeds ViaFabric)
-├── build/libs/           # 1.21.1 jar output
-└── 1.8.9/build/libs/     # 1.8.9 jar output
+├── build/libs/            # 1.21.1 jar output
+└── 1.8.9/build/libs/      # 1.8.9 jar output
 ```
 
 ---
