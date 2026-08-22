@@ -3,6 +3,7 @@ package com.qynl.client189.mixin;
 import com.qynl.client189.SilentAim;
 import com.qynl.client189.modules.CritAssistModule;
 import com.qynl.client189.modules.FlyAssistModule;
+import com.qynl.client189.modules.NoFallModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.Packet;
@@ -57,6 +58,13 @@ public abstract class ClientPlayerSendMovementMixin {
         //    velocity-based FlyAssist hovers/climbs (no fall damage, no
         //    obvious flight pattern).
         if (isMovePacket && FlyAssistModule.shouldSpoofGround()) {
+            ((PlayerMoveC2SPacketAccessor) packet).setOnGround(true);
+        }
+
+        // ── NoFall: while genuinely falling past the safe distance, the
+        //    server is told the player is grounded so no landing is ever
+        //    recorded and no fall damage is taken.
+        if (isMovePacket && NoFallModule.shouldSpoof(client)) {
             ((PlayerMoveC2SPacketAccessor) packet).setOnGround(true);
         }
     }

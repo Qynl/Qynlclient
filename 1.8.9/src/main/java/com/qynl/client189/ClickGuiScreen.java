@@ -24,6 +24,11 @@ public class ClickGuiScreen extends Screen {
     private final List<Module> rows = new ArrayList<>();
     private final List<Integer> rowY = new ArrayList<>();
 
+    /** How many pixels the module list is scrolled up by (keyboard scroll). */
+    private int scrollOffset = 0;
+    /** Maximum scroll offset (0 = list fits / at the top). */
+    private int maxScroll = 0;
+
     public ClickGuiScreen() { super(); }
 
     @Override
@@ -45,16 +50,23 @@ public class ClickGuiScreen extends Screen {
             y += 2;
 
             for (Module module : catModules) {
+                int drawY = y - scrollOffset;
                 rows.add(module);
-                rowY.add(y);
+                rowY.add(drawY);
                 String label = module.getName() + "  " + (module.isEnabled() ? "ON" : "OFF");
-                this.buttons.add(new ButtonWidget(rows.size() - 1, centerX - COL_WIDTH / 2, y, COL_WIDTH, ROW_HEIGHT - 2, label));
+                this.buttons.add(new ButtonWidget(rows.size() - 1, centerX - COL_WIDTH / 2, drawY, COL_WIDTH, ROW_HEIGHT - 2, label));
                 y += ROW_HEIGHT;
             }
             y += 4;
         }
 
-        this.buttons.add(new ButtonWidget(999, centerX - 40, y + 8, 80, 20, "Close (RShift)"));
+        // Bottom of the list (categories + close button) must stay reachable.
+        maxScroll = Math.max(0, y - (this.height - 40));
+        if (scrollOffset > maxScroll) {
+            scrollOffset = maxScroll;
+        }
+
+        this.buttons.add(new ButtonWidget(999, centerX - 40, y + 8 - scrollOffset, 80, 20, "Close (RShift)"));
     }
 
     @Override
@@ -75,6 +87,30 @@ public class ClickGuiScreen extends Screen {
     protected void keyPressed(char character, int keyCode) {
         if (keyCode == Keyboard.KEY_RSHIFT || keyCode == Keyboard.KEY_ESCAPE) {
             MinecraftClient.getInstance().openScreen(null);
+            return;
+        }
+        // Keyboard scrolling — the module list is long and 1.8.9 consumes
+        // the mouse wheel for the hotbar.
+        if (keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_DOWN
+                || keyCode == Keyboard.KEY_PRIOR || keyCode == Keyboard.KEY_NEXT
+                || keyCode == Keyboard.KEY_HOME || keyCode == Keyboard.KEY_END) {
+            int before = scrollOffset;
+            if (keyCode == Keyboard.KEY_UP) {
+                scrollOffset = Math.max(0, scrollOffset - ROW_HEIGHT);
+            } else if (keyCode == Keyboard.KEY_DOWN) {
+                scrollOffset = Math.min(maxScroll, scrollOffset + ROW_HEIGHT);
+            } else if (keyCode == Keyboard.KEY_PRIOR) {
+                scrollOffset = Math.max(0, scrollOffset - ROW_HEIGHT * 8);
+            } else if (keyCode == Keyboard.KEY_NEXT) {
+                scrollOffset = Math.min(maxScroll, scrollOffset + ROW_HEIGHT * 8);
+            } else if (keyCode == Keyboard.KEY_HOME) {
+                scrollOffset = 0;
+            } else {
+                scrollOffset = maxScroll;
+            }
+            if (scrollOffset != before) {
+                init();
+            }
             return;
         }
         super.keyPressed(character, keyCode);

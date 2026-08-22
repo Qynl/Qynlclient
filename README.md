@@ -153,17 +153,32 @@ chmod +x gradlew
 | Module | Description | Key |
 |--------|-------------|-----|
 | **AimAssist** | Gently guides aim toward nearest hostile while attacking | None |
+| **AntiAFK** | Gently turns your view now and then so servers do not kick you for being idle | None |
+| **AutoArmor** | Automatically equips the best armor you have — no fiddly inventory dragging | J |
 | **AutoClicker** | Holds attack with humanly irregular timing (Rotations / Packets mode) | None |
+| **AutoEat** | Eats the best food in your hotbar automatically when you are hungry | U |
+| **AutoRespawn** | Respawns instantly when you die | None |
+| **AutoSprint** | Sprints automatically while you move forward — no need to hold the sprint key | R |
+| **AutoStep** | Automatically climbs ledges while you walk (1.0 / 1.25 modes) | F6 |
+| **AutoSword** | Automatically switches to your strongest sword when you attack | M |
+| **AutoTool** | Automatically picks the fastest tool for the block you are mining | None |
+| **AutoWalk** | Walks forward automatically — free your hands while travelling | F5 |
 | **Backtrack** | Delays opponents' movement packets so their hitboxes lag a few ms behind — hit them where they just were (client-side; the server's own reach validation still applies) | B |
 | **Blink** | Holds your movement packets for 1–2 ticks (Auto) or while enabled (Hold) so you briefly freeze on the server and break the opponent's combo (fake lag); attacks, block placement and keep-alives still go through | N |
 | **BlockHit** | Rhythmically blocks between sword swings for damage reduction | None |
+| **ChestStealer** | Open a chest and it automatically takes everything for you | None |
 | **CritAssist** | Time your jumps so hits land as critical strikes (MiniJump / OnGround modes) | None |
 | **FastPlace** | Shortens the local block-placement delay for held blocks (Legit / Fast / Instant modes); no camera, click automation, or packet spoofing | None |
 | **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla modes) | K |
+| **InvWalk** | Keep walking while your inventory or any menu is open | P |
 | **NinjaBridge** | Auto-sneak and auto-place while bridging across gaps | None |
+| **NoFall** | Prevents fall damage silently — spoofs grounded packets only during real falls | X |
+| **NoSlow** | Removes the slowdown while using items (eating, blocking, bow) — input only, no packet changes | None |
 | **QuantumSuperposition** | Latency prediction assist: models where the server thinks you are (A), where you are (B) and where you'll be (C), with adaptive lookahead that scales with speed/ping and collapses when you stop. Flushes your true position before attacks so hits register on high ping, and re-confirms your last stable position during packet-loss spikes (anti-rubberband). Optional **Quantum Echo** overlay renders the superposition in world space: fading position trail, cyan ghost at A, magenta ghost at C, and a pulsing red anchor ring during spikes | Z |
 | **ReachAssist** | Extends your reach slightly with natural fluctuation | None |
+| **SafeWalk** | Auto-sneaks at block edges so you never walk off | None |
 | **StrafeAssist** | Auto-strafes left/right in combat | None |
+| **ToggleSneak** | Sneaks without holding the key down — handy while building | None |
 | **TriggerBot** | Auto-attacks when your crosshair is on an enemy | None |
 | **VelocityAssist** | Softens knockback by a percentage you choose | None |
 | **VersionAssist** | Play on 1.9–1.21.x servers from 1.8.9 (ViaFabric embedded) | V |
@@ -176,6 +191,7 @@ chmod +x gradlew
 | **NoHurtCam** | Removes damage camera tilt without changing damage or knockback | None |
 | **NoViewBob** | Removes walking view bobbing without changing movement | None |
 | **StreamerMode** | Hides sensitive info from the HUD for OBS/streaming | None |
+| **Zoom** | Hold the key to zoom in for a closer look (FOV + sensitivity scaled) | F7 |
 
 #### Info
 

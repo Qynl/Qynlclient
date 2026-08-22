@@ -30,6 +30,23 @@ public class ModuleManager {
         register(new NoHurtCamModule());
         register(new NoViewBobModule());
         register(new StreamerModeModule());
+        // ── Silent / closet assist modules ───────────────────────────
+        register(new AutoSprintModule());
+        register(new NoSlowModule());
+        register(new NoFallModule());
+        register(new AutoSwordModule());
+        register(new AutoToolModule());
+        register(new AutoArmorModule());
+        register(new AutoRespawnModule());
+        register(new AntiAfkModule());
+        register(new AutoWalkModule());
+        register(new SafeWalkModule());
+        register(new ToggleSneakModule());
+        register(new AutoStepModule());
+        register(new InvWalkModule());
+        register(new AutoEatModule());
+        register(new ChestStealerModule());
+        register(new ZoomModule());
         // Info HUD modules (mirror of the 1.21.1 client)
         register(new InfoHudModule());
         register(new TargetInfoModule());
