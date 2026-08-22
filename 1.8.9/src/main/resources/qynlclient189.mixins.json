@@ -17,7 +17,9 @@
         "QuantumConnectionMixin",
         "QuantumRenderMixin",
         "NoHurtCamMixin",
-        "NoViewBobMixin"
+        "NoViewBobMixin",
+        "BacktrackMixin",
+        "BlinkMixin"
     ],
     "injectors": {
         "defaultRequire": 1

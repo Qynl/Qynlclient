@@ -17,6 +17,8 @@ public class ModuleManager {
         register(new AutoClickerModule());
         register(new FastPlaceModule());
         register(new TriggerBotModule());
+        register(new BacktrackModule());
+        register(new BlinkModule());
         register(new StrafeAssistModule());
         register(new VelocityAssistModule());
         register(new FlyAssistModule());

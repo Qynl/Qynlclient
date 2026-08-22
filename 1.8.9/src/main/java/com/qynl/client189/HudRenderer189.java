@@ -1,5 +1,7 @@
 package com.qynl.client189;
 
+import com.qynl.client189.modules.BacktrackModule;
+import com.qynl.client189.modules.BlinkModule;
 import com.qynl.client189.modules.CoordConvertModule;
 import com.qynl.client189.modules.DeathCoordsModule;
 import com.qynl.client189.modules.DurabilityWarnModule;
@@ -119,6 +121,16 @@ public final class HudRenderer189 {
                 }
                 y = drawRightSection(client, qLines, qColors, rightX, y) + 5;
             }
+        }
+
+        BacktrackModule backtrack = (BacktrackModule) modules.find("Backtrack");
+        if (backtrack != null && backtrack.isEnabled()) {
+            y = drawRightSection(client, backtrack.getHudLines(), GRAY, rightX, y) + 5;
+        }
+
+        BlinkModule blink = (BlinkModule) modules.find("Blink");
+        if (blink != null && blink.isEnabled()) {
+            y = drawRightSection(client, blink.getHudLines(), GRAY, rightX, y) + 5;
         }
 
         EffectTimersModule effects = (EffectTimersModule) modules.find("EffectTimers");

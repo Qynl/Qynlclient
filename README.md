@@ -154,6 +154,8 @@ chmod +x gradlew
 |--------|-------------|-----|
 | **AimAssist** | Gently guides aim toward nearest hostile while attacking | None |
 | **AutoClicker** | Holds attack with humanly irregular timing (Rotations / Packets mode) | None |
+| **Backtrack** | Delays opponents' movement packets so their hitboxes lag a few ms behind — hit them where they just were (client-side; the server's own reach validation still applies) | B |
+| **Blink** | Holds your movement packets for 1–2 ticks (Auto) or while enabled (Hold) so you briefly freeze on the server and break the opponent's combo (fake lag); attacks, block placement and keep-alives still go through | N |
 | **BlockHit** | Rhythmically blocks between sword swings for damage reduction | None |
 | **CritAssist** | Time your jumps so hits land as critical strikes (MiniJump / OnGround modes) | None |
 | **FastPlace** | Shortens the local block-placement delay for held blocks (Legit / Fast / Instant modes); no camera, click automation, or packet spoofing | None |
