@@ -20,7 +20,10 @@
         "NoViewBobMixin",
         "BacktrackMixin",
         "BlinkMixin",
-        "InputMixin"
+        "InputMixin",
+        "NoRotateMixin",
+        "AntiBlindMixin",
+        "NoWebMixin"
     ],
     "injectors": {
         "defaultRequire": 1

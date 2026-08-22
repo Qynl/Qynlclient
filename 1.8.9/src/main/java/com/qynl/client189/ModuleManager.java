@@ -40,13 +40,18 @@ public class ModuleManager {
         register(new AutoRespawnModule());
         register(new AntiAfkModule());
         register(new AutoWalkModule());
-        register(new SafeWalkModule());
         register(new ToggleSneakModule());
         register(new AutoStepModule());
         register(new InvWalkModule());
         register(new AutoEatModule());
         register(new ChestStealerModule());
         register(new ZoomModule());
+        // ── New silent / closet assists (v1.1) ─────────────────────────
+        register(new ScaffoldWalkModule());
+        register(new KeepSprintModule());
+        register(new NoRotateModule());
+        register(new AntiBlindModule());
+        register(new NoWebModule());
         // Info HUD modules (mirror of the 1.21.1 client)
         register(new InfoHudModule());
         register(new TargetInfoModule());

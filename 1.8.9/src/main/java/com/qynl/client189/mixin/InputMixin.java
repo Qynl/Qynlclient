@@ -4,7 +4,6 @@ import com.qynl.client189.modules.AutoStepModule;
 import com.qynl.client189.modules.AutoWalkModule;
 import com.qynl.client189.modules.InvWalkModule;
 import com.qynl.client189.modules.NoSlowModule;
-import com.qynl.client189.modules.SafeWalkModule;
 import com.qynl.client189.modules.ToggleSneakModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
@@ -20,10 +19,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * flags: the values written here are consumed by the player's movement later
  * in the same tick.
  *
- * <p>Handles the input side of SafeWalk (auto-sneak at edges), AutoStep
- * (jump at ledges), ToggleSneak (hold sneak), AutoWalk (hold forward),
- * InvWalk (walk while a screen is open) and NoSlow (undoes the item-use
- * slowdown, which vanilla applies to the input right after {@code tick}).</p>
+ * <p>Handles the input side of AutoStep (jump at ledges), ToggleSneak
+ * (hold sneak), AutoWalk (hold forward), InvWalk (walk while a screen is
+ * open) and NoSlow (undoes the item-use slowdown, which vanilla applies to
+ * the input right after {@code tick}).</p>
  */
 @Mixin(Input.class)
 public abstract class InputMixin {
@@ -41,11 +40,6 @@ public abstract class InputMixin {
 
         // ── ToggleSneak — sneak without holding the key ──
         if (ToggleSneakModule.isActive()) {
-            input.sneaking = true;
-        }
-
-        // ── SafeWalk — sneak at unsupported edges so you never walk off ──
-        if (SafeWalkModule.shouldSneak(client)) {
             input.sneaking = true;
         }
 

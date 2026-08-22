@@ -166,17 +166,20 @@ chmod +x gradlew
 | **Backtrack** | Delays opponents' movement packets so their hitboxes lag a few ms behind — hit them where they just were (client-side; the server's own reach validation still applies) | B |
 | **Blink** | Holds your movement packets for 1–2 ticks (Auto) or while enabled (Hold) so you briefly freeze on the server and break the opponent's combo (fake lag); attacks, block placement and keep-alives still go through | N |
 | **BlockHit** | Rhythmically blocks between sword swings for damage reduction | None |
-| **ChestStealer** | Open a chest and it automatically takes everything for you | None |
+| **ChestStealer** | Open a chest and it automatically takes everything — configurable click delay, valuables-only mode that skips junk blocks, and optional auto-close when the container is empty | None |
 | **CritAssist** | Time your jumps so hits land as critical strikes (MiniJump / OnGround modes) | None |
 | **FastPlace** | Shortens the local block-placement delay for held blocks (Legit / Fast / Instant modes); no camera, click automation, or packet spoofing | None |
 | **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla modes) | K |
 | **InvWalk** | Keep walking while your inventory or any menu is open | P |
-| **NinjaBridge** | Auto-sneak and auto-place while bridging across gaps | None |
+| **KeepSprint** | Keeps your sprint through attacks — no speed dip mid-combo (1.8.9 vanilla stops sprint on hit) | F10 |
+| **NinjaBridge** | Auto-sneak at block edges anywhere (Edge scope) or full-speed bridging with placement + auto-walk (Bridge scope, 45° diagonal) | N |
+| **NoRotate** | Blocks servers from forcing your camera rotation — position corrections still apply, only your aim stays yours | F11 |
 | **NoFall** | Prevents fall damage silently — spoofs grounded packets only during real falls | X |
 | **NoSlow** | Removes the slowdown while using items (eating, blocking, bow) — input only, no packet changes | None |
+| **NoWeb** | Removes cobweb slowdown — move through webs at full speed (client-side only, no packets) | None |
 | **QuantumSuperposition** | Latency prediction assist: models where the server thinks you are (A), where you are (B) and where you'll be (C), with adaptive lookahead that scales with speed/ping and collapses when you stop. Flushes your true position before attacks so hits register on high ping, and re-confirms your last stable position during packet-loss spikes (anti-rubberband). Optional **Quantum Echo** overlay renders the superposition in world space: fading position trail, cyan ghost at A, magenta ghost at C, and a pulsing red anchor ring during spikes | Z |
 | **ReachAssist** | Extends your reach slightly with natural fluctuation | None |
-| **SafeWalk** | Auto-sneaks at block edges so you never walk off | None |
+| **ScaffoldWalk** | Places a block under your feet while you walk — bridge gaps and pillar up without aiming down (humanized placement delay) | F9 |
 | **StrafeAssist** | Auto-strafes left/right in combat | None |
 | **ToggleSneak** | Sneaks without holding the key down — handy while building | None |
 | **TriggerBot** | Auto-attacks when your crosshair is on an enemy | None |
@@ -189,9 +192,10 @@ chmod +x gradlew
 |--------|-------------|-----|
 | **Fullbright** | Boost brightness so you can see clearly in the dark | None |
 | **NoHurtCam** | Removes damage camera tilt without changing damage or knockback | None |
+| **AntiBlind** | Removes blindness and nausea screen effects — clear vision in fights (visual only, silent) | None |
 | **NoViewBob** | Removes walking view bobbing without changing movement | None |
 | **StreamerMode** | Hides sensitive info from the HUD for OBS/streaming | None |
-| **Zoom** | Hold the key to zoom in for a closer look (FOV + sensitivity scaled) | F7 |
+| **Zoom** | Hold the key to zoom in smoothly — adjustable level (2×–6×), FOV and sensitivity glide instead of snapping | F7 |
 
 #### Info
 

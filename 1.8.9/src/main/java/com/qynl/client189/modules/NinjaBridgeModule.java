@@ -16,6 +16,10 @@ import java.util.Random;
 /**
  * NinjaBridge — automates sneaking at block edges for full-speed bridging.
  *
+ * <p><b>Scope: Edge</b> — the classic SafeWalk: sneak at every unsupported
+ * block edge while walking anywhere, no block required. <b>Scope:
+ * Bridge</b> — the full bridging assistant below.</p>
+ *
  * <p><b>Straight mode:</b> walk backwards (S) while the module taps sneak
  * at the edge of each block.</p>
  *
@@ -54,8 +58,10 @@ public class NinjaBridgeModule extends Module {
     private boolean diagonalLeft = true; // last diagonal lean, held while moving
 
     public NinjaBridgeModule() {
-        super("NinjaBridge", "Auto-sneaks at block edges while bridging. 45° diagonal for max speed.", Category.ASSIST);
+        super("NinjaBridge", "Auto-sneaks at block edges anywhere (Edge), or full-speed bridging with placement + auto-walk (Bridge).",
+                Category.ASSIST);
         bindKey(Keyboard.KEY_N);
+        addSetting(Setting.options("scope",     "Scope",       "Bridge",   "Bridge",   "Edge"));
         addSetting(Setting.options("mode",      "Mode",        "Straight", "Straight", "45° Diagonal"));
         addSetting(Setting.range("speed",       "Speed",       75.0, 50, 100, 1, "%"));
         addSetting(Setting.range("edgeSneak",   "Sneak Start", 40.0, 30, 48, 1, "%"));
@@ -87,13 +93,14 @@ public class NinjaBridgeModule extends Module {
             return;
         }
 
-        if (!isHoldingBlock(client)) {
+        boolean edgeMode = "Edge".equals(getStringSetting("scope"));
+        if (!edgeMode && !isHoldingBlock(client)) {
             releaseSneak(client);
             releaseWalkKeys(client);
             return;
         }
 
-        boolean diagonal = "45° Diagonal".equals(getStringSetting("mode"));
+        boolean diagonal = !edgeMode && "45° Diagonal".equals(getStringSetting("mode"));
         boolean humanize = "On".equals(getStringSetting("humanize"));
         boolean autoPlace = "Auto".equals(getStringSetting("place"));
         double speedPct = getDoubleSetting("speed") / 100.0;
@@ -116,6 +123,12 @@ public class NinjaBridgeModule extends Module {
             }
         } else {
             releaseSneak(client);
+        }
+
+        if (edgeMode) {
+            // Edge scope = pure SafeWalk: sneak at unsupported edges, no
+            // placement and no auto-walk (and no block required).
+            return;
         }
 
         // ── Place: fill the gap as soon as it comes within reach, but only
