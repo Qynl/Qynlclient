@@ -8,12 +8,16 @@
         "VelocityMixin",
         "KeyBindingAccessor",
         "LivingEntityAccessor",
-        "MinecraftClientInvoker",		"ClientPlayerSendMovementMixin",
-		"PlayerMoveC2SPacketAccessor",
-		"InGameHudMixin189",
-		"CritAttackMixin",
-		"ChronoTimerMixin",
-		"ChronoCameraMixin"
+        "MinecraftClientInvoker",
+        "ClientPlayerSendMovementMixin",
+        "PlayerMoveC2SPacketAccessor",
+        "InGameHudMixin189",
+        "CritAttackMixin",
+        "QuantumNetworkMixin",
+        "QuantumConnectionMixin",
+        "QuantumRenderMixin",
+        "NoHurtCamMixin",
+        "NoViewBobMixin"
     ],
     "injectors": {
         "defaultRequire": 1

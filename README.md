@@ -156,8 +156,10 @@ chmod +x gradlew
 | **AutoClicker** | Holds attack with humanly irregular timing (Rotations / Packets mode) | None |
 | **BlockHit** | Rhythmically blocks between sword swings for damage reduction | None |
 | **CritAssist** | Time your jumps so hits land as critical strikes (MiniJump / OnGround modes) | None |
+| **FastPlace** | Shortens the local block-placement delay for held blocks (Legit / Fast / Instant modes); no camera, click automation, or packet spoofing | None |
 | **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla modes) | K |
 | **NinjaBridge** | Auto-sneak and auto-place while bridging across gaps | None |
+| **QuantumSuperposition** | Latency prediction assist: models where the server thinks you are (A), where you are (B) and where you'll be (C), with adaptive lookahead that scales with speed/ping and collapses when you stop. Flushes your true position before attacks so hits register on high ping, and re-confirms your last stable position during packet-loss spikes (anti-rubberband). Optional **Quantum Echo** overlay renders the superposition in world space: fading position trail, cyan ghost at A, magenta ghost at C, and a pulsing red anchor ring during spikes | Z |
 | **ReachAssist** | Extends your reach slightly with natural fluctuation | None |
 | **StrafeAssist** | Auto-strafes left/right in combat | None |
 | **TriggerBot** | Auto-attacks when your crosshair is on an enemy | None |
@@ -169,6 +171,8 @@ chmod +x gradlew
 | Module | Description | Key |
 |--------|-------------|-----|
 | **Fullbright** | Boost brightness so you can see clearly in the dark | None |
+| **NoHurtCam** | Removes damage camera tilt without changing damage or knockback | None |
+| **NoViewBob** | Removes walking view bobbing without changing movement | None |
 | **StreamerMode** | Hides sensitive info from the HUD for OBS/streaming | None |
 
 #### Info

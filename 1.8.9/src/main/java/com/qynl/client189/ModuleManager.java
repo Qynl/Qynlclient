@@ -15,15 +15,18 @@ public class ModuleManager {
         register(new AimAssistModule());
         register(new ReachAssistModule());
         register(new AutoClickerModule());
+        register(new FastPlaceModule());
         register(new TriggerBotModule());
         register(new StrafeAssistModule());
         register(new VelocityAssistModule());
         register(new FlyAssistModule());
         register(new VersionAssistModule());
-        register(new ChronostasisModule());
+        register(new QuantumSuperpositionModule());
         register(new CritAssistModule());
         register(new NinjaBridgeModule());
         register(new FullbrightModule());
+        register(new NoHurtCamModule());
+        register(new NoViewBobModule());
         register(new StreamerModeModule());
         // Info HUD modules (mirror of the 1.21.1 client)
         register(new InfoHudModule());

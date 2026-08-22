@@ -6,6 +6,7 @@ import com.qynl.client189.modules.DurabilityWarnModule;
 import com.qynl.client189.modules.EffectTimersModule;
 import com.qynl.client189.modules.InfoHudModule;
 import com.qynl.client189.modules.KeystrokesModule;
+import com.qynl.client189.modules.QuantumSuperpositionModule;
 import com.qynl.client189.modules.StreamerModeModule;
 import com.qynl.client189.modules.TargetInfoModule;
 import net.minecraft.client.MinecraftClient;
@@ -103,6 +104,20 @@ public final class HudRenderer189 {
             String line = target.getInfo(client);
             if (!line.isEmpty()) {
                 y = drawRightSection(client, Collections.singletonList(line), ACCENT, rightX, y) + 5;
+            }
+        }
+
+        QuantumSuperpositionModule quantum = (QuantumSuperpositionModule) modules.find("QuantumSuperposition");
+        if (quantum != null && quantum.isEnabled() && quantum.isOverlayOn()) {
+            List<String> qLines = quantum.getHudLines();
+            if (!qLines.isEmpty()) {
+                List<Integer> qColors = new ArrayList<>();
+                qColors.add(ACCENT);
+                for (int i = 1; i < qLines.size(); i++) {
+                    boolean spikeLine = quantum.isSpiking() && i == qLines.size() - 1;
+                    qColors.add(spikeLine ? RED : GRAY);
+                }
+                y = drawRightSection(client, qLines, qColors, rightX, y) + 5;
             }
         }
 
