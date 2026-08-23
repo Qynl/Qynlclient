@@ -40,6 +40,10 @@ public class WTapModule extends Module {
         // A real W-tap only makes sense while sprinting and moving forward —
         // never tap while standing still or walking.
         if (!client.player.isSprinting() || client.player.input.movementForward <= 0.0F) return;
+        // Never tap mid-air: releasing forward while falling is physically
+        // impossible (you keep your momentum) and reads as bot input to
+        // Intave's movement heuristics.
+        if (!client.player.onGround) return;
         // Humans don't W-tap on every single hit.
         if (RANDOM.nextDouble() * 100.0 >= instance.getDoubleSetting("chance")) return;
         int delay = (int) instance.getDoubleSetting("delay");

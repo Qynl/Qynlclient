@@ -19,9 +19,12 @@ public class ModuleManager {
         register(new SprintModule());
         register(new WTapModule());
         register(new BlockHitModule());
-        register(new PhantomModule());
         register(new HindsightModule());
+        register(new QynlModule());
+        register(new CriticalsModule());
+        register(new AegisModule());
         register(new StrafeAssistModule());
+        register(new DirectorModule());
         // ── Render ──────────────────────────────────────────────
         register(new SearchModule());
         register(new NameTagsModule());
@@ -31,7 +34,9 @@ public class ModuleManager {
         register(new NoHurtCamModule());
         register(new NoViewBobModule());
         register(new ZoomModule());
+        register(new EchoModule());
         // ── Utility ─────────────────────────────────────────────
+        register(new ClutchModule());
         register(new ScaffoldModule());
         register(new ChestStealModule());
         register(new BlinkModule());
@@ -45,6 +50,14 @@ public class ModuleManager {
     }
 
     private void register(Module module) { modules.add(module); }
+
+    /** Sets a module's enabled state (used by the combat Director). */
+    public void setEnabled(String name, boolean enabled) {
+        Module module = find(name);
+        if (module != null && module.isEnabled() != enabled) {
+            module.setEnabled(enabled);
+        }
+    }
 
     public void tick(MinecraftClient client) {
         for (Module module : modules) {
@@ -73,10 +86,19 @@ public class ModuleManager {
         QynlClientConfig config = QynlClient189.getInstance().getConfig();
         if (config == null) return;
         for (Module module : modules) {
-            config.setModuleState(module.getName(), module.isEnabled());
+            // While the combat Director runs, managed modules are in its
+            // dynamic (tactic-driven) state — persist the user's real loadout
+            // instead, so a save during a fight never corrupts the config.
+            Boolean dirState = DirectorModule.userState(module.getName());
+            boolean state = dirState != null ? dirState.booleanValue() : module.isEnabled();
+            config.setModuleState(module.getName(), state);
             config.setModuleKey(module.getName(), module.getKeyCode());
+            Map<String, String> dirSettings = DirectorModule.userSettings(module.getName());
             for (Setting<?> setting : module.getSettings()) {
-                config.setModuleSetting(module.getName(), setting.getKey(), setting.valueAsString());
+                String value = dirSettings != null && dirSettings.containsKey(setting.getKey())
+                        ? dirSettings.get(setting.getKey())
+                        : setting.valueAsString();
+                config.setModuleSetting(module.getName(), setting.getKey(), value);
             }
         }
         config.save();

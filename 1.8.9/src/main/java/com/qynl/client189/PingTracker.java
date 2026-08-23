@@ -16,7 +16,7 @@ import java.util.List;
  * learned from arrival gaps, so it works whatever interval the server uses.
  * Samples are median filtered; outliers outside 20–600 ms are discarded.</p>
  *
- * <p>Fed by {@code KeepAliveMixin}, read by {@code PhantomModule} and
+ * <p>Fed by {@code KeepAliveMixin}, read by {@code QynlModule} and
  * {@code HindsightModule}.</p>
  */
 public final class PingTracker {

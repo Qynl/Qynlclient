@@ -11,7 +11,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * KeepAliveMixin — feeds {@link PhantomModule}'s real ping tracker.
+ * KeepAliveMixin — feeds the client's real ping tracker ({@link PingTracker}),
+ * used by the Qynl / Hindsight / Phantom-class combat engines.
  *
  * <p>The tab list latency most servers report is fake or stale (1 ms, 0 ms),
  * so the client measures the actual round trip from the keep-alive stream:

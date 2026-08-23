@@ -1,8 +1,13 @@
 package com.qynl.client189.mixin;
 
+import com.qynl.client189.modules.AegisModule;
+import com.qynl.client189.modules.ClutchModule;
+import com.qynl.client189.modules.CriticalsModule;
+import com.qynl.client189.modules.DirectorModule;
+import com.qynl.client189.modules.EchoModule;
 import com.qynl.client189.modules.HindsightModule;
 import com.qynl.client189.modules.NameTagsModule;
-import com.qynl.client189.modules.PhantomModule;
+import com.qynl.client189.modules.QynlModule;
 import com.qynl.client189.modules.SearchModule;
 import com.qynl.client189.modules.StorageESPModule;
 import com.qynl.client189.modules.TracersModule;
@@ -27,7 +32,12 @@ public abstract class WorldRenderMixin {
         StorageESPModule.render(partialTicks);
         TracersModule.render(partialTicks);
         NameTagsModule.render(partialTicks);
-        PhantomModule.render(partialTicks);
+        QynlModule.render(partialTicks);
         HindsightModule.render(partialTicks);
+        CriticalsModule.render(partialTicks);
+        AegisModule.render(partialTicks);
+        ClutchModule.render(partialTicks);
+        EchoModule.render(partialTicks);
+        DirectorModule.render(partialTicks);
     }
 }

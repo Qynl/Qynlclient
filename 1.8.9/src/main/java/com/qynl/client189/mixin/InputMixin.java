@@ -1,5 +1,7 @@
 package com.qynl.client189.mixin;
 
+import com.qynl.client189.modules.AegisModule;
+import com.qynl.client189.modules.QynlModule;
 import com.qynl.client189.modules.WTapModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
@@ -35,6 +37,26 @@ public abstract class InputMixin {
         // ── WTap — release forward for a tick after each hit ──
         if (WTapModule.isTapping()) {
             input.movementForward = 0.0F;
+        }
+
+        // ── Aegis — Evasion Engine: the decisive single-tick dodge away
+        //    from an inbound projectile. Takes priority over the Qynl
+        //    collapse strafe — a dodge out of an arrow's path must be clean.
+        float aegisDodge = AegisModule.dodgeStrafe();
+        if (aegisDodge != 0.0F) {
+            input.movementSideways = aegisDodge;
+            if (AegisModule.wantsJump()) {
+                input.jumping = true;
+            }
+        } else {
+            // ── Qynl — Quantum Collapse: strafe away from the attacker
+            //    during the 1–2 tick dodge window so the collapse reads as a
+            //    sidestep. The value ramps (0.5 → 1.0) so the flushed motion
+            //    stays a smooth lateral step, not an abrupt side-teleport.
+            float qynlDodge = QynlModule.dodgeStrafe();
+            if (qynlDodge != 0.0F) {
+                input.movementSideways = qynlDodge;
+            }
         }
     }
 }

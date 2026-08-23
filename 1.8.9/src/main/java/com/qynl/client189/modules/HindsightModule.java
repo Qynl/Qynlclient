@@ -159,7 +159,7 @@ public class HindsightModule extends Module {
 
         if (!doClick || !risingEdge) return;
         // Mutual exclusion with the other predictive clickers.
-        if (PhantomModule.isActive() || AutoClickerModule.isActive()) return;
+        if (QynlModule.isActive() || AutoClickerModule.isActive()) return;
         if (!client.options.keyAttack.isPressed()) return;
         if ("On".equals(getStringSetting("wallCheck"))
                 && !WorldDraw.hasLineOfSight(client,

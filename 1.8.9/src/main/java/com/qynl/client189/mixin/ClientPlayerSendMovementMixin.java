@@ -1,6 +1,7 @@
 package com.qynl.client189.mixin;
 
 import com.qynl.client189.SilentAim;
+import com.qynl.client189.modules.QynlModule;
 import com.qynl.client189.modules.ReachModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
@@ -31,6 +32,15 @@ public abstract class ClientPlayerSendMovementMixin {
         if (client.player == null) return;
 
         boolean isMovePacket = packet instanceof PlayerMoveC2SPacket;
+
+        // ── Qynl Quantum Collapse: while a dodge is active, hold movement
+        //    for 1–2 ticks so the enemy's hit checks a position you no
+        //    longer occupy (the strafe is injected via the input mixin).
+        if (isMovePacket && QynlModule.shouldHoldMovement()) {
+            QynlModule.buffer(packet);
+            ci.cancel();
+            return;
+        }
 
         // ── Reach silent pack-choke: while the choke is armed, hold
         //    movement packets back for 1–2 ticks and flush them together —

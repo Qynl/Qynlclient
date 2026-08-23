@@ -141,6 +141,16 @@ public class ScaffoldModule extends Module {
         if (lDist > 0.01) {
             float spoofYaw = (float) Math.toDegrees(Math.atan2(-ldx, ldz));
             float spoofPitch = (float) Math.toDegrees(Math.asin(-ldy / lDist));
+            // GCD fix: snap the spoofed look to the mouse grid, exactly like
+            // a real mouse turn. An instant snap to a non-grid rotation is
+            // the fingerprint Grim uses to catch silent scaffold.
+            double sens = client.options.sensitivity;
+            double f = sens * 0.6 + 0.2;
+            double gcdStep = (f * f * f) * 8.0 * 0.15;
+            if (gcdStep > 1e-6) {
+                spoofYaw = (float) (Math.round(spoofYaw / gcdStep) * gcdStep);
+                spoofPitch = (float) (Math.round(spoofPitch / gcdStep) * gcdStep);
+            }
             spoofRealYaw = player.yaw;
             spoofRealPitch = player.pitch;
             SilentAim.spoofForTick(spoofRealYaw, spoofRealPitch, spoofYaw, spoofPitch);

@@ -70,6 +70,17 @@ public class AutoClickerModule extends Module {
             resetState(client);
             return;
         }
+        // Never click while the player is eating, drinking or using an item —
+        // attacking would cancel the use (annoying for the user) and the
+        // attack-while-using pattern is exactly what Intave's combat-flow
+        // heuristics fingerprint. The clicker stands down until the use ends.
+        if (client.player.isUsingItem()) {
+            if (blockTicksRemaining > 0) {
+                blockTicksRemaining = 0;
+                releaseUse(client);
+            }
+            return;
+        }
 
         // Humans don't start clicking the instant they press the button —
         // wait a short random beat on the first press (100–300 ms) so the
@@ -146,7 +157,11 @@ public class AutoClickerModule extends Module {
         }
         ((MinecraftClientInvoker) client).invokeDoAttack();
 
-        if (blockhit && holdingWeapon && enemyInRange(client)
+        // Block holds only happen on the ground: blocking while falling
+        // serves no purpose, and a player who blocks mid-air while their
+        // opponent is grounded looks like a script, not a human.
+        if (blockhit && holdingWeapon && client.player.onGround
+                && enemyInRange(client)
                 && (random.nextDouble() * 100.0) < getDoubleSetting("blockChance")) {
             int hold = (int) getDoubleSetting("blockTicks");
             hold += random.nextInt(3) - 1; // humanize

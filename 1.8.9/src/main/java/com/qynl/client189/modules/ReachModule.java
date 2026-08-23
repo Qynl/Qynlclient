@@ -2,6 +2,7 @@ package com.qynl.client189.modules;
 
 import com.qynl.client189.Category;
 import com.qynl.client189.Module;
+import com.qynl.client189.PingTracker;
 import com.qynl.client189.Setting;
 import com.qynl.client189.QynlClient189;
 import net.minecraft.client.MinecraftClient;
@@ -113,6 +114,12 @@ public class ReachModule extends Module {
 
     // ── Silent Pack-Choke ───────────────────────────────────────
 
+    /** True while the choke is actively holding packets (used by other
+     *  modules to avoid colliding with the choke window). */
+    public static boolean isChokeArmed() {
+        return armed && !flushing;
+    }
+
     /** True while the choke is armed and the packet should be held back. */
     public static boolean shouldHoldPacket() {
         return armed && !flushing && !BlinkModule.isActive() && chokeQueue.size() < MAX_CHOKE;
@@ -158,6 +165,15 @@ public class ReachModule extends Module {
             holdTicksLeft = 0;
             return;
         }
+        // On high ping the held packets turn into a bigger server-side
+        // catch-up jump — exactly the rubberband signature Grim's movement
+        // check flags. The choke only buys reach when the connection is
+        // tight enough to stay subtle.
+        if (PingTracker.hasPing() && PingTracker.getPingMs() > 150) {
+            armed = false;
+            holdTicksLeft = 0;
+            return;
+        }
 
         if (armed) {
             if (--holdTicksLeft <= 0) {
@@ -195,6 +211,12 @@ public class ReachModule extends Module {
 
         // Only while running toward the target (spec: "wenn du auf den
         // Gegner zuläufst") — never while backing away.
+        if (client.player.input == null || client.player.input.movementForward <= 0.0F) return false;
+        // Never choke while sprinting: the held packets cover more distance
+        // at sprint speed, so the flush becomes a visibly larger catch-up
+        // jump — the exact rubberband signature Grim's movement check flags.
+        // Walking pace keeps the desync small enough to read as jitter.
+        if (client.player.isSprinting()) return false;
         double vx = client.player.x - client.player.prevX;
         double vz = client.player.z - client.player.prevZ;
         return vx * dx + vz * dz > 0;

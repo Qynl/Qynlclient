@@ -57,6 +57,13 @@ public class StrafeAssistModule extends Module {
             releaseKeys(client);
             return;
         }
+        // Never strafe while sneaking or using an item — the combined
+        // slow/strafing motion is physically odd and reads as bot movement
+        // to Intave's movement heuristics.
+        if (client.player.isSneaking() || client.player.isUsingItem()) {
+            releaseKeys(client);
+            return;
+        }
 
         boolean shouldStrafe;
         if ("Always".equals(getStringSetting("mode"))) {
