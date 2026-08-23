@@ -157,6 +157,17 @@ public class AimAssistModule extends Module {
         double yawSpeed   = strength * (0.8 + 1.2 * (1.0 - smooth) + 0.5 * Math.min(1.0, absYaw / 15.0));
         double pitchSpeed = strength * (0.6 + 1.0 * (1.0 - smooth) + 0.4 * Math.min(1.0, absPitch / 10.0));
 
+        // Cubic ease-out: the mouse accelerates out of the turn and eases
+        // onto the target instead of being dragged at a constant rate. The
+        // step scales with the remaining delta (1-(1-x)^3) — fastest
+        // mid-turn, butter-soft in the final degrees, exactly the Vape-Lite
+        // glide. The floor keeps the aim converging instead of stalling.
+        double maxAngle = Math.max(10.0, getDoubleSetting("maxAngle"));
+        double yawEase = 1.0 - Math.pow(1.0 - MathHelper.clamp(absYaw / maxAngle, 0.0, 1.0), 3.0);
+        double pitchEase = 1.0 - Math.pow(1.0 - MathHelper.clamp(absPitch / (maxAngle * 0.6), 0.0, 1.0), 3.0);
+        yawSpeed *= 0.18 + 0.82 * yawEase;
+        pitchSpeed *= 0.18 + 0.82 * pitchEase;
+
         // GCD fix — compensates for Minecraft's mouse-sensitivity system
         double sens   = client.options.sensitivity;
         double f      = sens * 0.6 + 0.2;

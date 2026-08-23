@@ -15,6 +15,7 @@ import net.minecraft.entity.projectile.AbstractArrowEntity;
 import net.minecraft.entity.thrown.EnderPearlEntity;
 import net.minecraft.entity.thrown.PotionEntity;
 import net.minecraft.entity.thrown.SnowballEntity;
+import net.minecraft.util.math.Vec3d;
 import org.lwjgl.input.Keyboard;
 
 import java.util.HashMap;
@@ -233,6 +234,12 @@ public class DirectorModule extends Module {
     private int combo = 0;
     private int exchangeIdleTicks = 0;
 
+    // engagement 0..1: only the player's own intent — crosshair on the focus
+    // enemy AND the attack key held — opens a fight. The Director never
+    // starts combat by itself; outside a fight it 'sleeps' (T_NONE) until
+    // the player actually decides to engage.
+    private double engagement = 0.0;
+
     public DirectorModule() {
         super("Director",
                 "Combat AI — reads the fight and decides which combat modules may act and how hard, per tactic (engage/combo/trade/defend/evade/retreat/survive). Nothing runs constantly, every switch is humanized, zero packets sent. Modules only ever activate in situations where their behavior is human-plausible — that is what keeps them unflagged. Clutch is force-enabled the moment a fall turns lethal and every combat module is stood down while you are saving yourself.",
@@ -293,6 +300,7 @@ public class DirectorModule extends Module {
         wasHurt = false;
         wasEnemyHurt = false;
         exchangeIdleTicks = 0;
+        engagement = 0.0;
     }
 
     @Override
@@ -324,6 +332,7 @@ public class DirectorModule extends Module {
         tactic = T_NONE;
         pendingTactic = T_NONE;
         focus = null;
+        engagement = 0.0;
     }
 
     // ── per-tick: assess → decide → act ──────────────────────────
@@ -458,6 +467,8 @@ public class DirectorModule extends Module {
             exchangeIdleTicks = 0;
         }
 
+        assessEngagement(client);
+
         // Any inbound projectile nearby? (Aegis force-enables inside any tactic.)
         projectileThreat = false;
         for (Entity e : client.world.entities) {
@@ -497,13 +508,28 @@ public class DirectorModule extends Module {
         if (client.player.isSubmergedIn(Material.WATER)) {
             return enemyDist < 5.0 ? T_EVADE : T_NONE;
         }
+        if (projectileThreat && enemyDist > 3.5) {
+            return T_EVADE;
+        }
+        if (hurtActive && enemyDist < 3.5) {
+            return T_DEFEND; // being combo'd right now
+        }
+
+        // ── fight-open gate ──────────────────────────────────────────
+        // The Director never opens a fight by itself: entering the offensive
+        // melee tactics (Engage/Combo/Trade) requires the engagement factor
+        // above threshold — crosshair on the enemy + attack held for a few
+        // ticks. Walking past an enemy, or pausing mid-fight, leaves the
+        // client 'sleeping' (T_NONE) instead of flickering into combat.
+        // Every defensive reaction above is exempt and never waits here.
+        if (engagement < 0.5) {
+            return T_NONE;
+        }
+
         // Losing the exchange: two recent hits against us force a defensive
         // posture — no combos, no trades, just block + reduce + reposition.
         if (pressure >= 2) {
             return enemyDist < 5.0 ? T_DEFEND : T_EVADE;
-        }
-        if (projectileThreat && enemyDist > 3.5) {
-            return T_EVADE;
         }
         if (enemyAirborne) {
             return T_COMBO; // they're knocked — press the advantage
@@ -512,9 +538,6 @@ public class DirectorModule extends Module {
         // of dropping to Trade — real players press when they're winning.
         if (combo >= 3 && enemyDist < 3.8) {
             return T_COMBO;
-        }
-        if (hurtActive && enemyDist < 3.5) {
-            return T_DEFEND; // being combo'd right now
         }
         // Hysteresis on the melee boundary: once engaged at trade range, the
         // enemy has to clearly back off (or clearly close in) before the
@@ -532,6 +555,42 @@ public class DirectorModule extends Module {
             return T_ENGAGE;
         }
         return T_NONE;
+    }
+
+    /**
+     * Ramps the fight-engagement factor: it rises only while the crosshair is
+     * on the focus enemy AND the attack key is held — the only signal that
+     * the player actually opened the fight. It decays whenever the player
+     * stops committing (click released, crosshair off, target gone). The
+     * humanized ramp (not a fixed rate) is what keeps the gate from looking
+     * like a boolean: the client wakes up after a few committed ticks and
+     * falls back asleep after a short release.
+     */
+    private void assessEngagement(MinecraftClient client) {
+        boolean aiming = false;
+        if (focus != null && enemyDist < 6.0) {
+            Vec3d eye = client.player.getCameraPosVec(1.0F);
+            double dx = focus.x - eye.x;
+            double dy = focus.y + focus.getEyeHeight() * 0.5 - eye.y;
+            double dz = focus.z - eye.z;
+            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist > 0.01) {
+                float yaw = client.player.yaw * 0.017453292F;
+                float pitch = client.player.pitch * 0.017453292F;
+                double lx = -Math.sin(yaw) * Math.cos(pitch);
+                double ly = -Math.sin(pitch);
+                double lz = Math.cos(yaw) * Math.cos(pitch);
+                // ~6° cone — a human keeping their crosshair on the target.
+                aiming = (lx * dx + ly * dy + lz * dz) / dist
+                        >= Math.cos(Math.toRadians(6.0));
+            }
+        }
+        boolean attacking = client.options.keyAttack.isPressed();
+        if (aiming && attacking) {
+            engagement = Math.min(1.0, engagement + 0.18 + RANDOM.nextDouble() * 0.14);
+        } else {
+            engagement = Math.max(0.0, engagement - 0.08 - RANDOM.nextDouble() * 0.06);
+        }
     }
 
     // ── module orchestration ─────────────────────────────────────

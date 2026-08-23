@@ -79,6 +79,12 @@ public class QynlModule extends Module {
     private final Map<Integer, ArrayDeque<double[]>> histories = new HashMap<>();
     /** id -> smoothed velocity in blocks/tick for the arrival projection. */
     private final Map<Integer, double[]> velocities = new HashMap<>();
+    /** id -> prediction smear 0..1: how erratic their velocity is right now
+     *  (sprint-resets, knockback, sudden strafes). When it spikes, the linear
+     *  arrival projection is unreliable, so the ghost is pulled back toward
+     *  server reality — never swing into a future the target already
+     *  changed. */
+    private final Map<Integer, Double> smears = new HashMap<>();
     /** id -> client tick of their last swing start (dodge trigger). */
     private final Map<Integer, Integer> enemySwings = new HashMap<>();
     /** id -> last swing we fired at them (humanized interval). */
@@ -342,7 +348,9 @@ public class QynlModule extends Module {
             // confident (erratic movement).
             if (ghost) {
                 double[] vel = instance.velocities.get(living.getEntityId());
-                boolean erratic = vel != null && Math.abs(vel[0]) + Math.abs(vel[2]) > 0.6;
+                Double smear = instance.smears.get(living.getEntityId());
+                boolean erratic = (vel != null && Math.abs(vel[0]) + Math.abs(vel[2]) > 0.6)
+                        || (smear != null && smear > 0.4);
                 if (erratic) {
                     WorldDraw.drawAABB(c[0] - w, c[1], c[2] - w, c[0] + w, c[1] + h, c[2] + w,
                             1.00f, 0.55f, 0.10f, 0.8f, camX, camY, camZ);
@@ -506,9 +514,22 @@ public class QynlModule extends Module {
                 }
                 vy = MathHelper.clamp(vy, -0.15, 0.15);
                 double[] prev = velocities.get(id);
-                velocities.put(id, prev == null
+                double[] smoothed = prev == null
                         ? new double[]{vx, vy, vz}
-                        : new double[]{prev[0] * 0.5 + vx * 0.5, prev[1] * 0.5 + vy * 0.5, prev[2] * 0.5 + vz * 0.5});
+                        : new double[]{prev[0] * 0.5 + vx * 0.5, prev[1] * 0.5 + vy * 0.5, prev[2] * 0.5 + vz * 0.5};
+                velocities.put(id, smoothed);
+                // Prediction smear: an abrupt change in horizontal velocity
+                // (sprint-reset, knockback, direction change) makes the linear
+                // arrival projection unreliable. Track the horizontal delta-V
+                // against the last smoothed value, smoothed into a 0..1
+                // erratic factor that pulls the ghost back toward server
+                // reality in arrivalProjection().
+                double deltaV = prev == null ? 0.0
+                        : Math.abs(vx - prev[0]) + Math.abs(vz - prev[2]);
+                Double lastSmear = smears.get(id);
+                double smear = lastSmear == null ? 0.0 : lastSmear;
+                smear = smear * 0.6 + Math.min(1.0, deltaV / 0.35) * 0.4;
+                smears.put(id, smear);
             }
         }
     }
@@ -544,10 +565,19 @@ public class QynlModule extends Module {
         if (vel == null) {
             return new double[]{entity.x, entity.y, entity.z};
         }
+        double effLead = leadTicks;
+        Double smear = smears.get(entity.getEntityId());
+        if (smear != null && smear > 0.05) {
+            // Erratic movement: shrink the prediction horizon so the ghost
+            // stays close to server reality (A) instead of swinging into a
+            // future the target already changed — the chaos shrinks the
+            // window instead of causing whiffs.
+            effLead = leadTicks * (1.0 - smear * 0.85);
+        }
         return new double[]{
-                entity.x + vel[0] * leadTicks,
-                entity.y + vel[1] * leadTicks,
-                entity.z + vel[2] * leadTicks
+                entity.x + vel[0] * effLead,
+                entity.y + vel[1] * effLead,
+                entity.z + vel[2] * effLead
         };
     }
 
@@ -696,6 +726,7 @@ public class QynlModule extends Module {
             if (!stillHere) {
                 it.remove();
                 velocities.remove(id);
+                smears.remove(id);
                 enemySwings.remove(id);
                 lastSwingTick.remove(id);
             }

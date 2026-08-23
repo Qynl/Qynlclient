@@ -119,21 +119,17 @@ public class AegisModule extends Module {
             return;
         }
 
-        // ── dodge direction: perpendicular-ish, away from impact ──
-        double awayX = client.player.x - threat[0];
-        double awayZ = client.player.z - threat[2];
-        double awayLen = Math.sqrt(awayX * awayX + awayZ * awayZ);
-        if (awayLen < 0.01) {
-            awayX = 1.0;
-            awayZ = 0.0;
-        } else {
-            awayX /= awayLen;
-            awayZ /= awayLen;
-        }
+        // ── dodge direction: summed perpendicular of EVERY inbound path ──
+        // One vector sum across all threats (weighted by imminence) instead
+        // of whichever projectile was scanned first — under snowball/arrow
+        // spam the strafe is one decisive direction, never a nervous
+        // left-right flicker between two simultaneous threats.
+        double evX = threat[4];
+        double evZ = threat[5];
         float yawRad = client.player.yaw * 0.017453292F;
         double rightX = Math.cos(yawRad);
         double rightZ = Math.sin(yawRad);
-        int dir = (awayX * rightX + awayZ * rightZ) >= 0.0 ? 1 : -1;
+        int dir = (evX * rightX + evZ * rightZ) >= 0.0 ? 1 : -1;
 
         // Already dodging that way? Nothing to do.
         if (client.player.input != null
@@ -169,12 +165,13 @@ public class AegisModule extends Module {
      * impactTicks}, or null.
      *
      * <p>Prioritization: when several projectiles are inbound (snowball
-     * spam, arrow volleys), the one that collides <i>soonest</i> wins — the
-     * dodge tick is spent on the immediate danger, and the impact point of
-     * that winner determines the strafe direction. Same impact tick is
-     * broken by the smaller miss distance. The reaction window is jittered
-     * ±15% per projectile so the reaction time never forms a constant
-     * pattern for statistical heuristics (Intave).</p>
+     * spam, arrow volleys), the one that collides <i>soonest</i> wins for
+     * the render marker and the timing. The strafe direction, however, is
+     * the <b>weighted sum of every inbound threat's perpendicular</b> — so
+     * two simultaneous snowballs from opposite sides produce one averaged
+     * dodge instead of a tick-by-tick flip-flop. The reaction window is
+     * jittered ±15% per projectile so the reaction time never forms a
+     * constant pattern for statistical heuristics (Intave).</p>
      */
     private double[] findThreat(MinecraftClient client, double searchSq, int windowTicks) {
         double mx = client.player.x - client.player.prevX;
@@ -184,6 +181,10 @@ public class AegisModule extends Module {
         int bestTicks = Integer.MAX_VALUE;
         double bestMiss = 1e9;
         double[] best = null;
+
+        // Weighted sum of the perpendicular dodge vectors across ALL inbound
+        // projectiles — one stable evasion direction for the whole volley.
+        double evX = 0.0, evZ = 0.0;
 
         for (Entity e : client.world.entities) {
             if (!isProjectile(e)) continue;
@@ -246,15 +247,48 @@ public class AegisModule extends Module {
                 }
             }
 
-            // Earliest impact wins; same tick -> smaller miss distance.
-            if (minDist < 0.75 && minT <= localWindow
-                    && (minT < bestTicks || (minT == bestTicks && minDist < bestMiss))) {
-                bestTicks = minT;
-                bestMiss = minDist;
-                best = new double[]{hitX, hitY, hitZ, minT};
+            if (minDist < 0.75 && minT <= localWindow) {
+                // Weight: the more imminent the impact, the more it steers
+                // the summed dodge direction.
+                double w = (windowTicks - minT + 2) / (double) (windowTicks + 1);
+                double hSpeed = Math.sqrt(vx * vx + vz * vz);
+                if (hSpeed > 0.01) {
+                    // Perpendicular to the incoming path — moving across the
+                    // line of fire clears the whole trajectory, not just the
+                    // impact point.
+                    evX += (-vz / hSpeed) * w;
+                    evZ += (vx / hSpeed) * w;
+                }
+                // Earliest impact wins; same tick -> smaller miss distance.
+                if (minT < bestTicks || (minT == bestTicks && minDist < bestMiss)) {
+                    bestTicks = minT;
+                    bestMiss = minDist;
+                    best = new double[]{hitX, hitY, hitZ, minT};
+                }
             }
         }
-        return best;
+        if (best == null) return null;
+
+        double len = Math.sqrt(evX * evX + evZ * evZ);
+        if (len < 1e-6) {
+            // Degenerate — e.g. projectiles coming straight down (no
+            // horizontal path to run across). Fall back to away-from-impact
+            // of the earliest threat.
+            double awayX = client.player.x - best[0];
+            double awayZ = client.player.z - best[2];
+            len = Math.sqrt(awayX * awayX + awayZ * awayZ);
+            if (len < 1e-6) {
+                evX = 1.0;
+                evZ = 0.0;
+            } else {
+                evX = awayX / len;
+                evZ = awayZ / len;
+            }
+        } else {
+            evX /= len;
+            evZ /= len;
+        }
+        return new double[]{best[0], best[1], best[2], best[3], evX, evZ};
     }
 
     private boolean isProjectile(Entity e) {
