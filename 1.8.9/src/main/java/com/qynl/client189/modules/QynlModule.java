@@ -93,6 +93,11 @@ public class QynlModule extends Module {
     private int tickCounter = 0;
     private int pingReadTimer = 0;
     private int tabPing = -1;
+    /** EMA-smoothed ping (ms). Tab pings update rarely and jump in 50 ms
+     *  steps; keep-alive pings jitter per packet. Chasing every spike makes
+     *  the rewind window noisy, so the module settles on a stable value. */
+    private int smoothedPing = 100;
+    private Object lastWorld = null;
     private boolean wasInReach = false;
 
     /** Best target + its computed quantum states (shared with render). */
@@ -160,6 +165,23 @@ public class QynlModule extends Module {
             wasInReach = false;
             return;
         }
+        // Hard safety: death or a world switch mid-dodge must never leave
+        // stale movement packets buffered. Flushing coordinates from a
+        // previous life/world after a respawn or teleport is exactly the
+        // desync signature that gets you rubberbanded — or worse. Stand the
+        // dodge down and drain the queue immediately.
+        if (!client.player.isAlive() || client.world != lastWorld) {
+            flush(client);
+            dodgeTicks = 0;
+            dodgeTicksTotal = 0;
+            dodgeDir = 0;
+            dodgeCooldown = 0;
+            if (!client.player.isAlive()) {
+                wasInReach = false;
+                return;
+            }
+        }
+        lastWorld = client.world;
 
         tickCounter++;
         // Sample every tick (20 Hz): the rewinds and the velocity-based
@@ -179,7 +201,8 @@ public class QynlModule extends Module {
 
         int ping = effectivePing();
         if (ping <= 0) ping = 100;
-        long targetMs = System.currentTimeMillis() - ping;
+        smoothedPing = Math.max(20, (int) Math.round(smoothedPing * 0.7 + ping * 0.3));
+        long targetMs = System.currentTimeMillis() - smoothedPing;
         ownA = rewind(histories.get(OWN_ID), targetMs);
         if (ownA == null) {
             ownA = new double[]{client.player.x, client.player.y, client.player.z};
@@ -192,6 +215,7 @@ public class QynlModule extends Module {
         // ── quantum strike: pick the best target ──────────────
         double reach = getDoubleSetting("reach");
         double leadTicks = leadTicks();
+        double[] ownArrive = ownC(client, leadTicks);
         LivingEntity best = null;
         double[] bestA = null;
         double[] bestC = null;
@@ -214,16 +238,26 @@ public class QynlModule extends Module {
             if (a == null) a = new double[]{living.x, living.y, living.z};
             double[] c = arrivalProjection(living, leadTicks);
 
-            // Server-reality distance (A→A) and arrival distance (C→C).
+            // ── the honest hit model ─────────────────────────────────
+            // The server never validates an attack against a PROJECTED
+            // (future) enemy hitbox: it tests the target's authoritative
+            // position (≈ A, the rewind) at packet arrival. The only
+            // legitimate early-hit factor is OUR OWN lead — the server
+            // resolves our attack from OUR arrival position, which is ahead
+            // of the camera when we're moving. So the enemy is always
+            // tested at A, and the arrival check compares our arrival
+            // position (ownC) against the target's server reality (A), not
+            // C-vs-C future-against-future (which would click into empty
+            // space and whiff — or worse, pattern a reach flag).
             double aDist = dist(ownA, a);
-            double cDist = dist(ownC(client, leadTicks), c);
-            double d = Math.min(aDist, cDist);
+            double arriveDist = dist(ownArrive, a);
+            double d = Math.min(aDist, arriveDist);
             if (d < bestDist) {
                 bestDist = d;
                 best = living;
                 bestA = a;
                 bestC = c;
-                bestHit = aDist <= reach || cDist <= reach;
+                bestHit = aDist <= reach || arriveDist <= reach;
                 bestAInReach = aDist <= reach;
             }
         }
@@ -262,10 +296,12 @@ public class QynlModule extends Module {
         wasInReach = hit;
         if (!risingEdge) return;
 
-        // Aim reference: when the server-reality check already passes, use A
-        // (the server's own history — the safe reality); C is only the
-        // early-crossing fallback for approaching targets.
-        double[] aimPoint = targetAInReach ? targetA : targetC;
+        // Aim reference: always the server-reality position A. It is the
+        // position the server's hit test actually runs against, so the
+        // spoofed rotation points at a real registered hitbox — never at a
+        // projected position Intave's pre-aim heuristic could read as
+        // "aiming into empty space". C stays a render-only guide.
+        double[] aimPoint = targetA != null ? targetA : targetC;
         if ("On".equals(getStringSetting("wallCheck"))
                 && !WorldDraw.hasLineOfSight(client,
                         aimPoint[0], aimPoint[1] + target.getEyeHeight(), aimPoint[2])) {
@@ -293,8 +329,7 @@ public class QynlModule extends Module {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null) return;
 
-        int ping = PingTracker.hasPing() ? PingTracker.getPingMs() : 100;
-        long targetMs = System.currentTimeMillis() - ping;
+        long targetMs = System.currentTimeMillis() - instance.smoothedPing;
         double[] own = instance.rewind(instance.histories.get(OWN_ID), targetMs);
         if (own == null) return;
 
@@ -327,7 +362,7 @@ public class QynlModule extends Module {
             double[] ownC = instance.ownC(client, leadT);
 
             boolean aHit = instance.dist(own, a) <= reach;
-            boolean cHit = instance.dist(ownC, c) <= reach;
+            boolean cHit = instance.dist(ownC, a) <= reach;
 
             Box b = living.getBoundingBox();
             double w = (b.maxX - b.minX) / 2.0;
@@ -453,12 +488,14 @@ public class QynlModule extends Module {
         return tabPing;
     }
 
-    /** Arrival lead in ticks: one-way latency + one tick of tick-alignment. */
+    /** Arrival lead in ticks: one-way latency + one tick of tick-alignment.
+     *  Uses the smoothed ping so the lead does not oscillate with every
+     *  keep-alive jitter. */
     private double leadTicks() {
         if ("Manual".equals(getStringSetting("lead"))) {
             return getDoubleSetting("leadMs") / 50.0;
         }
-        int ping = effectivePing();
+        int ping = smoothedPing;
         if (ping > 0) {
             return MathHelper.clamp(ping / 2.0 + 25.0, 40.0, 300.0) / 50.0;
         }
@@ -704,7 +741,10 @@ public class QynlModule extends Module {
         double rightX = Math.cos(yawRad);
         double rightZ = Math.sin(yawRad);
         dodgeDir = (dx * rightX + dz * rightZ) >= 0.0 ? 1 : -1;
-        dodgeTicks = 1 + RANDOM.nextInt(2); // 1–2 ticks only
+        // Sprinting: the flushed catch-up covers more distance per held tick,
+        // so a sprinting dodge is capped at a single tick (a 2-tick sprint
+        // hold reads as a jump, not a step). Walking pace may hold 1–2.
+        dodgeTicks = client.player.isSprinting() ? 1 : 1 + RANDOM.nextInt(2);
         dodgeTicksTotal = dodgeTicks;
     }
 

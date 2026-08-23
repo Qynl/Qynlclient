@@ -173,7 +173,7 @@ chmod +x gradlew
 | **Fullbright** | Makes everything bright |
 | **NoHurtCam** | Removes the damage camera tilt — damage and knockback untouched (render-only, silent) |
 | **NoViewBob** | Removes walking view bobbing — movement and camera control untouched (render-only, silent) |
-| **Zoom** | Hold the key to zoom in smoothly (2×–6× adjustable, eased FOV + sensitivity) — key F7 |
+| **Zoom** | Hold the key to zoom in smoothly (2×–6× adjustable, eased FOV + sensitivity) — key C |
 
 #### Utility
 

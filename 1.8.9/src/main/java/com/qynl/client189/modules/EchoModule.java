@@ -83,7 +83,7 @@ public class EchoModule extends Module {
                 "Sound ESP — renders every sound the server broadcasts (bow shots, pearl throws AND landings, footsteps, potions, chests) as a fading 3D marker, even through walls. Listens only, sends nothing.",
                 Category.RENDER);
         instance = this;
-        bindKey(Keyboard.KEY_F8);
+        bindKey(Keyboard.KEY_K);
         addSetting(Setting.options("mode",      "Sounds",     "All",     "All", "Players", "Mobs", "Utility"));
         addSetting(Setting.range("range",       "Range",       64.0,    16,  128,   8, "b"));
         addSetting(Setting.range("duration",    "Duration",     4.0,     1,    8,   1, "s"));

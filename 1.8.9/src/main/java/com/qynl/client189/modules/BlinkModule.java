@@ -53,6 +53,9 @@ public class BlinkModule extends Module {
     private int holdCounter = 0;
     private int cooldownTicks = 0;
     private boolean holding = false;
+    /** World reference for queue safety — held packets from a previous
+     *  life/world must never be released after a respawn or teleport. */
+    private Object lastWorld = null;
 
     public BlinkModule() {
         super("Blink",
@@ -101,6 +104,16 @@ public class BlinkModule extends Module {
 
     @Override
     public void onTick(MinecraftClient client) {
+        // Death or a world switch must never leave movement packets held:
+        // drain immediately — their coordinates belong to another life.
+        if (client.player == null || !client.player.isAlive() || client.world != lastWorld) {
+            holding = false;
+            flush(client);
+            lastWorld = client.world;
+            return;
+        }
+        lastWorld = client.world;
+
         boolean holdMode = "Hold".equals(getStringSetting("mode"));
         if (holdMode) {
             holding = true;
@@ -137,7 +150,9 @@ public class BlinkModule extends Module {
     }
 
     private void flush(MinecraftClient client) {
-        if (client == null) {
+        // No handler (disconnecting): drop the buffer instead of keeping
+        // stale coordinates that would flush into the next world.
+        if (client == null || client.getNetworkHandler() == null) {
             held.clear();
             return;
         }

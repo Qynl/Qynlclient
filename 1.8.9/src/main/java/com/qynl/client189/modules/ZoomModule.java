@@ -21,7 +21,7 @@ public class ZoomModule extends Module {
     public ZoomModule() {
         super("Zoom", "Hold the key to zoom in smoothly — adjustable level for long-range aiming.",
                 Category.RENDER);
-        bindKey(Keyboard.KEY_F7);
+        bindKey(Keyboard.KEY_C);
         addSetting(Setting.range("level", "Level", 3.0, 2, 6, 1, "x"));
         addSetting(Setting.options("smooth", "Smooth", "On", "On", "Off"));
     }
