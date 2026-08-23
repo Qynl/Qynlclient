@@ -20,8 +20,8 @@ import java.util.Random;
  *       mixin didn't fire (different Yarn mappings, etc.).</li>
  * </ol>
  */
-public class VelocityAssistModule extends Module {
-    private static VelocityAssistModule instance;
+public class VelocityModule extends Module {
+    private static VelocityModule instance;
     private static final Random RANDOM = new Random();
 
     /** Timestamp (millis) when VelocityMixin last dampened a hit. Lets the
@@ -29,16 +29,17 @@ public class VelocityAssistModule extends Module {
      *  so the configured reduction is never applied twice. */
     private static long lastDampenedAtMs = -1;
 
-    public VelocityAssistModule() {
-        super("VelocityAssist", "Reduces knockback naturally — varies slightly each hit to feel legit.", Category.ASSIST);
+    public VelocityModule() {
+        super("Velocity", "Reduces knockback naturally — varies slightly each hit to feel legit.", Category.COMBAT);
         instance = this;
-        bindKey(Keyboard.KEY_H);
-        addSetting(Setting.range("horizontal",  "Horizontal %", 60.0, 0, 90, 5, "%"));
-        addSetting(Setting.range("vertical",    "Vertical %",   30.0, 0, 90, 5, "%"));
+        bindKey(Keyboard.KEY_NONE);
+        addSetting(Setting.range("horizontal",  "Horizontal %", 45.0, 0, 90, 5, "%"));
+        addSetting(Setting.range("vertical",    "Vertical %",   20.0, 0, 90, 5, "%"));
         addSetting(Setting.range("variance",    "Variance",     10.0, 0, 25, 5, "%"));
+        addSetting(Setting.range("chance",      "Chance",       75.0, 0, 100, 5, "%"));
     }
 
-    public static VelocityAssistModule getInstance() { return instance; }
+    public static VelocityModule getInstance() { return instance; }
     public static boolean isActive() { return instance != null && instance.isEnabled(); }
 
     /**
@@ -57,6 +58,15 @@ public class VelocityAssistModule extends Module {
         double var = getDoubleSetting("variance") / 100.0;
         double factor = base + (RANDOM.nextDouble() - 0.5) * var * 2.0;
         return Math.max(0.0, Math.min(0.95, 1.0 - factor));
+    }
+
+    /**
+     * True if this knockback hit should be dampened at all. Real lag hits
+     * randomly: some hits take full knockback, which breaks the "every hit
+     * reduced" pattern statistical AC checks look for.
+     */
+    public static boolean rollChance() {
+        return instance == null || (RANDOM.nextDouble() * 100.0) < instance.getDoubleSetting("chance");
     }
 
     /** Called by VelocityMixin right after it dampens a knockback hit. */

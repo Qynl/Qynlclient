@@ -9,6 +9,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.AxeItem;
 import net.minecraft.item.SwordItem;
 import org.lwjgl.input.Keyboard;
 
@@ -17,227 +18,186 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 
+/**
+ * BlockHit — Vape-Lite-grade sword blocking, tuned to look like a real player.
+ *
+ * <p>Two triggers (mode: Reactive / Rhythm / Both):</p>
+ * <ul>
+ *   <li><b>Reactive</b> — blocks when a nearby enemy swings at you. Swing
+ *       detection is per-entity with a recency window, and the block only
+ *       starts after a randomized human reaction delay.</li>
+ *   <li><b>Rhythm</b> — re-blocks after <i>your own</i> swings while you're
+ *       attacking an enemy in range, the way real blockhitters do. The block
+ *       is released on the tick your swing starts, so attacks land unblocked
+ *       (post-attack blocking), then it comes back up.</li>
+ * </ul>
+ *
+ * <p>Anti-cheat hardening:</p>
+ * <ul>
+ *   <li>Never blocks at air — every block is tied to a swing or an enemy in
+ *       melee range.</li>
+ *   <li>Sprint is dropped one tick before a block so the server sees correct
+ *       block-while-not-sprinting physics (Intave trick).</li>
+ *   <li>All timings are randomized (reaction, hold, chance) with a minimum
+ *       cooldown between block cycles — no fixed clocks to pattern-match.</li>
+ *   <li>Sword/axe only; never interferes with manual item use (eating,
+ *       drinking); releases instantly when the situation ends.</li>
+ * </ul>
+ */
 public class BlockHitModule extends Module {
     private static final Random RANDOM = new Random();
+    private static BlockHitModule instance;
 
-    // Per-entity swing tracking: entityId → tick when they last swung
-    private final Map<Integer, Integer> swingTicks = new HashMap<>();
-    private final Map<Integer, Integer> swingCounts = new HashMap<>();
-
+    // Per-entity swing tracking: entityId -> tick of their last swing start.
+    private final Map<Integer, Integer> enemySwings = new HashMap<>();
     private int tickCounter = 0;
+
+    // State machine
+    private static final int IDLE = 0, REACTING = 1, BLOCKING = 2, COOLDOWN = 3;
+    private int state = IDLE;
+    private int stateTicks = 0;
     private int blockTicksRemaining = 0;
-    private int attackGateTicks = 0;
-    private int rhythmPhase = 0; // 0=idle, 1=attacked, 2=blocking, 3=releasing
-    private int rhythmTimer = 0;
-    private int lastEnemyId = -1;
-    private int noThreatTicks = 0;
+
+    // Our own swing detection (handSwinging rising edge).
+    private boolean wasSwinging = false;
 
     public BlockHitModule() {
-        super("BlockHit", "1.8.9 sword blocking — predicts swings, blocks on reaction, releases fast for counter-attacks.", Category.ASSIST);
-        bindKey(Keyboard.KEY_F);
-        addSetting(Setting.range("reactionMs",  "Reaction",   60.0, 30, 150, 10, "ms"));
-        addSetting(Setting.range("blockTicks",  "Block time",  2.0,  1,   5,  1, "t"));
-        addSetting(Setting.range("maxDist",     "Max range",   3.5, 2.0, 6.0, 0.5, "b"));
-        addSetting(Setting.options("rhythm",     "Rhythm",     "On", "On", "Off"));
-        addSetting(Setting.range("rhythmCps",   "Rhythm CPS",  5.0,  3,  8,  1));
+        super("BlockHit", "Auto-blocks with your sword like a real player — reactive to enemy swings, rhythmic on your own.",
+                Category.COMBAT);
+        instance = this;
+        bindKey(Keyboard.KEY_NONE);
+        addSetting(Setting.options("mode",       "Mode",        "Both",   "Reactive", "Rhythm", "Both"));
+        addSetting(Setting.range("reactionMs",   "Reaction",    110.0,    60,   250,  10, "ms"));
+        addSetting(Setting.range("blockTime",    "Block time",    4.0,    1,     8,   1,  "t"));
+        addSetting(Setting.range("range",        "Range",        3.5,    2.0,   5.0, 0.5, "b"));
+        addSetting(Setting.range("swingWindow",  "Swing detect",  2.0,    1,     4,   1,  "t"));
+        addSetting(Setting.range("chance",       "Chance",       80.0,    0,   100,   5,  "%"));
     }
+
+    public static BlockHitModule getInstance() { return instance; }
+    public static boolean isActive() { return instance != null && instance.isEnabled(); }
 
     // ── per-tick ────────────────────────────────────────────────
+
     @Override
     public void onTick(MinecraftClient client) {
-        if (client.player == null || client.world == null) { reset(); return; }
-        if (!client.player.isAlive() || client.currentScreen != null) { reset(); return; }
-        if (!(client.player.getMainHandStack().getItem() instanceof SwordItem)) { reset(); return; }
+        if (client.player == null || client.world == null || client.interactionManager == null) {
+            reset(client);
+            return;
+        }
+        if (!client.player.isAlive() || client.currentScreen != null) {
+            reset(client);
+            return;
+        }
+        if (!holdsWeapon(client)) {
+            reset(client);
+            return;
+        }
 
         tickCounter++;
-
-        // Clean old swing entries every 40 ticks
         if (tickCounter % 40 == 0) cleanupSwingHistory();
 
-        // Track swings of nearby entities
-        trackEntitySwings(client);
-
-        // If we have an active block hold, maintain it
-        if (blockTicksRemaining > 0) {
-            blockTicksRemaining--;
-            pressUse(client);
-            // If we just finished blocking, start release cooldown
-            if (blockTicksRemaining == 0) {
-                releaseUse(client);
-                attackGateTicks = 1; // allow immediate counter-attack
-            }
+        // Never fight the player's own right-click (eating, drinking, manual block).
+        if (client.player.isUsingItem() && state != BLOCKING) {
             return;
         }
 
-        // Cooldown after releasing block — don't re-block immediately
-        if (attackGateTicks > 0) {
-            attackGateTicks--;
+        // ── Our own swing: the attack must land unblocked ──────
+        boolean swingingNow = client.player.handSwinging;
+        if (swingingNow && !wasSwinging && state == BLOCKING) {
+            // Post-attack blocking: release exactly when our swing starts,
+            // then let Rhythm re-block a tick later.
             releaseUse(client);
-            return;
+            state = COOLDOWN;
+            stateTicks = 1;
+            blockTicksRemaining = 0;
         }
+        wasSwinging = swingingNow;
 
-        // Not attacking? Release and reset
-        if (!client.options.keyAttack.isPressed()) {
-            releaseUse(client);
-            rhythmPhase = 0;
-            rhythmTimer = 0;
-            return;
-        }
+        trackEnemySwings(client);
 
-        // Already using item? Don't interfere
-        if (client.player.isUsingItem()) return;
-
-        // ── Smart block decision ─────────────────────────────
-        LivingEntity threat = findBestThreat(client);
-        if (threat != null) {
-            lastEnemyId = threat.getEntityId();
-            noThreatTicks = 0;
-
-            // Did this enemy just swing?
-            Integer lastSwing = swingTicks.get(threat.getEntityId());
-            boolean enemyJustSwung = lastSwing != null && (tickCounter - lastSwing) <= 2;
-            boolean enemyInRange = isInMeleeRange(client, threat);
-
-            if (enemyJustSwung && enemyInRange) {
-                // Reactive block — enemy just swung, block NOW
-                triggerBlock(client);
+        // ── state machine ──────────────────────────────────────
+        switch (state) {
+            case BLOCKING:
+                // Keep holding; release early if the fight moved away.
+                if (!enemyNearby(client, getDoubleSetting("range") + 1.0)) {
+                    releaseUse(client);
+                    state = COOLDOWN;
+                    stateTicks = 2 + RANDOM.nextInt(2);
+                    blockTicksRemaining = 0;
+                    return;
+                }
+                pressUse(client);
+                blockTicksRemaining--;
+                if (blockTicksRemaining <= 0) {
+                    releaseUse(client);
+                    state = COOLDOWN;
+                    stateTicks = 2 + RANDOM.nextInt(2);
+                }
                 return;
-            }
-        } else if (++noThreatTicks > 10) {
-            // No enemy in range for a while — stop the rhythmic blockhitting
-            // so we don't keep blocking while swinging at nothing.
-            lastEnemyId = -1;
-        }
 
-        // Rhythmic blockhitting when in melee combat
-        if ("On".equals(getStringSetting("rhythm")) && lastEnemyId >= 0) {
-            handleRhythm(client);
-        } else {
-            releaseUse(client);
+            case REACTING:
+                if (--stateTicks <= 0) {
+                    if (rollChance()) {
+                        startBlock(client);
+                    } else {
+                        state = COOLDOWN;
+                        stateTicks = 2 + RANDOM.nextInt(3);
+                    }
+                }
+                return;
+
+            case COOLDOWN:
+                if (--stateTicks <= 0) state = IDLE;
+                return;
+
+            default: // IDLE
+                String mode = getStringSetting("mode");
+                boolean enemyNear = enemyNearby(client, getDoubleSetting("range"));
+                boolean attacking = client.options.keyAttack.isPressed();
+
+                // Rhythm: re-block after our own swings while fighting.
+                if (enemyNear && attacking && ("Rhythm".equals(mode) || "Both".equals(mode))) {
+                    // Only start a block right after a swing, not mid-swing.
+                    if (client.player.handSwinging) {
+                        if (rollChance()) {
+                            startBlock(client);
+                        } else {
+                            state = COOLDOWN;
+                            stateTicks = 1 + RANDOM.nextInt(2);
+                        }
+                    }
+                }
+
+                // Reactive: enemy just swung at us within the window.
+                if (state == IDLE && enemyNear
+                        && ("Reactive".equals(mode) || "Both".equals(mode))
+                        && enemyJustSwung(client)) {
+                    int reactionTicks = Math.max(1, (int) (getDoubleSetting("reactionMs") / 50.0)
+                            + RANDOM.nextInt(3) - 1);
+                    state = REACTING;
+                    stateTicks = reactionTicks;
+                }
+                return;
         }
     }
 
-    // ── rhythmic blockhitting ──────────────────────────────────
-    private void handleRhythm(MinecraftClient client) {
-        int cps = (int) getDoubleSetting("rhythmCps");
-        int cycleLength = Math.max(2, 20 / cps); // ticks per full attack-block cycle
-        int blockPortion = Math.max(1, cycleLength / 4); // block for ~25% of cycle
+    // ── block control ───────────────────────────────────────────
 
-        rhythmTimer++;
-        if (rhythmTimer >= cycleLength) rhythmTimer = 0;
-
-        if (rhythmTimer < blockPortion) {
-            // Block phase
-            pressUse(client);
-        } else {
-            // Attack phase
-            releaseUse(client);
+    /** Starts a block hold with randomized duration and the sprint reset. */
+    private void startBlock(MinecraftClient client) {
+        // Intave: drop sprint a tick before blocking so the server sees the
+        // correct physics (you can't block while sprinting).
+        if (client.player.isSprinting()) {
+            client.player.setSprinting(false);
         }
-    }
-
-    // ── trigger a reactive block ────────────────────────────────
-    private void triggerBlock(MinecraftClient client) {
-        int hold = (int) getDoubleSetting("blockTicks");
-        // Add slight randomization for human feel
-        hold += RANDOM.nextInt(3) - 1;
+        int hold = (int) getDoubleSetting("blockTime");
+        hold += RANDOM.nextInt(3) - 1; // humanize ±1 tick
         if (hold < 1) hold = 1;
         blockTicksRemaining = hold;
         pressUse(client);
-    }
-
-    // ── threat detection ────────────────────────────────────────
-    private LivingEntity findBestThreat(MinecraftClient client) {
-        double maxDist = getDoubleSetting("maxDist");
-        double maxDistSq = maxDist * maxDist;
-        LivingEntity best = null;
-        double bestScore = Double.MAX_VALUE;
-
-        for (Entity entity : client.world.entities) {
-            if (!(entity instanceof LivingEntity)) continue;
-            LivingEntity living = (LivingEntity) entity;
-            if (living == client.player || !living.isAlive()) continue;
-            if (!(living instanceof MobEntity || living instanceof PlayerEntity)) continue;
-
-            double dx = living.x - client.player.x;
-            double dy = living.y - client.player.y;
-            double dz = living.z - client.player.z;
-            double distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq > maxDistSq) continue;
-
-            double dist = Math.sqrt(distSq);
-
-            // Check if this entity is looking at / facing us
-            float yaw = living.yaw * 0.017453292F;
-            double lx = -Math.sin(yaw);
-            double lz = Math.cos(yaw);
-            double dotToUs = (lx * dx + lz * dz) / Math.max(0.01, dist);
-
-            // Prefer enemies that are: close, facing us, recently swung
-            double score = dist;
-
-            Integer lastSwing = swingTicks.get(living.getEntityId());
-            if (lastSwing != null) {
-                int ticksSinceSwing = tickCounter - lastSwing;
-                // Recently swung = more dangerous
-                if (ticksSinceSwing <= 5) score -= 3.0;
-                else if (ticksSinceSwing <= 10) score -= 1.5;
-            }
-
-            // Facing us = more dangerous
-            if (dotToUs > 0.3) score -= 1.0;
-            if (dotToUs > 0.7) score -= 1.5;
-
-            if (score < bestScore) {
-                bestScore = score;
-                best = living;
-            }
-        }
-        return best;
-    }
-
-    // ── swing tracking ──────────────────────────────────────────
-    @SuppressWarnings("unchecked")
-    private void trackEntitySwings(MinecraftClient client) {
-        double maxDist = getDoubleSetting("maxDist") + 2.0;
-        for (Entity entity : client.world.entities) {
-            if (!(entity instanceof LivingEntity)) continue;
-            LivingEntity living = (LivingEntity) entity;
-            if (living == client.player || !living.isAlive()) continue;
-
-            double dx = living.x - client.player.x;
-            double dy = living.y - client.player.y;
-            double dz = living.z - client.player.z;
-            if (dx * dx + dy * dy + dz * dz > (maxDist * maxDist)) continue;
-
-            if (living.handSwinging) {
-                Integer last = swingTicks.get(living.getEntityId());
-                // Only count as a new swing if enough ticks have passed
-                if (last == null || (tickCounter - last) >= 3) {
-                    swingTicks.put(living.getEntityId(), tickCounter);
-                    Integer cnt = swingCounts.getOrDefault(living.getEntityId(), 0);
-                    swingCounts.put(living.getEntityId(), cnt + 1);
-                }
-            }
-        }
-    }
-
-    private void cleanupSwingHistory() {
-        Iterator<Map.Entry<Integer, Integer>> it = swingTicks.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<Integer, Integer> e = it.next();
-            if (tickCounter - e.getValue() > 60) {
-                it.remove();
-                swingCounts.remove(e.getKey());
-            }
-        }
-    }
-
-    // ── helpers ─────────────────────────────────────────────────
-    private boolean isInMeleeRange(MinecraftClient client, LivingEntity target) {
-        double dx = target.x - client.player.x;
-        double dy = target.y - client.player.y;
-        double dz = target.z - client.player.z;
-        return (dx * dx + dy * dy + dz * dz) <= 4.5 * 4.5;
+        state = BLOCKING;
+        stateTicks = 0;
     }
 
     private void pressUse(MinecraftClient client) {
@@ -252,17 +212,101 @@ public class BlockHitModule extends Module {
         }
     }
 
-    private void reset() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client != null && client.options != null) releaseUse(client);
+    private boolean rollChance() {
+        return (RANDOM.nextDouble() * 100.0) < getDoubleSetting("chance");
+    }
+
+    // ── detection ───────────────────────────────────────────────
+
+    private boolean holdsWeapon(MinecraftClient client) {
+        return client.player.getMainHandStack().getItem() instanceof SwordItem
+                || client.player.getMainHandStack().getItem() instanceof AxeItem;
+    }
+
+    /** True if any non-friend enemy is within {@code range} blocks. */
+    private boolean enemyNearby(MinecraftClient client, double range) {
+        if (client.player == null || client.world == null) return false;
+        double rangeSq = range * range;
+        for (Entity entity : client.world.entities) {
+            if (!(entity instanceof LivingEntity)) continue;
+            LivingEntity living = (LivingEntity) entity;
+            if (living == client.player || !living.isAlive()) continue;
+            if (!(living instanceof MobEntity) && !(living instanceof PlayerEntity)) continue;
+            if (FriendsModule.isFriend(FriendsModule.entityName(living))) continue;
+            double dx = living.x - client.player.x;
+            double dy = living.y - client.player.y;
+            double dz = living.z - client.player.z;
+            if (dx * dx + dy * dy + dz * dz <= rangeSq) return true;
+        }
+        return false;
+    }
+
+    /** True if an enemy in range swung within the configured recency window. */
+    private boolean enemyJustSwung(MinecraftClient client) {
+        int window = (int) getDoubleSetting("swingWindow");
+        double rangeSq = getDoubleSetting("range") * getDoubleSetting("range");
+        for (Entity entity : client.world.entities) {
+            if (!(entity instanceof LivingEntity)) continue;
+            LivingEntity living = (LivingEntity) entity;
+            if (living == client.player || !living.isAlive()) continue;
+            if (!(living instanceof MobEntity) && !(living instanceof PlayerEntity)) continue;
+            if (FriendsModule.isFriend(FriendsModule.entityName(living))) continue;
+            double dx = living.x - client.player.x;
+            double dy = living.y - client.player.y;
+            double dz = living.z - client.player.z;
+            if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
+
+            Integer last = enemySwings.get(living.getEntityId());
+            if (last != null && (tickCounter - last) <= window) return true;
+        }
+        return false;
+    }
+
+    /** Records when nearby entities start a swing (rising edge of handSwinging). */
+    private void trackEnemySwings(MinecraftClient client) {
+        double trackRange = getDoubleSetting("range") + 1.5;
+        double rangeSq = trackRange * trackRange;
+        for (Entity entity : client.world.entities) {
+            if (!(entity instanceof LivingEntity)) continue;
+            LivingEntity living = (LivingEntity) entity;
+            if (living == client.player || !living.isAlive()) continue;
+
+            double dx = living.x - client.player.x;
+            double dy = living.y - client.player.y;
+            double dz = living.z - client.player.z;
+            if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
+
+            if (living.handSwinging) {
+                Integer last = enemySwings.get(living.getEntityId());
+                if (last == null || (tickCounter - last) >= 3) {
+                    enemySwings.put(living.getEntityId(), tickCounter);
+                }
+            }
+        }
+    }
+
+    private void cleanupSwingHistory() {
+        Iterator<Map.Entry<Integer, Integer>> it = enemySwings.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Integer, Integer> e = it.next();
+            if (tickCounter - e.getValue() > 60) it.remove();
+        }
+    }
+
+    // ── cleanup ─────────────────────────────────────────────────
+
+    private void reset(MinecraftClient client) {
+        if (client != null && client.options != null && state == BLOCKING) {
+            releaseUse(client);
+        }
+        state = IDLE;
+        stateTicks = 0;
         blockTicksRemaining = 0;
-        attackGateTicks = 0;
-        rhythmPhase = 0;
-        rhythmTimer = 0;
-        lastEnemyId = -1;
-        noThreatTicks = 0;
+        wasSwinging = false;
     }
 
     @Override
-    public void onDisable() { reset(); }
+    public void onDisable() {
+        reset(MinecraftClient.getInstance());
+    }
 }

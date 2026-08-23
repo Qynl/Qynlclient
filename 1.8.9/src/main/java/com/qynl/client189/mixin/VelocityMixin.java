@@ -1,6 +1,6 @@
 package com.qynl.client189.mixin;
 
-import com.qynl.client189.modules.VelocityAssistModule;
+import com.qynl.client189.modules.VelocityModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -30,8 +30,12 @@ public abstract class VelocityMixin {
         if (client.player == null) return;
         if ((Object) this != client.player) return;
 
-        VelocityAssistModule module = VelocityAssistModule.getInstance();
+        VelocityModule module = VelocityModule.getInstance();
         if (module == null || !module.isEnabled()) return;
+
+        // Random per-hit chance: some hits take full knockback, exactly like
+        // real connection jitter — breaks the "every hit reduced" pattern.
+        if (!VelocityModule.rollChance()) return;
 
         // Reduce the velocity before it's applied
         double hx = x * module.horizontalFactor();
@@ -47,7 +51,7 @@ public abstract class VelocityMixin {
         client.player.velocityZ += hz;
 
         // Remember that the mixin handled this hit so the per-tick fallback in
-        // VelocityAssistModule doesn't reduce the same knockback a second time.
-        VelocityAssistModule.markMixinDampened();
+        // VelocityModule doesn't reduce the same knockback a second time.
+        VelocityModule.markMixinDampened();
     }
 }

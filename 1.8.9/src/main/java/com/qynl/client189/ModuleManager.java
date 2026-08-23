@@ -11,55 +11,37 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
 
     public void registerDefaults() {
-        register(new BlockHitModule());
+        // ── Combat ──────────────────────────────────────────────
         register(new AimAssistModule());
-        register(new ReachAssistModule());
         register(new AutoClickerModule());
-        register(new FastPlaceModule());
-        register(new TriggerBotModule());
-        register(new BacktrackModule());
-        register(new BlinkModule());
+        register(new ReachModule());
+        register(new VelocityModule());
+        register(new SprintModule());
+        register(new WTapModule());
+        register(new BlockHitModule());
+        register(new PhantomModule());
+        register(new HindsightModule());
         register(new StrafeAssistModule());
-        register(new VelocityAssistModule());
-        register(new FlyAssistModule());
-        register(new VersionAssistModule());
-        register(new QuantumSuperpositionModule());
-        register(new CritAssistModule());
-        register(new NinjaBridgeModule());
+        // ── Render ──────────────────────────────────────────────
+        register(new SearchModule());
+        register(new NameTagsModule());
+        register(new TracersModule());
+        register(new StorageESPModule());
         register(new FullbrightModule());
         register(new NoHurtCamModule());
         register(new NoViewBobModule());
-        register(new StreamerModeModule());
-        // ── Silent / closet assist modules ───────────────────────────
-        register(new AutoSprintModule());
-        register(new NoSlowModule());
-        register(new NoFallModule());
-        register(new AutoSwordModule());
-        register(new AutoToolModule());
-        register(new AutoArmorModule());
-        register(new AutoRespawnModule());
-        register(new AntiAfkModule());
-        register(new AutoWalkModule());
-        register(new ToggleSneakModule());
-        register(new AutoStepModule());
-        register(new InvWalkModule());
-        register(new AutoEatModule());
-        register(new ChestStealerModule());
         register(new ZoomModule());
-        // ── New silent / closet assists (v1.1) ─────────────────────────
-        register(new ScaffoldWalkModule());
-        register(new KeepSprintModule());
-        register(new NoRotateModule());
-        register(new AntiBlindModule());
-        register(new NoWebModule());
-        // Info HUD modules (mirror of the 1.21.1 client)
-        register(new InfoHudModule());
-        register(new TargetInfoModule());
-        register(new EffectTimersModule());
-        register(new DeathCoordsModule());
-        register(new CoordConvertModule());
-        register(new DurabilityWarnModule());
-        register(new KeystrokesModule());
+        // ── Utility ─────────────────────────────────────────────
+        register(new ScaffoldModule());
+        register(new ChestStealModule());
+        register(new BlinkModule());
+        register(new RefillModule());
+        register(new ThrowpotModule());
+        register(new VersionAssistModule());
+        // ── Other ───────────────────────────────────────────────
+        register(new TextGuiModule());
+        register(new FriendsModule());
+        register(new StreamerModeModule());
     }
 
     private void register(Module module) { modules.add(module); }

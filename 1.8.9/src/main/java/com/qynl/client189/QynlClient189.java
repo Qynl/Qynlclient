@@ -23,7 +23,7 @@ public class QynlClient189 implements ClientModInitializer {
         registerKeyBinding(clickGuiKey);
         moduleManager.registerDefaults();
         moduleManager.loadFromConfig(config);
-        System.out.println("[QynlClient-1.8.9] v" + VERSION + " initialized");
+        System.out.println("[Qyn-L 1.8.9] v" + VERSION + " initialized");
     }
 
     /** Appends a key binding so Minecraft polls it every tick (same pattern as Module.bindKey). */

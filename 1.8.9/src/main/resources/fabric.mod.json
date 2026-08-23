@@ -2,8 +2,8 @@
     "schemaVersion": 1,
     "id": "qynlclient189",
     "version": "${version}",
-    "name": "QynlClient 1.8.9",
-    "description": "Assistive client for Minecraft 1.8.9 — blockhit, aim assist, reach assist and more for players with disabilities.",
+    "name": "Qyn-L 1.8.9",
+    "description": "Qyn-L — a clean, silent ghost client for Minecraft 1.8.9.",
     "authors": ["Qynl"],
     "contact": {
         "homepage": "https://github.com/Qynl/Qynlclient",

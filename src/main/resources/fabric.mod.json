@@ -1,9 +1,8 @@
 {
 	"schemaVersion": 1,
 	"id": "qynlclient",
-	"version": "${version}",
-	"name": "QynlClient",
-	"description": "An assistive Minecraft client: helpful modules for easier play, a toggleable HUD and smooth performance.",
+	"version": "${version}",    "name": "Qyn-L",
+    "description": "Qyn-L — a clean, silent ghost client for Minecraft 1.21.1.",
 	"authors": [
 		"Qynl"
 	],

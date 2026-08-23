@@ -22,12 +22,12 @@ import org.lwjgl.input.Keyboard;
  * gravel, sand, wood…), and <i>auto-close</i> shuts the container the moment
  * it is emptied.</p>
  */
-public class ChestStealerModule extends Module {
+public class ChestStealModule extends Module {
     private int cooldown = 0;
 
-    public ChestStealerModule() {
-        super("ChestStealer", "Open a chest and it automatically takes everything for you.",
-                Category.ASSIST);
+    public ChestStealModule() {
+        super("ChestSteal", "Open a chest and it automatically takes everything for you.",
+                Category.UTILITY);
         bindKey(Keyboard.KEY_NONE);
         addSetting(Setting.range("delay", "Click delay", 3.0, 1, 8, 1, "t"));
         addSetting(Setting.options("valuables", "Only valuables", "Off", "Off", "On"));

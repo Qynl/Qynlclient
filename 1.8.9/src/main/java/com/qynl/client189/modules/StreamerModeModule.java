@@ -6,22 +6,19 @@ import com.qynl.client189.Setting;
 import org.lwjgl.input.Keyboard;
 
 /**
- * StreamerMode for 1.8.9 — hides mod HUD elements from the screen.
- *
- * <p>When enabled, the module list and/or the info HUD disappear. The
- * assists still work silently in the background, but nothing is visible
- * on stream or in recordings.</p>
+ * StreamerMode — hides the Text GUI from the screen while the assists keep
+ * working silently in the background, safe for OBS and recordings.
  */
 public class StreamerModeModule extends Module {
     private static StreamerModeModule instance;
 
     public StreamerModeModule() {
         super("StreamerMode",
-                "Hides all mod HUD elements — safe for OBS and recording. Assists still work silently.",
-                Category.RENDER);
+                "Hides the HUD — safe for OBS and recording. Assists still work silently.",
+                Category.OTHER);
         instance = this;
         bindKey(Keyboard.KEY_F8);
-        addSetting(Setting.options("hideStyle", "Hide style", "All", "All", "HUD only", "Module list"));
+        addSetting(Setting.options("hideStyle", "Hide style", "All", "All", "Text GUI"));
     }
 
     public static StreamerModeModule getInstance() { return instance; }
@@ -29,21 +26,19 @@ public class StreamerModeModule extends Module {
 
     /** Backwards-compatible: hides everything. */
     public static boolean shouldHide() {
-        return shouldHide("any");
+        return shouldHide("all");
     }
 
     /**
      * Returns true if the caller should skip rendering because StreamerMode
      * wants to hide that type of content.
      *
-     * @param type "all" (module list), "hud" (info/keystrokes/durability), or "any"
+     * @param type "all" (Text GUI / module list) or "any"
      */
     public static boolean shouldHide(String type) {
         if (!isActive()) return false;
         String style = instance.getStringSetting("hideStyle");
         if ("All".equals(style)) return true;
-        if ("Module list".equals(style) && "all".equals(type)) return true;
-        if ("HUD only".equals(style) && "hud".equals(type)) return true;
-        return false;
+        return "Text GUI".equals(style) && "all".equals(type);
     }
 }

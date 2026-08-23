@@ -1,12 +1,11 @@
-# QynlClient
+# Qyn-L
 
-**QynlClient** is a free, open-source **assistive Minecraft client** available for **Fabric 1.21.1** and **Legacy Fabric 1.8.9**.
+**Qyn-L** is a Minecraft client available for **Fabric 1.21.1** and **Legacy Fabric 1.8.9**.
 
-It is made for players who find parts of the game hard to handle — people with disabilities, players who are new, or anyone who simply wants a more forgiving experience. It adds helpful in-game automation and accessibility features that do things for you (so you don't need fast clicks, precise timing, or quick reaction), plus an on-screen HUD to switch them on and off, an in-game settings screen to fine-tune each assist, and keybinds you can set — or remove — yourself.
+- **Qyn-L 1.8.9** — a clean, silent **ghost client** in the style of Vape Lite: a small set of high-quality modules tuned to look like a normal player. Aim assistance, reach, velocity, auto-clicker, WTap, sprint, render helpers (Search, NameTags, Tracers, StorageESP, Fullbright), utility (Scaffold, ChestSteal, Blink, Refill, Throwpot), a Text GUI and friends. The UI is a minimal, dark, Vape-style ClickGUI.
+- **Qyn-L 1.21.1** — an assistive client with a broader set of convenience modules for easier play.
 
-The assist modules are deliberately tuned to look like the hand of a normal player: aim corrections snap to the mouse's own pixel grid, react with a human delay, wander slightly instead of locking perfectly, clicks come at irregular intervals, reach fluctuates a little, and knockback is softened by a percentage rather than removed. The goal is that server anti-cheat systems never mistake accessibility help for cheating.
-
-It is **not** a cheat client: no combat hacks, no unfair advantages — just assistance that keeps the game honest while making it playable for everyone.
+All modules are deliberately tuned to mimic a real player: aim corrections snap to the mouse's own pixel grid and react with a human delay, clicks come at irregular intervals, reach fluctuates inside the ghost range, knockback is softened by a percentage rather than removed. No module is immune to aggressive anti-cheat — keep the flashier assists (Scaffold, Blink, the Reach pack-choke) on servers that tolerate them.
 
 ---
 
@@ -17,11 +16,11 @@ It is **not** a cheat client: no combat hacks, no unfair advantages — just ass
 | **1.21.1** | 1.21.1 | `qynlclient` | `qynlclient-*.jar` |
 | **1.8.9** | 1.8.9 | `qynlclient189` | `qynlclient-1.8.9-*.jar` |
 
-The 1.8.9 version ships with **ViaFabric (ViaVersion) embedded** — you can join 1.9–1.21.x servers from your 1.8.9 client with no extra mods. VersionAssist is on by default and auto-detects the server version.
+The 1.8.9 jar ships with **ViaFabric (ViaVersion) embedded** — you can join 1.9–1.21.x servers from your 1.8.9 client with no extra mods.
 
 ---
 
-## QynlClient for Minecraft 1.21.1
+## Qyn-L for Minecraft 1.21.1
 
 ### Requirements
 
@@ -38,7 +37,7 @@ The 1.8.9 version ships with **ViaFabric (ViaVersion) embedded** — you can joi
 4. Place both jar files into your `.minecraft/mods/` folder
 5. Launch the `fabric-loader-1.21.1` profile
 
-**In-game:** Press **Right Shift** to open the QynlClient menu. Enable modules, set keybinds, and adjust settings. Everything is saved automatically.
+**In-game:** Press **Right Shift** to open the Qyn-L menu. Enable modules, set keybinds, and adjust settings. Everything is saved automatically.
 
 ### Building from source
 
@@ -109,15 +108,11 @@ The 1.8.9 version ships with **ViaFabric (ViaVersion) embedded** — you can joi
 | **Keystrokes** | On-screen WASD / mouse / CPS display |
 | **TargetInfo** | Shows info about the entity you're looking at |
 
-#### GUI
-
-| Module | Description |
-|--------|-------------|
-| **ClickGUI** | Opens the QynlClient menu (Right Shift) |
-
 ---
 
-## QynlClient for Minecraft 1.8.9
+## Qyn-L for Minecraft 1.8.9
+
+The 1.8.9 client is the ghost client: a small, focused set of silent modules (Vape-Lite style) and a minimal dark ClickGUI. Everything is saved automatically.
 
 ### Requirements
 
@@ -132,9 +127,7 @@ The 1.8.9 version ships with **ViaFabric (ViaVersion) embedded** — you can joi
 3. Place the jar into your `.minecraft/mods/` folder — **no other mods are needed** (ViaFabric is included)
 4. Launch the fabric-loader-1.8.9 profile
 
-**VersionAssist** is enabled by default — you can join servers from 1.9 through 1.21.x without any extra setup. The server version is auto-detected from the multiplayer server list. Use the built-in **VIA button** on the multiplayer screen for per-server version overrides.
-
-**In-game:** Press **Right Shift** to open the QynlClient menu. Enable modules and adjust settings.
+**In-game:** Press **Right Shift** to open the Qyn-L ClickGUI. Left-click a module to toggle it, right-click to open its settings (keybind + options). The Text GUI shows enabled modules on the HUD.
 
 ### Building from source
 
@@ -148,94 +141,59 @@ chmod +x gradlew
 
 ### 1.8.9 Modules
 
-#### Assist
-
-| Module | Description | Key |
-|--------|-------------|-----|
-| **AimAssist** | Gently guides aim toward nearest hostile while attacking | None |
-| **AntiAFK** | Gently turns your view now and then so servers do not kick you for being idle | None |
-| **AutoArmor** | Automatically equips the best armor you have — no fiddly inventory dragging | J |
-| **AutoClicker** | Holds attack with humanly irregular timing (Rotations / Packets mode) | None |
-| **AutoEat** | Eats the best food in your hotbar automatically when you are hungry | U |
-| **AutoRespawn** | Respawns instantly when you die | None |
-| **AutoSprint** | Sprints automatically while you move forward — no need to hold the sprint key | R |
-| **AutoStep** | Automatically climbs ledges while you walk (1.0 / 1.25 modes) | F6 |
-| **AutoSword** | Automatically switches to your strongest sword when you attack | M |
-| **AutoTool** | Automatically picks the fastest tool for the block you are mining | None |
-| **AutoWalk** | Walks forward automatically — free your hands while travelling | F5 |
-| **Backtrack** | Delays opponents' movement packets so their hitboxes lag a few ms behind — hit them where they just were (client-side; the server's own reach validation still applies) | B |
-| **Blink** | Holds your movement packets for 1–2 ticks (Auto) or while enabled (Hold) so you briefly freeze on the server and break the opponent's combo (fake lag); attacks, block placement and keep-alives still go through | N |
-| **BlockHit** | Rhythmically blocks between sword swings for damage reduction | None |
-| **ChestStealer** | Open a chest and it automatically takes everything — configurable click delay, valuables-only mode that skips junk blocks, and optional auto-close when the container is empty | None |
-| **CritAssist** | Time your jumps so hits land as critical strikes (MiniJump / OnGround modes) | None |
-| **FastPlace** | Shortens the local block-placement delay for held blocks (Legit / Fast / Instant modes); no camera, click automation, or packet spoofing | None |
-| **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla modes) | K |
-| **InvWalk** | Keep walking while your inventory or any menu is open | P |
-| **KeepSprint** | Keeps your sprint through attacks — no speed dip mid-combo (1.8.9 vanilla stops sprint on hit) | F10 |
-| **NinjaBridge** | Auto-sneak at block edges anywhere (Edge scope) or full-speed bridging with placement + auto-walk (Bridge scope, 45° diagonal) | N |
-| **NoRotate** | Blocks servers from forcing your camera rotation — position corrections still apply, only your aim stays yours | F11 |
-| **NoFall** | Prevents fall damage silently — spoofs grounded packets only during real falls | X |
-| **NoSlow** | Removes the slowdown while using items (eating, blocking, bow) — input only, no packet changes | None |
-| **NoWeb** | Removes cobweb slowdown — move through webs at full speed (client-side only, no packets) | None |
-| **QuantumSuperposition** | Latency prediction assist: models where the server thinks you are (A), where you are (B) and where you'll be (C), with adaptive lookahead that scales with speed/ping and collapses when you stop. Flushes your true position before attacks so hits register on high ping, and re-confirms your last stable position during packet-loss spikes (anti-rubberband). Optional **Quantum Echo** overlay renders the superposition in world space: fading position trail, cyan ghost at A, magenta ghost at C, and a pulsing red anchor ring during spikes | Z |
-| **ReachAssist** | Extends your reach slightly with natural fluctuation | None |
-| **ScaffoldWalk** | Places a block under your feet while you walk — bridge gaps and pillar up without aiming down (humanized placement delay) | F9 |
-| **StrafeAssist** | Auto-strafes left/right in combat | None |
-| **ToggleSneak** | Sneaks without holding the key down — handy while building | None |
-| **TriggerBot** | Auto-attacks when your crosshair is on an enemy | None |
-| **VelocityAssist** | Softens knockback by a percentage you choose | None |
-| **VersionAssist** | Play on 1.9–1.21.x servers from 1.8.9 (ViaFabric embedded) | V |
-
-#### Render
-
-| Module | Description | Key |
-|--------|-------------|-----|
-| **Fullbright** | Boost brightness so you can see clearly in the dark | None |
-| **NoHurtCam** | Removes damage camera tilt without changing damage or knockback | None |
-| **AntiBlind** | Removes blindness and nausea screen effects — clear vision in fights (visual only, silent) | None |
-| **NoViewBob** | Removes walking view bobbing without changing movement | None |
-| **StreamerMode** | Hides sensitive info from the HUD for OBS/streaming | None |
-| **Zoom** | Hold the key to zoom in smoothly — adjustable level (2×–6×), FOV and sensitivity glide instead of snapping | F7 |
-
-#### Info
+#### Combat
 
 | Module | Description |
 |--------|-------------|
-| **CoordConvert** | Shows Nether ↔ Overworld coordinate conversions |
-| **DeathCoords** | Remembers where you died and shows it on HUD |
-| **DurabilityWarn** | Shows a warning when your tools are about to break |
-| **EffectTimers** | Shows how much time is left on your active effects |
-| **InfoHUD** | Shows coordinates, FPS, and other info |
-| **Keystrokes** | On-screen WASD / mouse / CPS display |
-| **TargetInfo** | Shows info about the entity you're looking at |
+| **AimAssist** | Smoothly aims at nearby targets with humanized rotation or silent (packet) aiming; never targets friends. Human convergence (damped settling + residual wobble, never perfect lock) and a hard rotation-speed cap |
+| **AutoClicker** | Clicks while you hold attack — human timing variance, burst pattern, random start reaction, slow CPS random walk, micro-pauses while adjusting aim, occasional missed clicks, and a **Block Hit** mode: re-blocks after every swing only when an enemy is in range, randomized hold, sprint-reset |
+| **Reach** | Extends reach with natural fluctuation locked to the ghost range (3.01–3.35 blocks per mode) plus an optional Silent Pack-Choke — now only chokes on the ground while closing on a target (never mid-air) |
+| **Velocity** | Reduces knockback by a percentage with per-hit variance and a **per-hit chance** (default 75%) — some hits take full knockback, exactly like real connection jitter. Softer defaults (45 % / 20 %) |
+| **Sprint** | Sprints automatically while you move — vanilla rules plus randomized start delay, a post-attack re-engage window, and occasional missed starts so the pattern matches a human |
+| **WTap** | Taps W after each hit to reset sprint — extra knockback on the enemy. Only taps while actually sprinting, with a chance setting and ±1 tick humanized delay |
+| **BlockHit** | Vape-Lite-grade auto-blocking: **Reactive** blocks when an enemy swings at you (human reaction delay), **Rhythm** re-blocks after your own swings with attacks landing unblocked (post-attack blocking). Randomized hold/chance/cooldown, sprint-reset before every block, sword/axe only — never blocks at air, never touches manual item use |
+| **Phantom** | **Predictive Strike** — measures your real ping from the keep-alive stream, predicts where an approaching enemy stands on the server when your attack arrives, renders a ghost hitbox (green = hit registers, red = miss, orange = erratic movement, clicks disabled), and swings on the exact boundary crossing. Acceleration-aware prediction, wall check, approaching-only lead, pre-aim guards — every packet is an ordinary, correctly-timed attack |
+| **Hindsight** | **Server-Time Replay** — the flip side of Phantom: instead of predicting the future, it replays the past, which is what the server actually checks. Shows your own **server-side position** (cyan box — on high ping it can be a block from your camera) and every enemy's server-side hitbox with lines, then clicks exactly when the server's own rewind-reach check will pass — works on **retreating** targets too, where forward prediction fails. Zero modified packets, zero flags |
+| **StrafeAssist** | Auto-strafes left/right in combat — randomized interval (±30 %), 10 % hold-skip, never strafes while idle; keeps sprint alive while strafing — key Y |
+
+#### Render
+
+| Module | Description |
+|--------|-------------|
+| **Search** | Outlines chests, ores or storage blocks through walls (cached scan) |
+| **NameTags** | Renders entity nametags through walls — friends green, enemies red |
+| **Tracers** | Draws a line to every entity in range (players red, mobs orange, friends green) |
+| **StorageESP** | Outlines all storage blocks through walls |
+| **Fullbright** | Makes everything bright |
+| **NoHurtCam** | Removes the damage camera tilt — damage and knockback untouched (render-only, silent) |
+| **NoViewBob** | Removes walking view bobbing — movement and camera control untouched (render-only, silent) |
+| **Zoom** | Hold the key to zoom in smoothly (2×–6× adjustable, eased FOV + sensitivity) — key F7 |
+
+#### Utility
+
+| Module | Description |
+|--------|-------------|
+| **Scaffold** | Places a block under your feet while walking — bridge gaps without aiming down. Humanized placement: varying hit vectors, randomized delays, **edge sneak** like a real bridger, and a one-tick **rotation spoof** (1.8.9 placement packets carry no rotation, so ACs infer your look from movement packets — the spoof makes the server see you looking down at the block) |
+| **ChestSteal** | Takes everything from an opened chest, one shift-click at a time |
+| **Blink** | Holds your movement packets briefly (Auto / Hold) — breaks the opponent's combo. Hardened: **burst fake lag** (randomized hold + 12–24 tick gaps, never a constant rate) and holds only on the ground while moving |
+| **Refill** | Refills your hotbar with food and potions from the inventory |
+| **Throwpot** | Press the bind to throw / drink / eat your best healing item |
+| **VersionAssist** | Play on 1.9–1.21 servers from 1.8.9 — embedded ViaVersion translates automatically; pick a target version or Auto — key V |
+
+#### Other
+
+| Module | Description |
+|--------|-------------|
+| **Text GUI** | Shows the enabled modules on the HUD (position + color options) |
+| **Friends** | Comma-separated names that are never targeted and render green |
+| **StreamerMode** | Hides the HUD from OBS/recordings — assists keep working silently — key F8 |
 
 ---
 
 ## Keybinds
 
-| Key | Function |
-|-----|----------|
-| **Right Shift** | Open the QynlClient menu |
-| **Click a module row** | Toggle the module on/off |
-| **Right-click a module** | Open detail panel with settings, toggle, and keybind editor |
+| Key | Action |
+|-----|--------|
+| **Right Shift** | Open the Qyn-L menu |
 
-All keybinds are saved to your config and can be changed from the **Keybinds…** screen in the QynlClient menu. Press **Esc** or **right-click** to clear a keybind.
-
-## Project Structure
-
-```
-├── src/                  # 1.21.1 Fabric mod source
-├── 1.8.9/src/            # 1.8.9 Legacy Fabric mod source
-├── build.gradle          # 1.21.1 build script
-├── 1.8.9/build.gradle    # 1.8.9 build script (embeds ViaFabric)
-├── build/libs/           # 1.21.1 jar output
-└── 1.8.9/build/libs/     # 1.8.9 jar output
-```
-
----
-
-## Support
-
-Found a bug or have an idea? Open an issue at [github.com/Qynl/Qynlclient](https://github.com/Qynl/Qynlclient/issues).
-
-QynlClient is MIT licensed — free forever, for everyone.
+Per-module keybinds are set from the module's settings panel in the ClickGUI (right-click a module → click "Bind"). Press **Esc** to clear a bind. All keybinds and settings are saved to your config automatically.

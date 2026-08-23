@@ -10,6 +10,7 @@ public final class Setting<T> {
     private final boolean numeric;
     private final double min, max, step;
     private final String unit;
+    private boolean text;
     private T value;
 
     private Setting(String key, String label, T value, List<T> options, boolean numeric,
@@ -32,10 +33,18 @@ public final class Setting<T> {
         return range(key, label, value, min, max, step, "");
     }
 
+    /** Free-text setting (e.g. friend names). Value is edited by typing. */
+    public static Setting<String> text(String key, String label, String value) {
+        Setting<String> s = new Setting<>(key, label, value, null, false, 0, 0, 0, "");
+        s.text = true;
+        return s;
+    }
+
     public String getKey() { return key; }
     public String getLabel() { return label; }
     public T getValue() { return value; }
     public double asDouble() { return ((Number) value).doubleValue(); }
+    public boolean isText() { return text; }
     public String valueAsString() { return String.valueOf(value); }
 
     public String displayString() {

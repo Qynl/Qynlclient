@@ -38,7 +38,7 @@ public class AimAssistModule extends Module {
     private double jitterPhase;
 
     public AimAssistModule() {
-        super("AimAssist", "Smooth, humanized aim assist. Rotation + Silent modes.", Category.ASSIST);
+        super("AimAssist", "Smooth, humanized aim assist. Rotation + Silent modes.", Category.COMBAT);
         bindKey(Keyboard.KEY_O);
         addSetting(Setting.options("mode",       "Mode",        "Rotations", "Rotations", "Silent"));
         addSetting(Setting.options("trigger",    "Trigger",     "OnAttack", "OnAttack", "Always"));
@@ -173,6 +173,22 @@ public class AimAssistModule extends Module {
         jitterPhase += 0.4 + RANDOM.nextDouble() * 0.3;
         double wobble = Math.sin(jitterPhase) * 0.03 * (1.0 / Math.max(0.5, strength));
 
+        // Human convergence: near the target, damp the step and settle with a
+        // small residual wobble instead of locking on perfectly. Zero-error
+        // tracking is a textbook aimbot signature.
+        if (absYaw < 8.0) {
+            stepY = yawDelta * 0.55 + Math.sin(jitterPhase * 0.9) * 0.7 * (8.0 - absYaw) / 8.0;
+        }
+        if (absPitch < 6.0) {
+            stepP = pitchDelta * 0.55 + Math.cos(jitterPhase * 0.7) * 0.5 * (6.0 - absPitch) / 6.0;
+        }
+
+        // Hard speed cap: never exceed ~12°/tick (240°/s) — beyond that is
+        // physically impossible for a human and trips rotation-speed checks.
+        double maxStep = 12.0;
+        stepY = MathHelper.clamp(stepY, -maxStep, maxStep);
+        stepP = MathHelper.clamp(stepP, -8.0, 8.0);
+
         return new float[]{
             (float) MathHelper.wrapDegrees(currentYaw + stepY + wobble),
             MathHelper.clamp(currentPitch + (float) stepP, -90.0F, 90.0F)
@@ -203,6 +219,9 @@ public class AimAssistModule extends Module {
             if (!(entity instanceof LivingEntity) || entity == client.player) continue;
             LivingEntity e = (LivingEntity) entity;
             if (!e.isAlive()) continue;
+
+            // Friends are never targeted.
+            if (FriendsModule.isFriend(FriendsModule.entityName(e))) continue;
 
             // Visibility check (1.8.9 compatible — skip if the entity has invisibility potion)
             if (e.isInvisible()) continue;

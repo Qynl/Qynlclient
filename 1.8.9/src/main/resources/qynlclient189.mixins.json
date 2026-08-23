@@ -7,23 +7,17 @@
         "ReachMixin",
         "VelocityMixin",
         "KeyBindingAccessor",
-        "LivingEntityAccessor",
         "MinecraftClientInvoker",
         "ClientPlayerSendMovementMixin",
         "PlayerMoveC2SPacketAccessor",
         "InGameHudMixin189",
-        "CritAttackMixin",
-        "QuantumNetworkMixin",
-        "QuantumConnectionMixin",
-        "QuantumRenderMixin",
-        "NoHurtCamMixin",
-        "NoViewBobMixin",
-        "BacktrackMixin",
         "BlinkMixin",
         "InputMixin",
-        "NoRotateMixin",
-        "AntiBlindMixin",
-        "NoWebMixin"
+        "WTapMixin",
+        "WorldRenderMixin",
+        "NoHurtCamMixin",
+        "NoViewBobMixin",
+        "KeepAliveMixin"
     ],
     "injectors": {
         "defaultRequire": 1

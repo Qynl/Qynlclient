@@ -71,7 +71,7 @@ public class VersionAssistModule extends Module {
         super("VersionAssist",
                 "Play on 1.9–1.21 servers from 1.8.9 — embedded ViaVersion translates "
                         + "automatically. Pick a target version or leave it on Auto.",
-                Category.ASSIST);
+                Category.UTILITY);
         instance = this;
         bindKey(Keyboard.KEY_V);
         addSetting(Setting.options("version", "Target version", "Auto",
@@ -168,7 +168,7 @@ public class VersionAssistModule extends Module {
                 saveMethod.invoke(cachedConfig);
             }
         } catch (Throwable t) {
-            System.err.println("[QynlClient-1.8.9] VersionAssist could not write ViaFabric config: " + t);
+            System.err.println("[Qyn-L 1.8.9] VersionAssist could not write ViaFabric config: " + t);
         }
     }
 }

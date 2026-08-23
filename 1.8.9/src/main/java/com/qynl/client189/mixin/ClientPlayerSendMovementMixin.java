@@ -1,9 +1,7 @@
 package com.qynl.client189.mixin;
 
 import com.qynl.client189.SilentAim;
-import com.qynl.client189.modules.CritAssistModule;
-import com.qynl.client189.modules.FlyAssistModule;
-import com.qynl.client189.modules.NoFallModule;
+import com.qynl.client189.modules.ReachModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.Packet;
@@ -14,58 +12,55 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Packet hook for 1.8.9 — silent aim rotations + silent crit onGround spoofing.
+ * Packet hook for 1.8.9 — silent aim rotations + the Reach pack-choke.
  *
  * <p>Intercepts outgoing {@link PlayerMoveC2SPacket} packets and:</p>
  * <ul>
  *   <li>Replaces yaw/pitch for silent aim when {@link SilentAim} is armed.</li>
- *   <li>Spoofs {@code onGround = false} for silent crits when
- *       {@link CritAssistModule} is active, so every hit lands as a crit
- *       without needing to jump.</li>
+ *   <li>Holds movement packets while {@link ReachModule}'s silent pack-choke
+ *       is active, then flushes them together so the server resolves your
+ *       position further ahead.</li>
  * </ul>
  */
 @Mixin(ClientPlayNetworkHandler.class)
 public abstract class ClientPlayerSendMovementMixin {
 
-    @Inject(method = "sendPacket", at = @At("HEAD"))
+    @Inject(method = "sendPacket", at = @At("HEAD"), cancellable = true)
     private void qynlclient189$silentAimSendPacket(Packet packet, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
         boolean isMovePacket = packet instanceof PlayerMoveC2SPacket;
 
-        // ── Silent aim ───────────────────────────────────────
+        // ── Reach silent pack-choke: while the choke is armed, hold
+        //    movement packets back for 1–2 ticks and flush them together —
+        //    the server resolves your position further ahead than opponents
+        //    see, buying effective reach without an impossible reach value.
+        if (isMovePacket && ReachModule.shouldHoldPacket()) {
+            ReachModule.buffer(packet);
+            ci.cancel();
+            return;
+        }
+
+        // ── Silent aim (one-shot) ────────────────────────────
         if (SilentAim.isArmed() && isMovePacket) {
             PlayerMoveC2SPacket move = (PlayerMoveC2SPacket) packet;
 
-            SilentAim.captureVisual(client.player.yaw, client.player.pitch);
+            // Scaffold pre-captures the real camera rotation before setting
+            // the player's yaw/pitch to the spoof for one tick; AimAssist
+            // never touches the camera, so capturing here is the real value.
+            if (!SilentAim.hasCapturedVisual()) {
+                SilentAim.captureVisual(client.player.yaw, client.player.pitch);
+            }
 
             ((PlayerMoveC2SPacketAccessor) move).setYaw(SilentAim.getSilentYaw());
             ((PlayerMoveC2SPacketAccessor) move).setPitch(SilentAim.getSilentPitch());
 
             client.player.yaw = SilentAim.getVisualYaw();
             client.player.pitch = SilentAim.getVisualPitch();
-        }
 
-        // ── Silent crits ─────────────────────────────────────
-        if (isMovePacket && CritAssistModule.shouldSpoof(client)) {
-            PlayerMoveC2SPacketAccessor move = (PlayerMoveC2SPacketAccessor) packet;
-            CritAssistModule.captureOriginalGround(move.getOnGround());
-            move.setOnGround(false);
-        }
-
-        // ── Silent fly: servers see the player as grounded while the
-        //    velocity-based FlyAssist hovers/climbs (no fall damage, no
-        //    obvious flight pattern).
-        if (isMovePacket && FlyAssistModule.shouldSpoofGround()) {
-            ((PlayerMoveC2SPacketAccessor) packet).setOnGround(true);
-        }
-
-        // ── NoFall: while genuinely falling past the safe distance, the
-        //    server is told the player is grounded so no landing is ever
-        //    recorded and no fall damage is taken.
-        if (isMovePacket && NoFallModule.shouldSpoof(client)) {
-            ((PlayerMoveC2SPacketAccessor) packet).setOnGround(true);
+            // One-shot: modules re-arm per tick as needed.
+            SilentAim.clear();
         }
     }
 }

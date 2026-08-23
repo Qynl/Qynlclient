@@ -13,26 +13,31 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Blink (Fake Lag) — briefly holds back your movement packets.
  *
- * <p>While active, outgoing {@link PlayerMoveC2SPacket}s are buffered by
- * {@link BlinkMixin} instead of being sent. The client keeps moving normally,
- * but the server — and every other player — sees you frozen where you were.
- * When the buffer is flushed, the server processes the whole trajectory at
- * once and catches you up in a burst. Opponents who try to combo you hit
- * where you <i>were</i>, which breaks their chain without any visible
- * teleport abuse.</p>
+ * <p>While a hold cycle is active, outgoing {@link PlayerMoveC2SPacket}s are
+ * buffered by {@link BlinkMixin} instead of being sent. The client keeps
+ * moving normally, but the server — and every other player — sees you frozen
+ * where you were. When the buffer is flushed, the server processes the whole
+ * trajectory at once and catches you up in a burst. Opponents who try to
+ * combo you hit where you <i>were</i>, which breaks their chain.</p>
+ *
+ * <p>Anti-cheat hardened: holds only happen <b>on the ground while moving</b>
+ * (a frozen position mid-air or while idle is the strongest position-desync
+ * signature there is), hold length is randomized, and Auto mode is a
+ * <b>burst</b> pattern — a short hold followed by a 12–24 tick gap — instead
+ * of constant fake lag, which statistical ACs flag instantly.</p>
  *
  * <p>Only movement packets are held: attacks, block placement, keep-alives
- * and everything else go straight through, so the connection stays healthy
- * and the module is safe to leave on.</p>
+ * and everything else go straight through.</p>
  *
  * <p>Modes:</p>
  * <ul>
- *   <li><b>Auto</b> (default) — holds packets for {@code ticks} (1–5, default
- *       2) and flushes, repeating forever. A constant 1–2 tick fake lag.</li>
+ *   <li><b>Auto</b> (default) — burst fake lag: random 1–4 tick hold, then a
+ *       gap, repeating. Safe enough to leave on.</li>
  *   <li><b>Hold</b> — holds while enabled, flushes everything on disable
  *       (classic blink). A safety cap auto-flushes so the delay can never
  *       grow into a timeout.</li>
@@ -41,15 +46,18 @@ import java.util.List;
 public class BlinkModule extends Module {
     /** Hard cap on buffered packets (≈5 s of movement) before auto-flush. */
     private static final int MAX_HELD = 100;
+    private static final Random RANDOM = new Random();
 
     private static BlinkModule instance;
     private final Deque<Packet> held = new ArrayDeque<>();
     private int holdCounter = 0;
+    private int cooldownTicks = 0;
+    private boolean holding = false;
 
     public BlinkModule() {
         super("Blink",
                 "Holds your movement packets for a moment so the server sees you frozen — breaks the opponent's combo (fake lag).",
-                Category.ASSIST);
+                Category.UTILITY);
         instance = this;
         bindKey(Keyboard.KEY_N);
         addSetting(Setting.options("mode", "Mode", "Auto", "Auto", "Hold"));
@@ -61,9 +69,18 @@ public class BlinkModule extends Module {
     public static BlinkModule getInstance() { return instance; }
     public static boolean isActive() { return instance != null && instance.isEnabled(); }
 
-    /** True for packets that should be held — movement only. */
+    /** True for packets that should be held — movement only, on ground, moving. */
     public static boolean shouldHold(Packet packet) {
-        return instance != null && instance.isEnabled() && packet instanceof PlayerMoveC2SPacket;
+        if (instance == null || !instance.isEnabled() || !instance.holding) return false;
+        if (!(packet instanceof PlayerMoveC2SPacket)) return false;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return false;
+        // Never desync mid-air and never while idle — no gain, pure flag risk.
+        if (!client.player.onGround) return false;
+        if (client.player.input.movementForward == 0.0F && client.player.input.movementSideways == 0.0F) {
+            return false;
+        }
+        return true;
     }
 
     public static void hold(Packet packet) {
@@ -84,19 +101,37 @@ public class BlinkModule extends Module {
 
     @Override
     public void onTick(MinecraftClient client) {
-        if ("Auto".equals(getStringSetting("mode"))) {
-            if (++holdCounter >= (int) getDoubleSetting("ticks")) {
-                holdCounter = 0;
+        boolean holdMode = "Hold".equals(getStringSetting("mode"));
+        if (holdMode) {
+            holding = true;
+            if (held.size() >= MAX_HELD) {
                 flush(client);
             }
-        } else if (held.size() >= MAX_HELD) {
-            // Hold-mode safety cap: never let the delay grow into a timeout.
-            flush(client);
+            return;
+        }
+
+        // Auto: burst fake lag — hold, flush, then a long randomized gap so
+        // the holds never form a constant-rate pattern.
+        if (holding) {
+            int holdTarget = Math.max(1, (int) getDoubleSetting("ticks") + RANDOM.nextInt(2));
+            if (++holdCounter >= holdTarget) {
+                holding = false;
+                holdCounter = 0;
+                flush(client);
+                cooldownTicks = 12 + RANDOM.nextInt(13); // 12–24 tick gap
+            }
+        } else if (cooldownTicks > 0) {
+            cooldownTicks--;
+        } else {
+            holding = true;
+            holdCounter = 0;
         }
     }
 
     @Override
     public void onDisable() {
+        holding = false;
+        cooldownTicks = 0;
         MinecraftClient client = MinecraftClient.getInstance();
         flush(client);
     }
