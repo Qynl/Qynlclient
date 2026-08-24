@@ -20,6 +20,27 @@ The 1.8.9 jar ships with **ViaFabric (ViaVersion) embedded** — you can join 1.
 
 ---
 
+## Qyn-L Clean BedWars texture packs
+
+The repository includes two original, version-specific BedWars/PvP packs under `texturepacks/`:
+
+| Pack | Minecraft | Focus |
+|------|-----------|-------|
+| `QynL-Clean-BedWars-1.8.9` | 1.8.9 | High-detail clean legacy layout, readable team wool, low-clutter glass, custom tools and dark GUI |
+| `QynL-Clean-BedWars-1.21.1` | 1.21.1 | Modern `block/`, `item/`, GUI-sprite and bed-entity paths with the same clean visual language |
+
+Both packs use original generated overlays and keep vanilla fallback assets where no BedWars-specific redesign is needed. They are not copies of Bare Bones or any other third-party pack. Install the folder matching your Minecraft version in `.minecraft/resourcepacks/` and enable it in the Resource Packs menu.
+
+Regenerate both packs from the official client jars with:
+
+```sh
+bun scripts/gen-qynl-packs.mjs
+```
+
+The generator downloads the official jars into `.cache/` when they are not already available, preserves version-correct animation metadata, and writes pack formats 1 and 34 for 1.8.9 and 1.21.1 respectively.
+
+---
+
 ## Qyn-L for Minecraft 1.21.1
 
 ### Requirements
