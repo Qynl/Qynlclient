@@ -96,8 +96,19 @@ public final class Setting<T> {
 
 	@SuppressWarnings("unchecked")
 	public void setFromString(String s) {
+		if (s == null) {
+			return;
+		}
 		if (numeric) {
-			value = (T) Double.valueOf(s);
+			try {
+				double parsed = Double.parseDouble(s.trim());
+				if (!Double.isFinite(parsed)) {
+					return;
+				}
+				value = (T) Double.valueOf(Math.max(min, Math.min(max, parsed)));
+			} catch (NumberFormatException ignored) {
+				// Keep the current value when a config or GUI edit is invalid.
+			}
 		} else if (value instanceof Boolean) {
 			value = (T) Boolean.valueOf(s);
 		} else {

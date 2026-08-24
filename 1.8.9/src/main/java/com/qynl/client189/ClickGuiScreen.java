@@ -453,7 +453,7 @@ public class ClickGuiScreen extends Screen {
             MinecraftClient.getInstance().openScreen(null);
             return;
         }
-        if (keyCode == Keyboard.KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE && !waitingForKey) {
             // Esc clears an active search first — close only when it's empty.
             if (searching || !searchBuffer.isEmpty()) {
                 searchBuffer = "";
@@ -466,9 +466,13 @@ public class ClickGuiScreen extends Screen {
         }
 
         if (waitingForKey) {
+            if (selectedModule == null) {
+                waitingForKey = false;
+                return;
+            }
             if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_BACK || keyCode == Keyboard.KEY_DELETE) {
                 selectedModule.setKeyCode(-1);
-            } else if (keyCode > 0 && selectedModule != null) {
+            } else if (keyCode > 0) {
                 selectedModule.setKeyCode(keyCode);
             }
             waitingForKey = false;

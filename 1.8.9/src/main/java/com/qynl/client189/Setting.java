@@ -73,7 +73,9 @@ public final class Setting<T> {
         if (s == null) return;
         if (numeric) {
             try {
-                value = (T) Double.valueOf(s.trim());
+                double parsed = Double.parseDouble(s.trim());
+                if (!Double.isFinite(parsed)) return;
+                value = (T) Double.valueOf(Math.max(min, Math.min(max, parsed)));
             } catch (NumberFormatException e) {
                 // Keep the current value — a corrupt config entry must never
                 // crash the client (this ran unguarded from config load).
