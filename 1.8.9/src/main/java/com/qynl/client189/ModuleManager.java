@@ -89,7 +89,11 @@ public class ModuleManager {
             int key = config.getModuleKey(module.getName(), module.getKeyCode());
             if (key != module.getKeyCode()) module.setKeyCode(key);
             for (Map.Entry<String, String> entry : config.getModuleSettings(module.getName()).entrySet()) {
-                module.applySetting(entry.getKey(), entry.getValue());
+                try {
+                    module.applySetting(entry.getKey(), entry.getValue());
+                } catch (RuntimeException ignored) {
+                    // One corrupt setting must never block client startup.
+                }
             }
         }
     }

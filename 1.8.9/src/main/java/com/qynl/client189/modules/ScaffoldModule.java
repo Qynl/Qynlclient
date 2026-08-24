@@ -115,21 +115,67 @@ public class ScaffoldModule extends Module {
             return;
         }
 
-        // Place against the block below the target (face UP) through the
-        // normal right-click path. The hit point varies across the face each
-        // time — a perfectly centered hit vector on every placement is a
-        // machine signature some ACs fingerprint.
-        BlockPos support = target.down();
+        // Support block + face to place against. When filling the block ahead
+        // (bridging), the support is the block we stand on — the placement
+        // goes against its side face facing the gap. When placing under our
+        // own feet, the support is the block below (face UP). The support
+        // must always be solid: the server silently drops placements whose
+        // support block is air, so the old target.down() support broke
+        // forward bridging over gaps (the block under the gap is air).
+        BlockPos feet = new BlockPos(
+                (int) Math.floor(player.x),
+                (int) Math.floor(player.getBoundingBox().minY - 0.01),
+                (int) Math.floor(player.z));
+        BlockPos support;
+        Direction face;
+        int tdx = target.getX() - feet.getX();
+        int tdz = target.getZ() - feet.getZ();
+        if (tdx == 0 && tdz == 0) {
+            support = feet.down();
+            face = Direction.UP;
+        } else if (tdx > 0) {
+            support = feet;
+            face = Direction.EAST;
+        } else if (tdx < 0) {
+            support = feet;
+            face = Direction.WEST;
+        } else if (tdz > 0) {
+            support = feet;
+            face = Direction.SOUTH;
+        } else {
+            support = feet;
+            face = Direction.NORTH;
+        }
+
+        // The hit point varies across the face each time — a perfectly
+        // centered hit vector on every placement is a machine signature some
+        // ACs fingerprint.
         boolean humanize = "On".equals(getStringSetting("humanize"));
-        Vec3d hitVec = humanize
-                ? new Vec3d(support.getX() + 0.35 + RANDOM.nextDouble() * 0.3,
-                        support.getY() + 1.0,
-                        support.getZ() + 0.35 + RANDOM.nextDouble() * 0.3)
-                : new Vec3d(support.getX() + 0.5, support.getY() + 1.0, support.getZ() + 0.5);
+        double rx = humanize ? 0.35 + RANDOM.nextDouble() * 0.3 : 0.5;
+        double ry = humanize ? 0.35 + RANDOM.nextDouble() * 0.3 : 0.5;
+        double rz = humanize ? 0.35 + RANDOM.nextDouble() * 0.3 : 0.5;
+        Vec3d hitVec;
+        switch (face) {
+            case UP:
+                hitVec = new Vec3d(support.getX() + rx, support.getY() + 1.0, support.getZ() + rz);
+                break;
+            case EAST:
+                hitVec = new Vec3d(support.getX() + 1.0, support.getY() + ry, support.getZ() + rz);
+                break;
+            case WEST:
+                hitVec = new Vec3d(support.getX(), support.getY() + ry, support.getZ() + rz);
+                break;
+            case SOUTH:
+                hitVec = new Vec3d(support.getX() + rx, support.getY() + ry, support.getZ() + 1.0);
+                break;
+            default: // NORTH
+                hitVec = new Vec3d(support.getX() + rx, support.getY() + ry, support.getZ());
+                break;
+        }
 
         // Edge sneak: while bridging over air, hold sneak exactly like a real
         // bridger (Vulcan/Intave scaffold checks expect the sneak state).
-        setSneak(client, isAir(client, support.down()));
+        setSneak(client, isAir(client, target.down()));
 
         // Rotation spoof: 1.8.9 placement packets carry no rotation, so ACs
         // infer the placement look from movement packets. Arm a one-tick
@@ -162,8 +208,12 @@ public class ScaffoldModule extends Module {
             spoofPending = true;
         }
 
+        // The face passed here determines where the block actually goes
+        // (support.offset(face)) — it must be the computed face, not UP:
+        // clicking the side of the block under our feet with face EAST
+        // places the block into the gap ahead.
         boolean placed = client.interactionManager.onRightClick(
-                player, (ClientWorld) client.world, held, support, Direction.UP, hitVec);
+                player, (ClientWorld) client.world, held, support, face, hitVec);
         if (placed) {
             player.swingHand();
             int base = (int) getDoubleSetting("delay");

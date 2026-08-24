@@ -32,7 +32,6 @@ public class AimAssistModule extends Module {
     private Entity target;
     private int reactionTicks;
     private int overrideTicks;
-    private double lastMouseX, lastMouseY;
     private double aimYawJitter, aimPitchJitter;
     private int jitterTimer;
     private double jitterPhase;
@@ -97,9 +96,12 @@ public class AimAssistModule extends Module {
     // ── aim state machine ───────────────────────────────────────
 
     private void updateAimState(MinecraftClient client, Entity newTarget) {
-        double mx = org.lwjgl.input.Mouse.getX(), my = org.lwjgl.input.Mouse.getY();
-        double move = Math.hypot(mx - lastMouseX, my - lastMouseY);
-        lastMouseX = mx; lastMouseY = my;
+        // Relative mouse motion (getDX/getDY) — resolution independent. The
+        // old absolute getX/getY deltas measured raw window pixels, so on
+        // high-DPI / large monitors even a tiny nudge exceeded the threshold
+        // and the aim override never expired (aim silently never engaged).
+        double move = Math.abs(org.lwjgl.input.Mouse.getDX())
+                + Math.abs(org.lwjgl.input.Mouse.getDY());
 
         if (move > 5.0) overrideTicks = 8;
         else if (overrideTicks > 0) overrideTicks--;

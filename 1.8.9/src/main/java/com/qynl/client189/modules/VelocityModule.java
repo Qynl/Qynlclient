@@ -29,6 +29,14 @@ public class VelocityModule extends Module {
      *  so the configured reduction is never applied twice. */
     private static long lastDampenedAtMs = -1;
 
+    /** Per-knockback factor captured on the rising edge of hurtTime, so the
+     *  fallback applies ONE reduction across the whole hurt window instead of
+     *  re-rolling a fresh random factor every tick (which over-reduced and
+     *  made the effective dampening drift from the configured value). */
+    private double fallbackHKeep = 1.0;
+    private double fallbackVKeep = 1.0;
+    private int fallbackHurtTicks = 0;
+
     public VelocityModule() {
         super("Velocity", "Reduces knockback naturally — varies slightly each hit to feel legit.", Category.COMBAT);
         instance = this;
@@ -90,20 +98,35 @@ public class VelocityModule extends Module {
         // (hurtTime counts down from 10 right after being hit). Without this
         // gate the fallback would also slow normal walking and jumping,
         // because movement input produces velocity every tick.
-        if (client.player.hurtTime <= 0) return;
+        if (client.player.hurtTime <= 0) {
+            fallbackHurtTicks = 0;
+            return;
+        }
 
         // If VelocityMixin already dampened this hit, skip — otherwise the
         // configured reduction would be applied a second time on top of it.
-        if (mixinDampenedRecently(client)) return;
+        if (mixinDampenedRecently(client)) {
+            fallbackHurtTicks = 0;
+            return;
+        }
 
-        double hKeep = horizontalFactor(); // already 1.0 - reduction%
-        double vKeep = verticalFactor();
+        // Rising edge of this knockback: capture the reduction once (with
+        // variance), then spread it over the remaining hurt window via the
+        // nth-root — the hit reaches the configured keep % exactly, instead
+        // of stacking a fresh random factor on every tick.
+        if (fallbackHurtTicks == 0) {
+            fallbackHurtTicks = Math.max(1, client.player.hurtTime);
+            fallbackHKeep = horizontalFactor(); // already 1.0 - reduction%
+            fallbackVKeep = verticalFactor();
+        }
 
-        // Per-tick multiplier: nth-root so over ~5 ticks it reaches the target
-        double hPerTick = Math.pow(hKeep, 1.0 / 5.0);
-        double vPerTick = Math.pow(vKeep, 1.0 / 5.0);
+        // Per-tick multiplier: nth-root so over the hurt window it reaches
+        // the captured target exactly.
+        double hPerTick = Math.pow(fallbackHKeep, 1.0 / fallbackHurtTicks);
+        double vPerTick = Math.pow(fallbackVKeep, 1.0 / fallbackHurtTicks);
         client.player.velocityX *= hPerTick;
         client.player.velocityZ *= hPerTick;
         client.player.velocityY *= vPerTick;
+        fallbackHurtTicks--;
     }
 }

@@ -234,8 +234,10 @@ public class BlockHitModule extends Module {
     // ── detection ───────────────────────────────────────────────
 
     private boolean holdsWeapon(MinecraftClient client) {
-        return client.player.getMainHandStack().getItem() instanceof SwordItem
-                || client.player.getMainHandStack().getItem() instanceof AxeItem;
+        // 1.8.9 returns a null stack for an empty hand — never dereference it.
+        net.minecraft.item.ItemStack stack = client.player.getMainHandStack();
+        if (stack == null || stack.getItem() == null) return false;
+        return stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
     }
 
     /** True if any non-friend enemy is within {@code range} blocks. */

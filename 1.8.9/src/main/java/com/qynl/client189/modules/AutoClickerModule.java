@@ -99,8 +99,7 @@ public class AutoClickerModule extends Module {
         // The standalone BlockHit module (Vape-style) takes over blocking
         // when it's active — never double-block.
         boolean blockhit = "On".equals(getStringSetting("blockhit")) && !BlockHitModule.isActive();
-        boolean holdingWeapon = client.player.getMainHandStack().getItem() instanceof SwordItem
-                || client.player.getMainHandStack().getItem() instanceof AxeItem;
+        boolean holdingWeapon = isSwordOrAxe(client.player.getMainHandStack());
 
         // Maintain an active block hold from the previous swing.
         if (blockhit && holdingWeapon && blockTicksRemaining > 0) {
@@ -110,6 +109,12 @@ public class AutoClickerModule extends Module {
             } else {
                 releaseUse(client);
             }
+        } else if (blockTicksRemaining > 0) {
+            // Block-hit was interrupted (weapon switched away, blockhit
+            // toggled off, hand emptied): never leave the use button stuck
+            // down — release it so the player isn't left blocking.
+            blockTicksRemaining = 0;
+            releaseUse(client);
         }
 
         // Slow random walk of the target CPS (humans speed up and slow down).
@@ -203,6 +208,14 @@ public class AutoClickerModule extends Module {
             if (dx * dx + dy * dy + dz * dz <= rangeSq) return true;
         }
         return false;
+    }
+
+    /** True only when the main hand actually holds a sword/axe. In 1.8.9 an
+     *  empty hand is a null stack — dereferencing it crashes the tick, so
+     *  never assume it is non-null. */
+    private static boolean isSwordOrAxe(net.minecraft.item.ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        return stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem;
     }
 
     private void pressUse(MinecraftClient client) {

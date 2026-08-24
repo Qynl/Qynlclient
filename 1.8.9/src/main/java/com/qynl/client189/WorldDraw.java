@@ -34,6 +34,7 @@ public final class WorldDraw {
         GlStateManager.enableDepthTest();
         GlStateManager.depthMask(true);
         GlStateManager.enableTexture();
+        GlStateManager.enableLighting();
         GlStateManager.popMatrix();
     }
 

@@ -156,6 +156,9 @@ public class ReachModule extends Module {
      */
     private void tickChoke(MinecraftClient client) {
         if (!"On".equals(getStringSetting("choke"))) {
+            // Choke was toggled off — if it was mid-arm, drain any buffered
+            // movement packets so stale coordinates never flush later.
+            flush(client);
             armed = false;
             holdTicksLeft = 0;
             return;

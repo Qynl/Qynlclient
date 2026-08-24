@@ -341,6 +341,11 @@ public class DirectorModule extends Module {
     public void onTick(MinecraftClient client) {
         focus = null;
         if (client.player == null || client.world == null) return;
+        // Freeze the tactic while a GUI screen is open: toggling combat
+        // modules behind the ClickGUI would fight the user's own clicks in
+        // the settings panel, and there is no fight to direct while a screen
+        // is up anyway. State stays frozen and resumes on close.
+        if (client.currentScreen != null) return;
 
         tickCounter++;
         assess(client);

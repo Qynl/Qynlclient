@@ -77,6 +77,19 @@ public class ThrowpotModule extends Module {
 
         // 2. Move it into the selected hotbar slot if it is not there yet.
         if (bestSlot >= 9) {
+            // Only shift-click when the hotbar actually has a free slot —
+            // otherwise the click does nothing and we would spam inventory
+            // clicks every tick.
+            boolean hotbarFree = false;
+            for (int i = 0; i < 9; i++) {
+                if (inv.main[i] == null) {
+                    hotbarFree = true;
+                    break;
+                }
+            }
+            if (!hotbarFree) {
+                return;
+            }
             int syncId = client.player.playerScreenHandler.syncId;
             client.interactionManager.clickSlot(syncId, bestSlot, 0, 1, client.player);
             // It lands in the first empty hotbar slot; grab it next tick.

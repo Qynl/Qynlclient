@@ -70,7 +70,16 @@ public final class Setting<T> {
 
     @SuppressWarnings("unchecked")
     public void setFromString(String s) {
-        if (numeric) value = (T) Double.valueOf(s);
-        else value = (T) s;
+        if (s == null) return;
+        if (numeric) {
+            try {
+                value = (T) Double.valueOf(s.trim());
+            } catch (NumberFormatException e) {
+                // Keep the current value — a corrupt config entry must never
+                // crash the client (this ran unguarded from config load).
+            }
+        } else {
+            value = (T) s;
+        }
     }
 }

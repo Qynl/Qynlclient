@@ -47,10 +47,13 @@ public class StorageESPModule extends Module {
         int range = (int) getDoubleSetting("range");
         int cx = (int) Math.floor(client.player.x) >> 4;
         int cz = (int) Math.floor(client.player.z) >> 4;
-        if (--scanTimer > 0 && cx == lastPlayerChunkX && cz == lastPlayerChunkZ) {
+        boolean movedChunk = cx != lastPlayerChunkX || cz != lastPlayerChunkZ;
+        // Full scan only when the player enters a new chunk, or every ~2 s as
+        // a failsafe for block changes. Standing still should cost nothing.
+        if (!movedChunk && --scanTimer > 0) {
             return;
         }
-        scanTimer = 10;
+        scanTimer = 40;
         lastPlayerChunkX = cx;
         lastPlayerChunkZ = cz;
 

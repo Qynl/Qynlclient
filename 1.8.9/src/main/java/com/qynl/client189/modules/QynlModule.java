@@ -271,23 +271,30 @@ public class QynlModule extends Module {
         if (doDodge) {
             tickDodge(client);
         } else {
+            // Collapse was toggled off — if it was mid-hold (movement packets
+            // already buffered), drain them now. Stale coordinates flushed
+            // later (after a re-enable or world change) are a desync.
             dodgeTicks = 0;
             dodgeTicksTotal = 0;
             dodgeDir = 0;
+            flush(client);
         }
 
         if (!doClick || target == null) {
             wasInReach = targetWillHit;
             return;
         }
+        boolean hit = targetWillHit;
+        boolean risingEdge = hit && !wasInReach;
+        // Update the reach state BEFORE the deferral returns, so the rising
+        // edge is never stale when AutoClicker (or the key) releases —
+        // otherwise a target that came into reach while deferred would fire
+        // an immediate click instead of waiting for a fresh crossing.
+        wasInReach = hit;
+        if (!risingEdge) return;
         // Defer to AutoClicker — never double-click a raw CPS stream.
         if (AutoClickerModule.isActive()) return;
         if (!client.options.keyAttack.isPressed()) return;
-
-        boolean hit = targetWillHit;
-        boolean risingEdge = hit && !wasInReach;
-        wasInReach = hit;
-        if (!risingEdge) return;
 
         // Aim reference: always the server-reality position A. It is the
         // position the server's hit test actually runs against, so the

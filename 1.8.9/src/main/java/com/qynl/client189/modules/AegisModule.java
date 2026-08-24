@@ -192,10 +192,13 @@ public class AegisModule extends Module {
 
             // Perf guard: skip projectiles far outside the search radius —
             // anything closer than that is the only thing that can reach us
-            // within the simulation horizon anyway.
+            // within the simulation horizon anyway. The margin is a full
+            // (range + 8)^2 so fast arrows launched from outside the radius
+            // are still caught on the way in.
             double dx = e.x - client.player.x;
             double dz = e.z - client.player.z;
-            double margin = searchSq + 64.0; // (range + 8)^2, fast arrows from afar
+            double radius = Math.sqrt(searchSq);
+            double margin = (radius + 8.0) * (radius + 8.0);
             if (dx * dx + dz * dz > margin) continue;
 
             double vx = e.velocityX;
