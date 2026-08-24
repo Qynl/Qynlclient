@@ -1,0 +1,145 @@
+plugins {
+    id 'fabric-loom' version '1.7-SNAPSHOT'
+}
+
+version = project.client_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    maven { url 'https://maven.legacyfabric.net/' }
+    mavenCentral()
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Qyn-L Injector
+//
+// Not a Fabric mod: this project compiles the client against the same yarn
+// mappings as the 1.8.9 mod, but ships as a Java agent that loads into a
+// vanilla 1.8.9 game and remaps every client class to the obfuscated runtime
+// names at class-load time. The mappings file itself is bundled into the jar.
+// ────────────────────────────────────────────────────────────────────────────
+
+configurations {
+    asmBundle
+    // The two raw mapping halves merged by TinyMerge at build time.
+    intermediaryBundle
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.legacyfabric:yarn:${project.mappings_build}:v2"
+
+    // Compile-only: loom already puts the game's libraries (incl. Gson) on
+    // the compile classpath.
+    compileOnly 'org.ow2.asm:asm-all:5.2'
+
+    // Vanilla 1.8.9 does NOT ship ASM — bundle it into the agent jar. asm-all
+    // 5.2 covers the whole ClassReader/ClassWriter/ClassRemapper API surface
+    // we use, so the agent runs standalone and inside the game with zero
+    // classpath conflicts.
+    asmBundle 'org.ow2.asm:asm-all:5.2'
+
+    // official → intermediary (shipped obfuscated names to intermediary).
+    intermediaryBundle 'net.legacyfabric:intermediary:1.8.9:v2'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+// Loom's remapJar is for Fabric mods — the injector jar must stay untouched.
+tasks.named('remapJar').configure { enabled = false }
+
+// The single distributable jar: launcher main class when run directly,
+// agent entry points when passed via -javaagent. Loom redirects the plain
+// jar to devlibs/ with a -dev classifier for mods — undo that so the
+// injector jar lands in build/libs without remapping. Bundles the yarn
+// mappings (tiny) and ASM, which vanilla 1.8.9 does not ship.
+//
+// Merge the two raw mapping halves into the single tiny v2 file the agent
+// bundles (official + intermediary + named). Deterministic, no loom internals.
+def extractedTiny = layout.buildDirectory.file('tmp/mappings/mappings.tiny')
+def intermediaryJar = configurations.intermediaryBundle
+def yarnJar = configurations.mappings
+tasks.register('extractMappings', JavaExec) {
+    dependsOn intermediaryJar, yarnJar
+    def out = extractedTiny
+    outputs.file(out)
+    classpath = sourceSets.main.runtimeClasspath
+    classpath += configurations.compileClasspath
+    mainClass = 'com.qynl.injector.agent.TinyMerge'
+    doFirst {
+        out.get().asFile.parentFile.mkdirs()
+        args intermediaryJar.singleFile.absolutePath,
+             yarnJar.singleFile.absolutePath,
+             out.get().asFile.absolutePath
+    }
+}
+
+def asmAll = configurations.asmBundle
+tasks.named('jar') {
+    archiveClassifier = ''
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    // The merged tiny (official+intermediary+named) is the one loom puts on
+    // the compile classpath — the only jar there containing the resource.
+    dependsOn configurations.compileClasspath
+    dependsOn tasks.named('extractMappings')
+    from(extractedTiny) {
+        into 'mappings'
+    }
+    from({ zipTree(asmAll.singleFile) }) {
+        include 'org/objectweb/asm/**'
+    }
+    manifest {
+        attributes(
+                'Main-Class': 'com.qynl.injector.launcher.LauncherMain',
+                'Premain-Class': 'com.qynl.injector.agent.QynlAgent',
+                'Agent-Class': 'com.qynl.injector.agent.QynlAgent',
+                'Can-Retransform-Classes': 'true',
+                'Can-Set-Native-Method-Prefix': 'true'
+        )
+    }
+}
+
+// The exact vanilla 1.8.9 client jar, fetched once from Mojang's CDN.
+def vanillaJar = file("${buildDir}/vanilla/1.8.9.jar")
+tasks.register('downloadVanilla') {
+    doLast {
+        vanillaJar.parentFile.mkdirs()
+        if (!vanillaJar.exists() || vanillaJar.length() == 0L) {
+            logger.lifecycle("Downloading vanilla 1.8.9 client jar ...")
+            def manifest = new groovy.json.JsonSlurper().parse(new URL('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'))
+            def version = manifest.versions.find { it.id == '1.8.9' }
+            if (version == null) throw new GradleException('1.8.9 not found in version manifest')
+            def meta = new groovy.json.JsonSlurper().parse(new URL(version.url))
+            new URL(meta.downloads.client.url).withInputStream { input ->
+                vanillaJar.withOutputStream { output -> output << input }
+            }
+        }
+    }
+}
+
+// Offline verification of the hook + remap pipeline against the real
+// obfuscated 1.8.9 client jar. Run with: ./gradlew -p injector verifyHooks
+tasks.register('verifyHooks', JavaExec) {
+    dependsOn tasks.named('classes'), tasks.named('downloadVanilla')
+    group = 'verification'
+    description = 'Verifies every injected hook resolves against the obfuscated 1.8.9 jar and that client classes remap cleanly.'
+    classpath = sourceSets.main.runtimeClasspath
+    classpath += configurations.compileClasspath
+    classpath += files(vanillaJar)
+    mainClass = 'com.qynl.injector.agent.VerifyHooks'
+    systemProperty 'verify.mcjar', vanillaJar.absolutePath
+    systemProperty 'verify.classdir', sourceSets.main.output.classesDirs.singleFile.absolutePath
+}

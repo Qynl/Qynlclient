@@ -1,6 +1,6 @@
 # Qyn-L
 
-**Qyn-L** is a Minecraft client available for **Fabric 1.21.1** and **Legacy Fabric 1.8.9**.
+**Qyn-L** is a Minecraft client available for **Fabric 1.21.1**, **Legacy Fabric 1.8.9**, and — on the `injector` branch — as a **standalone Java agent for vanilla 1.8.9** that needs no Fabric, no Forge, no LiteLoader and no mods folder at all.
 
 - **Qyn-L 1.8.9** — a clean, silent **ghost client** in the style of Vape Lite: a small set of high-quality modules tuned to look like a normal player. A flagship quantum-strike engine (**Qynl**), an AI **Director** that decides which combat modules may act and how hard, aim assistance, reach, velocity, auto-clicker, WTap, sprint, an evasion engine (**Aegis**), render helpers (Search, NameTags, Tracers, StorageESP, Echo, Fullbright), utility (Scaffold, ChestSteal, Blink, Refill, Throwpot, Clutch), a Text GUI and friends. The UI is a minimal, dark, Vape-style ClickGUI.
 - **Qyn-L 1.21.1** — an assistive client with a broader set of convenience modules for easier play.
@@ -11,10 +11,11 @@ All modules are deliberately tuned to mimic a real player: aim corrections snap 
 
 ## Versions
 
-| Version | Minecraft | Mod ID | Download |
-|---------|-----------|--------|----------|
-| **1.21.1** | 1.21.1 | `qynlclient` | `qynlclient-*.jar` |
-| **1.8.9** | 1.8.9 | `qynlclient189` | `qynlclient-1.8.9-*.jar` |
+| Version | Minecraft | Type | Artifact |
+|---------|-----------|------|----------|
+| **1.21.1** | 1.21.1 | Fabric mod | `qynlclient-*.jar` |
+| **1.8.9** | 1.8.9 | Fabric mod | `qynlclient-1.8.9-*.jar` |
+| **Injector** | 1.8.9 | Java agent | `qynl-injector-1.0.0.jar` (branch `injector`) |
 
 The 1.8.9 jar ships with **ViaFabric (ViaVersion) embedded** — you can join 1.9–1.21.x servers from your 1.8.9 client with no extra mods.
 
@@ -194,6 +195,44 @@ chmod +x gradlew
 | **Text GUI** | Shows the enabled modules on the HUD (position + color options) |
 | **Friends** | Comma-separated names that are never targeted and render green |
 | **StreamerMode** | Hides the HUD from OBS/recordings — assists keep working silently — key F8 |
+
+---
+
+## Qyn-L Injector (vanilla 1.8.9, no Fabric)
+
+The `injector` branch rebuilds the 1.8.9 ghost client as a **Java agent**. You install **nothing** — no Fabric Loader, no mods folder, no third-party launcher. It is the same 30-module client (Qynl, Director, AimAssist, Reach, Velocity, Scaffold, Blink, Clutch, …), the same Vape-style ClickGUI and HUD, running inside an **unmodified vanilla 1.8.9 game**.
+
+### How it works
+
+- **Not DLL injection.** The injector is a pure-Java agent attached via Java's official Instrumentation API (`-javaagent:qynl-injector.jar`). It runs inside the game's JVM — no native code, no unsigned DLLs, nothing your antivirus should care about.
+- **Runtime name remapping.** Vanilla 1.8.9 ships *obfuscated* (e.g. `Minecraft` is `ave`). The client is compiled against the same yarn mappings as the mod; at class-load time the agent rewrites every `net.minecraft…` reference to the real shipped name (bundled `mappings.tiny`).
+- **No Mixin.** All the old mixin hooks (tick loop, HUD, packets, attack, velocity, camera) are injected with ASM into the obfuscated classes, calling into the client's `GameHooks`.
+- **Offline session, no account login.** The launcher starts the game in offline mode (`--accessToken 0 --userType legacy`, random UUID) — you type any username, no Microsoft/Mojang login happens anywhere. This means the client plays on **offline-mode / cracked servers**; premium servers that validate sessions against Mojang will reject the fake token (premium login is intentionally not included).
+
+### Requirements
+
+- A **vanilla 1.8.9 installation** created once by the official Minecraft launcher (only the game files in `.minecraft` are used — no login needed to fetch them), or a 1.8.9 installation from any launcher in the standard layout
+- **Java 8** to run Minecraft 1.8.9 (the launcher itself runs on any JDK)
+
+### How to use
+
+1. Build once: `./gradlew -p injector build` → `injector/build/libs/qynl-injector-1.0.0.jar`
+2. Run `java -jar injector/build/libs/qynl-injector-1.0.0.jar`
+3. Set your game directory (auto-detected), username, memory, and Java 8 path → **Launch**
+
+Or **Attach** to a running 1.8.9 game instead: pick the Minecraft process from the list — the client boots on the next tick.
+
+**In-game:** **Right Shift** opens the ClickGUI, same as the mod. Config is saved to `qynlclient189.json` in the game directory.
+
+### Verification
+
+The build runs an offline self-check (`./gradlew -p injector verifyHooks`) that resolves every injected hook against the real obfuscated 1.8.9 jar and asserts every client class remaps with no unresolved references:
+
+```
+[verify] mappings: 2507 classes, 8434 methods, 8850 fields
+[verify]   ave -> ok (3 marker(s))   ... (all 9 hook targets)
+[verify] ALL CHECKS PASSED
+```
 
 ---
 
