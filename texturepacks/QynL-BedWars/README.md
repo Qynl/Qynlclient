@@ -1,10 +1,12 @@
 # Qyn-L BedWars PvP (1.8.9)
 
-Clean Bare Bones style pack tuned for BedWars:
-- Saturated flat wool (all 16 layer colors) with a subtle weave
-- Muted terracotta, near-invisible bordered glass + panes
-- Clean red bed, TNT with letters, seamed planks/logs, flat ores/metal
-- Clean sword/tool/item icons and a dark container GUI
-- Every other solid block is a flat authentic-vanilla-color texture
+Built on the **real Bare Bones** resource pack by **RobotPants** (https://modrinth.com/resourcepack/bare-bones, All Rights Reserved).
+
+BedWars tuning on top of Bare Bones:
+- **Wool (all 16 colors)**: subtle weave on Bare Bones' flat colors so
+  bed / layer colors read better at a distance
+- **Container GUI**: clean dark panel (inventory, chest, double chest,
+  crafting table, furnace) matching the Qyn-L client
+- Everything else stays 100% Bare Bones (glass, beds, TNT, items, …)
 
 Place the folder in `.minecraft/resourcepacks/` (or your launcher's pack folder).
