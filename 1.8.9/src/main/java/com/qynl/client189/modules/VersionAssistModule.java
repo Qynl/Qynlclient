@@ -52,7 +52,13 @@ public class VersionAssistModule extends Module {
         VERSIONS.put("1.20.6", 766);
         VERSIONS.put("1.21", 767);
         VERSIONS.put("1.21.1", 767);
+        VERSIONS.put("1.21.2", 768);
+        VERSIONS.put("1.21.3", 768);
         VERSIONS.put("1.21.4", 769);
+        VERSIONS.put("1.21.5", 770);
+        VERSIONS.put("1.21.6", 771);
+        VERSIONS.put("1.21.7", 772);
+        VERSIONS.put("1.21.8", 773);
     }
 
     private String appliedVersion = "";
