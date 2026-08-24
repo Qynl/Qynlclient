@@ -45,7 +45,7 @@ public class ScaffoldModule extends Module {
         super("Scaffold", "Places a block under your feet while walking — bridge gaps and pillars without aiming down.",
                 Category.UTILITY);
         bindKey(Keyboard.KEY_F9);
-        addSetting(Setting.options("mode",   "Mode",    "Forward", "Forward", "Always"));
+        addSetting(Setting.options("mode",   "Mode",    "Forward", "Forward", "Always", "NinjaBridge"));
         addSetting(Setting.range("delay",    "Delay",   2.0, 1, 6, 1, "t"));
         addSetting(Setting.options("humanize", "Humanize", "On", "On", "Off"));
     }
@@ -190,6 +190,17 @@ public class ScaffoldModule extends Module {
         if (lDist > 0.01) {
             float spoofYaw = (float) Math.toDegrees(Math.atan2(-ldx, ldz));
             float spoofPitch = (float) Math.toDegrees(Math.asin(-ldy / lDist));
+            boolean ninja = "NinjaBridge".equals(getStringSetting("mode"));
+            if (ninja) {
+                // Ninja bridging reads as a ~50° down-forward glance — the
+                // player looks down barely past the horizon while walking,
+                // never straight down (a straight-down look + diagonal step
+                // is exactly what flags silent scaffold as inhuman). Force
+                // the spoofed pitch into the 48–56° ninja band; the yaw
+                // already points at the placement cell being bridged.
+                spoofPitch = Math.min(90.0F, Math.max(30.0F,
+                        52.0F + (RANDOM.nextFloat() - 0.5F) * 8.0F));
+            }
             // GCD fix: snap the spoofed look to the mouse grid, exactly like
             // a real mouse turn. An instant snap to a non-grid rotation is
             // the fingerprint Grim uses to catch silent scaffold.
@@ -236,25 +247,45 @@ public class ScaffoldModule extends Module {
                 (int) Math.floor(player.getBoundingBox().minY - 0.01),
                 (int) Math.floor(player.z));
 
-        // Movement direction (from input yaw, which is what walking uses).
         float yawRad = (float) Math.toRadians(player.yaw);
-        double lookDx = -Math.sin(yawRad);
-        double lookDz = Math.cos(yawRad);
-        double mx = player.x - player.prevX;
-        double mz = player.z - player.prevZ;
-        double speed = Math.sqrt(mx * mx + mz * mz);
-
-        // Prefer the block ahead (movement direction, falling back to look).
         int dx, dz;
-        if (speed > 0.02) {
-            dx = (int) Math.signum(mx);
-            dz = (int) Math.signum(mz);
+        if ("NinjaBridge".equals(getStringSetting("mode"))) {
+            // Ninja bridging places DIAGONALLY at 45°: the combined forward +
+            // strafe input steers the placement into the next cell the player
+            // will step into. Holding W+D bridges forward-right, W+A forward-
+            // left — the classic 45° ninja technique — instead of always the
+            // pure forward cell. Falls back to the feet block when idle.
+            double fwd = player.input.movementForward;
+            double strafe = player.input.movementSideways;
+            double vx = -Math.sin(yawRad) * fwd + Math.cos(yawRad) * strafe;
+            double vz = Math.cos(yawRad) * fwd + Math.sin(yawRad) * strafe;
+            double vlen = Math.sqrt(vx * vx + vz * vz);
+            if (vlen < 0.05) {
+                dx = 0;
+                dz = 0;
+            } else {
+                vx /= vlen;
+                vz /= vlen;
+                dx = (int) Math.signum(vx);
+                dz = (int) Math.signum(vz);
+            }
         } else {
-            dx = (int) Math.signum(lookDx);
-            dz = (int) Math.signum(lookDz);
+            // Movement direction (from input yaw, which is what walking
+            // uses); falls back to the look direction when idle.
+            double mx = player.x - player.prevX;
+            double mz = player.z - player.prevZ;
+            double speed = Math.sqrt(mx * mx + mz * mz);
+            if (speed > 0.02) {
+                dx = (int) Math.signum(mx);
+                dz = (int) Math.signum(mz);
+            } else {
+                dx = (int) Math.signum(-Math.sin(yawRad));
+                dz = (int) Math.signum(Math.cos(yawRad));
+            }
         }
+
         BlockPos ahead = feet.add(dx, 0, dz);
-        if (isAir(client, ahead) && isAir(client, ahead.down())) {
+        if ((dx != 0 || dz != 0) && isAir(client, ahead) && isAir(client, ahead.down())) {
             return ahead;
         }
         if (isAir(client, feet)) {
