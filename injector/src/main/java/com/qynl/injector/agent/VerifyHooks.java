@@ -1,12 +1,22 @@
 package com.qynl.injector.agent;
 
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.TypePath;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Enumeration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -18,8 +28,12 @@ import java.util.zip.ZipFile;
  * <ol>
  *   <li>For every class the agent transforms: load the real obfuscated class
  *       bytes from the vanilla 1.8.9 jar, apply {@link GameHookTransformer}
- *       and assert the expected hook/interface markers landed in the output.
- *       This proves every yarn→obfuscated name resolution is correct.</li>
+ *       and assert the expected hook markers landed in the output. This
+ *       proves every yarn→obfuscated name resolution is correct.</li>
+ *   <li>For every member {@link com.qynl.client189.ReflectionAccess} resolves
+ *       reflectively at runtime: assert the mapped obfuscated field/method
+ *       actually exists on the real class in the vanilla jar. Reflection
+ *       fails silently until first use, so this must be proven offline.</li>
  *   <li>For every compiled client class: apply {@link ClientRemapTransformer}
  *       and assert no mappable {@code net.minecraft...} reference survives.
  *       This proves the client bytecode will resolve inside the game.</li>
@@ -48,6 +62,7 @@ public final class VerifyHooks {
                 + TinyMappings.get().methodCount() + " methods, " + TinyMappings.get().fieldCount() + " fields");
 
         verifyHooks(mcJar);
+        verifyReflectionTargets(mcJar);
         verifyRemap(classDir);
 
         if (errors == 0) {
@@ -88,6 +103,69 @@ public final class VerifyHooks {
         }
     }
 
+    // ── part 1b: reflection accessor resolution ───────────────────────────
+
+    private static void verifyReflectionTargets(String mcJar) throws IOException {
+        System.out.println("[verify] === reflection accessors ===");
+        try (ZipFile zip = new ZipFile(mcJar)) {
+            checkMethod(zip, "net/minecraft/client/MinecraftClient", "doAttack", "()V");
+            checkField(zip, "net/minecraft/client/options/KeyBinding", "pressed");
+            checkField(zip, "net/minecraft/client/options/KeyBinding", "code");
+            checkField(zip, "net/minecraft/network/packet/c2s/play/PlayerMoveC2SPacket", "yaw");
+            checkField(zip, "net/minecraft/network/packet/c2s/play/PlayerMoveC2SPacket", "pitch");
+        }
+    }
+
+    private static void checkMethod(ZipFile zip, String yarnClass, String yarnMethod, String yarnDesc)
+            throws IOException {
+        TinyMappings mappings = TinyMappings.get();
+        String obfClass = mappings.mapClass(yarnClass);
+        String obfMethod = mappings.mapMethod(yarnClass, yarnMethod, yarnDesc);
+        String obfDesc = mappings.mapDesc(yarnDesc);
+        byte[] bytes = readZip(zip, obfClass + ".class");
+        if (bytes == null) {
+            fail("reflection target class not found: " + obfClass);
+            return;
+        }
+        List<String> methods = new ArrayList<>();
+        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM5) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+                methods.add(name + desc);
+                return null;
+            }
+        }, 0);
+        if (methods.contains(obfMethod + obfDesc)) {
+            System.out.println("[verify]   " + yarnClass + "." + yarnMethod + " -> " + obfClass + "." + obfMethod + obfDesc + " ok");
+        } else {
+            fail("reflection method '" + obfMethod + obfDesc + "' not found on " + obfClass);
+        }
+    }
+
+    private static void checkField(ZipFile zip, String yarnClass, String yarnField) throws IOException {
+        TinyMappings mappings = TinyMappings.get();
+        String obfClass = mappings.mapClass(yarnClass);
+        String obfField = mappings.mapField(yarnClass, yarnField);
+        byte[] bytes = readZip(zip, obfClass + ".class");
+        if (bytes == null) {
+            fail("reflection target class not found: " + obfClass);
+            return;
+        }
+        List<String> fields = new ArrayList<>();
+        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM5) {
+            @Override
+            public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
+                fields.add(name);
+                return null;
+            }
+        }, 0);
+        if (fields.contains(obfField)) {
+            System.out.println("[verify]   " + yarnClass + "." + yarnField + " -> " + obfClass + "." + obfField + " ok");
+        } else {
+            fail("reflection field '" + obfField + "' not found on " + obfClass);
+        }
+    }
+
     // ── part 2: client remap ──────────────────────────────────────────────
 
     private static void verifyRemap(String classDir) throws IOException {
@@ -115,9 +193,12 @@ public final class VerifyHooks {
                 fail("remap returned null for " + internal);
                 continue;
             }
-            // Every remaining net/minecraft reference must be an unmapped
-            // (readable) class — anything mappable that survived is a bug.
-            for (String ref : collectMinecraftRefs(out)) {
+            // Every remaining net/minecraft class reference must be unmapped
+            // (readable) — anything mappable that survived is a bug. Only
+            // genuine class references are inspected (constant-pool class
+            // entries via descriptors/owners); plain string literals like the
+            // yarn lookup keys in ReflectionAccess are intentionally kept.
+            for (String ref : collectClassRefs(out)) {
                 String mapped = TinyMappings.get().mapClass(ref);
                 if (!mapped.equals(ref)) {
                     fail("unmapped reference '" + ref + "' -> should be '" + mapped + "' in " + internal);
@@ -198,25 +279,131 @@ public final class VerifyHooks {
         return rel.substring(0, rel.length() - ".class".length());
     }
 
-    /** Collects distinct net/minecraft class references from a class file's raw bytes. */
-    private static java.util.Set<String> collectMinecraftRefs(byte[] bytes) {
-        java.util.Set<String> refs = new java.util.LinkedHashSet<>();
-        String text = new String(bytes, StandardCharsets.UTF_8);
-        int idx = 0;
-        while ((idx = text.indexOf("net/minecraft", idx)) >= 0) {
-            int start = idx;
-            int end = start;
-            while (end < text.length()) {
-                char c = text.charAt(end);
-                if (Character.isLetterOrDigit(c) || c == '/' || c == '$' || c == '_') {
-                    end++;
-                } else {
-                    break;
+    /**
+     * Collects distinct net/minecraft class references from a class file,
+     * walking the real constant-pool references (class, super, interfaces,
+     * owners, descriptors, signatures, annotations, class literals). Plain
+     * string literals are not class references and are deliberately ignored.
+     */
+    private static java.util.Set<String> collectClassRefs(byte[] bytes) {
+        final java.util.Set<String> refs = new java.util.LinkedHashSet<>();
+        new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM5) {
+            @Override
+            public void visit(int version, int access, String name, String signature,
+                              String superName, String[] interfaces) {
+                add(name);
+                add(superName);
+                if (interfaces != null) {
+                    for (String iface : interfaces) add(iface);
+                }
+                addDesc(signature);
+            }
+
+            @Override
+            public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
+                addDesc(desc);
+                addDesc(signature);
+                return null;
+            }
+
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+                addDesc(desc);
+                addDesc(signature);
+                if (exceptions != null) {
+                    for (String ex : exceptions) add(ex);
+                }
+                return new MethodVisitor(Opcodes.ASM5) {
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner, String fName, String fDesc) {
+                        add(owner);
+                        addDesc(fDesc);
+                    }
+
+                    @Override
+                    public void visitMethodInsn(int opcode, String owner, String mName, String mDesc, boolean itf) {
+                        add(owner);
+                        addDesc(mDesc);
+                    }
+
+                    @Override
+                    public void visitTypeInsn(int opcode, String type) {
+                        add(type);
+                    }
+
+                    @Override
+                    public void visitLdcInsn(Object cst) {
+                        if (cst instanceof Type) {
+                            addDesc(((Type) cst).getDescriptor());
+                        }
+                    }
+
+                    @Override
+                    public void visitMultiANewArrayInsn(String desc, int dims) {
+                        addDesc(desc);
+                    }
+
+                    @Override
+                    public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
+                        add(type);
+                    }
+
+                    @Override
+                    public void visitLocalVariable(String vName, String desc, String signature,
+                                                   Label start, Label end, int index) {
+                        addDesc(desc);
+                        addDesc(signature);
+                    }
+
+                    @Override
+                    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+                        addDesc(desc);
+                        return null;
+                    }
+
+                    @Override
+                    public AnnotationVisitor visitParameterAnnotation(int parameter, String desc, boolean visible) {
+                        addDesc(desc);
+                        return null;
+                    }
+
+                    @Override
+                    public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String desc, boolean visible) {
+                        addDesc(desc);
+                        return null;
+                    }
+                };
+            }
+
+            @Override
+            public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+                addDesc(desc);
+                return null;
+            }
+
+            @Override
+            public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String desc, boolean visible) {
+                addDesc(desc);
+                return null;
+            }
+
+            private void add(String cls) {
+                if (cls != null && cls.startsWith("net/minecraft/")) {
+                    refs.add(cls);
                 }
             }
-            refs.add(text.substring(start, end));
-            idx = end;
-        }
+
+            private void addDesc(String desc) {
+                if (desc == null) return;
+                int i = 0;
+                while ((i = desc.indexOf('L', i)) >= 0) {
+                    int end = desc.indexOf(';', i);
+                    if (end < 0) break;
+                    add(desc.substring(i + 1, end));
+                    i = end + 1;
+                }
+            }
+        }, 0);
         return refs;
     }
 

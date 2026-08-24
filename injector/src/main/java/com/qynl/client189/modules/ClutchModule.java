@@ -5,7 +5,7 @@ import com.qynl.client189.Module;
 import com.qynl.client189.PingTracker;
 import com.qynl.client189.Setting;
 import com.qynl.client189.WorldDraw;
-import com.qynl.client189.access.IKeyBindingAccess;
+import com.qynl.client189.ReflectionAccess;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Material;
 import net.minecraft.client.MinecraftClient;
@@ -168,7 +168,7 @@ public class ClutchModule extends Module {
     private void resetAll(MinecraftClient client) {
         abort(client);
         if (sneakHeld && client != null && client.options != null) {
-            ((IKeyBindingAccess) client.options.keySneak).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySneak, false);
             sneakHeld = false;
         }
         edgeDanger = false;
@@ -246,10 +246,10 @@ public class ClutchModule extends Module {
         edgeDanger = computeEdgeDanger(client);
         boolean want = "On".equals(getStringSetting("edge")) && edgeDanger;
         if (want && !sneakHeld) {
-            ((IKeyBindingAccess) client.options.keySneak).qynlSetPressed(true);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySneak, true);
             sneakHeld = true;
         } else if (!want && sneakHeld) {
-            ((IKeyBindingAccess) client.options.keySneak).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySneak, false);
             sneakHeld = false;
         }
     }

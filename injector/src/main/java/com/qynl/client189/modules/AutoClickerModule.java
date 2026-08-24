@@ -2,9 +2,8 @@ package com.qynl.client189.modules;
 
 import com.qynl.client189.Category;
 import com.qynl.client189.Module;
+import com.qynl.client189.ReflectionAccess;
 import com.qynl.client189.Setting;
-import com.qynl.client189.access.IKeyBindingAccess;
-import com.qynl.client189.access.IMinecraftAccess;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.AxeItem;
 import net.minecraft.item.SwordItem;
@@ -160,7 +159,7 @@ public class AutoClickerModule extends Module {
         if (blockhit && holdingWeapon) {
             releaseUse(client);
         }
-        ((IMinecraftAccess) client).qynlDoAttack();
+        ReflectionAccess.minecraftDoAttack(client);
 
         // Block holds only happen on the ground: blocking while falling
         // serves no purpose, and a player who blocks mid-air while their
@@ -220,13 +219,13 @@ public class AutoClickerModule extends Module {
 
     private void pressUse(MinecraftClient client) {
         if (!client.options.keyUse.isPressed()) {
-            ((IKeyBindingAccess) client.options.keyUse).qynlSetPressed(true);
+            ReflectionAccess.keyBindingSetPressed(client.options.keyUse, true);
         }
     }
 
     private void releaseUse(MinecraftClient client) {
         if (client.options.keyUse.isPressed()) {
-            ((IKeyBindingAccess) client.options.keyUse).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keyUse, false);
         }
     }
 

@@ -4,7 +4,7 @@ import com.qynl.client189.Category;
 import com.qynl.client189.Module;
 import com.qynl.client189.Setting;
 import com.qynl.client189.WorldDraw;
-import com.qynl.client189.access.IMinecraftAccess;
+import com.qynl.client189.ReflectionAccess;
 import net.minecraft.block.Material;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
@@ -175,7 +175,7 @@ public class CriticalsModule extends Module {
         }
         if ((RANDOM.nextDouble() * 100.0) >= getDoubleSetting("chance")) return;
 
-        ((IMinecraftAccess) client).qynlDoAttack();
+        ReflectionAccess.minecraftDoAttack(client);
     }
 
     // ── window checks ─────────────────────────────────────────────

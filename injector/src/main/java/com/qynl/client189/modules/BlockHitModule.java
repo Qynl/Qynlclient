@@ -3,7 +3,7 @@ package com.qynl.client189.modules;
 import com.qynl.client189.Category;
 import com.qynl.client189.Module;
 import com.qynl.client189.Setting;
-import com.qynl.client189.access.IKeyBindingAccess;
+import com.qynl.client189.ReflectionAccess;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -217,13 +217,13 @@ public class BlockHitModule extends Module {
 
     private void pressUse(MinecraftClient client) {
         if (!client.options.keyUse.isPressed()) {
-            ((IKeyBindingAccess) client.options.keyUse).qynlSetPressed(true);
+            ReflectionAccess.keyBindingSetPressed(client.options.keyUse, true);
         }
     }
 
     private void releaseUse(MinecraftClient client) {
         if (client.options.keyUse.isPressed()) {
-            ((IKeyBindingAccess) client.options.keyUse).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keyUse, false);
         }
     }
 

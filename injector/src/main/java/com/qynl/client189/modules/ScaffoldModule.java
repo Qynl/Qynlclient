@@ -4,7 +4,7 @@ import com.qynl.client189.Category;
 import com.qynl.client189.Module;
 import com.qynl.client189.Setting;
 import com.qynl.client189.SilentAim;
-import com.qynl.client189.access.IKeyBindingAccess;
+import com.qynl.client189.ReflectionAccess;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.player.ClientPlayerEntity;
@@ -386,17 +386,17 @@ public class ScaffoldModule extends Module {
     private void setSneak(MinecraftClient client, boolean sneak) {
         if (client.options == null || client.options.keySneak == null) return;
         if (sneak && !sneakHeld) {
-            ((IKeyBindingAccess) client.options.keySneak).qynlSetPressed(true);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySneak, true);
             sneakHeld = true;
         } else if (!sneak && sneakHeld) {
-            ((IKeyBindingAccess) client.options.keySneak).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySneak, false);
             sneakHeld = false;
         }
     }
 
     private void releaseSneak(MinecraftClient client) {
         if (client.options != null && client.options.keySneak != null && sneakHeld) {
-            ((IKeyBindingAccess) client.options.keySneak).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySneak, false);
         }
         sneakHeld = false;
     }

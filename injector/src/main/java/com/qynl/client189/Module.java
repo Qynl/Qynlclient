@@ -1,6 +1,5 @@
 package com.qynl.client189;
 
-import com.qynl.client189.access.IKeyBindingAccess;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.options.KeyBinding;
 import org.lwjgl.input.Keyboard;
@@ -48,10 +47,10 @@ public abstract class Module {
         if (keyBinding == null) return;
         this.keyCode = keyCode;
         if (keyCode <= 0) {
-            ((IKeyBindingAccess) keyBinding).qynlSetCode(0);
+            ReflectionAccess.keyBindingSetCode(keyBinding, 0);
             keyLabel = "None";
         } else {
-            ((IKeyBindingAccess) keyBinding).qynlSetCode(keyCode);
+            ReflectionAccess.keyBindingSetCode(keyBinding, keyCode);
             updateKeyLabel(keyCode);
         }
     }

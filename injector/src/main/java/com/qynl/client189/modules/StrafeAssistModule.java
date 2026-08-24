@@ -3,7 +3,7 @@ package com.qynl.client189.modules;
 import com.qynl.client189.Category;
 import com.qynl.client189.Module;
 import com.qynl.client189.Setting;
-import com.qynl.client189.access.IKeyBindingAccess;
+import com.qynl.client189.ReflectionAccess;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -108,10 +108,10 @@ public class StrafeAssistModule extends Module {
         }
 
         // Hold the strafe key (+ sprint so 1.8.9 doesn't cancel it).
-        ((IKeyBindingAccess) client.options.keyLeft).qynlSetPressed(strafingLeft);
-        ((IKeyBindingAccess) client.options.keyRight).qynlSetPressed(!strafingLeft);
+        ReflectionAccess.keyBindingSetPressed(client.options.keyLeft, strafingLeft);
+        ReflectionAccess.keyBindingSetPressed(client.options.keyRight, !strafingLeft);
         if ("On".equals(getStringSetting("sprint"))) {
-            ((IKeyBindingAccess) client.options.keySprint).qynlSetPressed(true);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySprint, true);
         }
         keysHeld = true;
     }
@@ -141,9 +141,9 @@ public class StrafeAssistModule extends Module {
     private void releaseKeys(MinecraftClient client) {
         if (!keysHeld) return;
         if (client.options != null) {
-            ((IKeyBindingAccess) client.options.keyLeft).qynlSetPressed(false);
-            ((IKeyBindingAccess) client.options.keyRight).qynlSetPressed(false);
-            ((IKeyBindingAccess) client.options.keySprint).qynlSetPressed(false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keyLeft, false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keyRight, false);
+            ReflectionAccess.keyBindingSetPressed(client.options.keySprint, false);
         }
         keysHeld = false;
         switchTicksRemaining = 0;

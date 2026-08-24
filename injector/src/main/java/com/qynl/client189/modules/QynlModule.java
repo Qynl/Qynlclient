@@ -6,7 +6,7 @@ import com.qynl.client189.PingTracker;
 import com.qynl.client189.Setting;
 import com.qynl.client189.SilentAim;
 import com.qynl.client189.WorldDraw;
-import com.qynl.client189.access.IMinecraftAccess;
+import com.qynl.client189.ReflectionAccess;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -317,7 +317,7 @@ public class QynlModule extends Module {
         }
 
         lastSwingTick.put(target.getEntityId(), tickCounter);
-        ((IMinecraftAccess) client).qynlDoAttack();
+        ReflectionAccess.minecraftDoAttack(client);
     }
 
     // ── rendering ────────────────────────────────────────────────

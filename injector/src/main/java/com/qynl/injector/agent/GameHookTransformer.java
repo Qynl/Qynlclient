@@ -17,25 +17,25 @@ import java.util.Set;
 /**
  * Rewrites the obfuscated 1.8.9 game classes to call into
  * {@code com.qynl.client189.GameHooks} at the same points the old Fabric
- * mixins hooked, and injects the three accessor interfaces
- * ({@code IKeyBindingAccess}, {@code IPlayerMoveAccess},
- * {@code IMinecraftAccess}) onto their target classes.
+ * mixins hooked.
+ *
+ * <p>Only <em>method-body</em> call-site insertions are made: no interfaces,
+ * fields or methods are added, so the same transformer works in both launch
+ * mode ({@code -javaagent}, classes transformed on load) and attach mode
+ * (already-loaded classes retransformed). Private/protected member access
+ * that the old Mixin accessors provided is done via
+ * {@link com.qynl.client189.ReflectionAccess} instead.</p>
  *
  * <p>All injected call sites use only primitives / {@link Object}
  * descriptors so the injected bytecode never has to spell out an obfuscated
- * type. The target class/method/field names are resolved from the bundled
- * yarn mappings at runtime.</p>
+ * type. The target class/method names are resolved from the bundled yarn
+ * mappings at runtime.</p>
  */
 public final class GameHookTransformer implements ClassFileTransformer {
 
     private static final String GAMEHOOKS = "com/qynl/client189/GameHooks";
-    private static final String I_KEYBINDING = "com/qynl/client189/access/IKeyBindingAccess";
-    private static final String I_PLAYER_MOVE = "com/qynl/client189/access/IPlayerMoveAccess";
-    private static final String I_MINECRAFT = "com/qynl/client189/access/IMinecraftAccess";
 
     private static final String YARN_MINECRAFT = "net/minecraft/client/MinecraftClient";
-    private static final String YARN_KEYBINDING = "net/minecraft/client/options/KeyBinding";
-    private static final String YARN_PLAYER_MOVE = "net/minecraft/network/packet/c2s/play/PlayerMoveC2SPacket";
 
     private enum Kind {
         HEAD_VOID,          // call void hook at head
@@ -130,15 +130,12 @@ public final class GameHookTransformer implements ClassFileTransformer {
     }
 
     private boolean isTarget(String internalName) {
-        TinyMappings mappings = TinyMappings.get();
         for (HookSpec h : HOOKS) {
             if (h.obfClass().equals(internalName)) {
                 return true;
             }
         }
-        return mappings.mapClass(YARN_KEYBINDING).equals(internalName)
-                || mappings.mapClass(YARN_PLAYER_MOVE).equals(internalName)
-                || mappings.mapClass(YARN_MINECRAFT).equals(internalName);
+        return false;
     }
 
     private byte[] transformClass(String obfName, byte[] bytes) {
@@ -151,13 +148,6 @@ public final class GameHookTransformer implements ClassFileTransformer {
             public void visit(int version, int access, String name, String signature,
                               String superName, String[] interfaces) {
                 this.className = name;
-                String iface = interfaceFor(name);
-                if (iface != null) {
-                    String[] extended = new String[interfaces.length + 1];
-                    System.arraycopy(interfaces, 0, extended, 0, interfaces.length);
-                    extended[interfaces.length] = iface;
-                    interfaces = extended;
-                }
                 super.visit(version, access, name, signature, superName, interfaces);
             }
 
@@ -170,78 +160,9 @@ public final class GameHookTransformer implements ClassFileTransformer {
                 }
                 return mv;
             }
-
-            @Override
-            public void visitEnd() {
-                emitAccessors(className);
-                super.visitEnd();
-            }
-
-            private void emitAccessors(String obfClassName) {
-                TinyMappings mappings = TinyMappings.get();
-                if (mappings.mapClass(YARN_KEYBINDING).equals(obfClassName)) {
-                    String owner = obfClassName;
-                    String fPressed = mappings.mapField(YARN_KEYBINDING, "pressed");
-                    String fCode = mappings.mapField(YARN_KEYBINDING, "code");
-                    emitGetter("qynlIsPressed", "()Z", owner, fPressed, "Z", Opcodes.IRETURN);
-                    emitSetter("qynlSetPressed", "(Z)V", owner, fPressed, "Z", Opcodes.ILOAD);
-                    emitGetter("qynlGetCode", "()I", owner, fCode, "I", Opcodes.IRETURN);
-                    emitSetter("qynlSetCode", "(I)V", owner, fCode, "I", Opcodes.ILOAD);
-                } else if (mappings.mapClass(YARN_PLAYER_MOVE).equals(obfClassName)) {
-                    String owner = obfClassName;
-                    String fYaw = mappings.mapField(YARN_PLAYER_MOVE, "yaw");
-                    String fPitch = mappings.mapField(YARN_PLAYER_MOVE, "pitch");
-                    String fOnGround = mappings.mapField(YARN_PLAYER_MOVE, "onGround");
-                    emitSetter("qynlSetYaw", "(F)V", owner, fYaw, "F", Opcodes.FLOAD);
-                    emitSetter("qynlSetPitch", "(F)V", owner, fPitch, "F", Opcodes.FLOAD);
-                    emitSetter("qynlSetOnGround", "(Z)V", owner, fOnGround, "Z", Opcodes.ILOAD);
-                    emitGetter("qynlGetOnGround", "()Z", owner, fOnGround, "Z", Opcodes.IRETURN);
-                } else if (mappings.mapClass(YARN_MINECRAFT).equals(obfClassName)) {
-                    String owner = obfClassName;
-                    String doAttack = mappings.mapMethod(YARN_MINECRAFT, "doAttack", "()V");
-                    MethodVisitor mv = super.visitMethod(Opcodes.ACC_PUBLIC, "qynlDoAttack", "()V", null, null);
-                    mv.visitCode();
-                    mv.visitVarInsn(Opcodes.ALOAD, 0);
-                    mv.visitMethodInsn(Opcodes.INVOKESPECIAL, owner, doAttack, "()V", false);
-                    mv.visitInsn(Opcodes.RETURN);
-                    mv.visitMaxs(1, 1);
-                    mv.visitEnd();
-                }
-            }
-
-            private void emitGetter(String methodName, String methodDesc, String owner, String fieldName,
-                                    String fieldDesc, int returnOpcode) {
-                MethodVisitor mv = super.visitMethod(Opcodes.ACC_PUBLIC, methodName, methodDesc, null, null);
-                mv.visitCode();
-                mv.visitVarInsn(Opcodes.ALOAD, 0);
-                mv.visitFieldInsn(Opcodes.GETFIELD, owner, fieldName, fieldDesc);
-                mv.visitInsn(returnOpcode);
-                mv.visitMaxs(1, 1);
-                mv.visitEnd();
-            }
-
-            private void emitSetter(String methodName, String methodDesc, String owner, String fieldName,
-                                    String fieldDesc, int loadOpcode) {
-                MethodVisitor mv = super.visitMethod(Opcodes.ACC_PUBLIC, methodName, methodDesc, null, null);
-                mv.visitCode();
-                mv.visitVarInsn(Opcodes.ALOAD, 0);
-                mv.visitVarInsn(loadOpcode, 1);
-                mv.visitFieldInsn(Opcodes.PUTFIELD, owner, fieldName, fieldDesc);
-                mv.visitInsn(Opcodes.RETURN);
-                mv.visitMaxs(2, 2);
-                mv.visitEnd();
-            }
         };
         reader.accept(visitor, 0);
         return writer.toByteArray();
-    }
-
-    private String interfaceFor(String obfName) {
-        TinyMappings mappings = TinyMappings.get();
-        if (mappings.mapClass(YARN_KEYBINDING).equals(obfName)) return I_KEYBINDING;
-        if (mappings.mapClass(YARN_PLAYER_MOVE).equals(obfName)) return I_PLAYER_MOVE;
-        if (mappings.mapClass(YARN_MINECRAFT).equals(obfName)) return I_MINECRAFT;
-        return null;
     }
 
     private HookSpec findHook(String obfClassName, String methodName, String methodDesc) {
@@ -261,28 +182,16 @@ public final class GameHookTransformer implements ClassFileTransformer {
         for (HookSpec h : HOOKS) {
             names.add(h.obfClass());
         }
-        names.add(TinyMappings.get().mapClass(YARN_KEYBINDING));
-        names.add(TinyMappings.get().mapClass(YARN_PLAYER_MOVE));
         return names.toArray(new String[0]);
     }
 
     /** Hook markers (constant-pool strings) expected after transforming a class. */
     public static List<String> expectedMarkers(String obfClassName) {
         List<String> markers = new ArrayList<>();
-        TinyMappings mappings = TinyMappings.get();
         for (HookSpec h : HOOKS) {
             if (h.obfClass().equals(obfClassName)) {
                 markers.add(h.hookName);
             }
-        }
-        if (mappings.mapClass(YARN_KEYBINDING).equals(obfClassName)) {
-            markers.add(I_KEYBINDING);
-        }
-        if (mappings.mapClass(YARN_PLAYER_MOVE).equals(obfClassName)) {
-            markers.add(I_PLAYER_MOVE);
-        }
-        if (mappings.mapClass(YARN_MINECRAFT).equals(obfClassName)) {
-            markers.add(I_MINECRAFT);
         }
         return markers;
     }

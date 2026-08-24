@@ -1,6 +1,9 @@
 package com.qynl.injector.agent;
 
 import java.lang.instrument.Instrumentation;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Java agent entry point for the Qyn-L injector.
@@ -9,9 +12,14 @@ import java.lang.instrument.Instrumentation;
  * runs before the game's main class, so every hooked class is transformed on
  * first load.</p>
  *
- * <p><b>Attach mode</b> ({@code agentmain}): the same transformers are
- * registered and any already-loaded hook targets are retransformed so the
- * client boots on the next tick.</p>
+ * <p><b>Attach mode</b> ({@code agentmain}): attach to an already-running
+ * vanilla 1.8.9 game (launched from any launcher — Modrinth, the vanilla
+ * launcher, …). The same transformers are registered and any already-loaded
+ * hook targets are retransformed so the client boots on the next tick.</p>
+ *
+ * <p>Attach mode works because {@link GameHookTransformer} only modifies
+ * method bodies (retransformation cannot add interfaces, fields or methods)
+ * and all accessor logic lives in {@link com.qynl.client189.ReflectionAccess}.</p>
  */
 public final class QynlAgent {
 
@@ -45,15 +53,20 @@ public final class QynlAgent {
         inst.addTransformer(new ClientRemapTransformer(), true);
 
         // Attach-to-running-game: force a retransform of already-loaded targets.
+        // Iterate the loaded classes instead of Class.forName with the system
+        // classloader — under LaunchWrapper the game classes live in their own
+        // classloader and would never be found that way.
         if (inst.isRetransformClassesSupported()) {
-            for (String internalName : GameHookTransformer.targetClassInternalNames()) {
-                try {
-                    Class<?> c = Class.forName(internalName.replace('/', '.'), false, ClassLoader.getSystemClassLoader());
-                    if (c != null && inst.isModifiableClass(c)) {
-                        inst.retransformClasses(c);
+            Set<String> targets = new HashSet<>(Arrays.asList(GameHookTransformer.targetClassInternalNames()));
+            for (Class<?> loaded : inst.getAllLoadedClasses()) {
+                if (targets.contains(loaded.getName().replace('.', '/'))) {
+                    try {
+                        if (inst.isModifiableClass(loaded)) {
+                            inst.retransformClasses(loaded);
+                        }
+                    } catch (Throwable ignored) {
+                        // Class not loaded yet — the normal load path will hook it.
                     }
-                } catch (Throwable ignored) {
-                    // Class not loaded yet — the normal load path will hook it.
                 }
             }
         }

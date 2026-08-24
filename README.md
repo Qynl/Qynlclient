@@ -206,7 +206,8 @@ The `injector` branch rebuilds the 1.8.9 ghost client as a **Java agent**. You i
 
 - **Not DLL injection.** The injector is a pure-Java agent attached via Java's official Instrumentation API (`-javaagent:qynl-injector.jar`). It runs inside the game's JVM — no native code, no unsigned DLLs, nothing your antivirus should care about.
 - **Runtime name remapping.** Vanilla 1.8.9 ships *obfuscated* (e.g. `Minecraft` is `ave`). The client is compiled against the same yarn mappings as the mod; at class-load time the agent rewrites every `net.minecraft…` reference to the real shipped name (bundled `mappings.tiny`).
-- **No Mixin.** All the old mixin hooks (tick loop, HUD, packets, attack, velocity, camera) are injected with ASM into the obfuscated classes, calling into the client's `GameHooks`.
+- **No Mixin.** All the old mixin hooks (tick loop, HUD, packets, attack, velocity, camera) are injected with ASM into the obfuscated classes, calling into the client's `GameHooks`. The transformer only ever **modifies method bodies** — it adds no interfaces, fields or methods — so the exact same agent works in both launch mode (`-javaagent`) and **attach mode** (Java retransformation can only change method bodies; the old accessor interfaces would have made attach mode impossible).
+- **Reflection accessors.** Private/protected members (`MinecraftClient.doAttack`, `KeyBinding.pressed/code`, `PlayerMoveC2SPacket.yaw/pitch`) are reached via `ReflectionAccess`, resolved by name from the bundled mappings — identical behavior in both modes.
 - **Offline session, no account login.** The launcher starts the game in offline mode (`--accessToken 0 --userType legacy`, random UUID) — you type any username, no Microsoft/Mojang login happens anywhere. This means the client plays on **offline-mode / cracked servers**; premium servers that validate sessions against Mojang will reject the fake token (premium login is intentionally not included).
 
 ### Requirements
@@ -216,11 +217,17 @@ The `injector` branch rebuilds the 1.8.9 ghost client as a **Java agent**. You i
 
 ### How to use
 
+**Option A — launch with the built-in launcher:**
+
 1. Build once: `./gradlew -p injector build` → `injector/build/libs/qynl-injector-1.0.0.jar`
 2. Run `java -jar injector/build/libs/qynl-injector-1.0.0.jar`
 3. Set your game directory (auto-detected), username, memory, and Java 8 path → **Launch**
 
-Or **Attach** to a running 1.8.9 game instead: pick the Minecraft process from the list — the client boots on the next tick.
+**Option B — launch from ANY launcher, then inject (Vape-style):**
+
+1. Start vanilla 1.8.9 normally from whatever launcher you like (Modrinth, the official launcher, MultiMC/Prism, …). No Fabric, no mods, no special arguments.
+2. Run `java -jar injector/build/libs/qynl-injector-1.0.0.jar` and click **"Attach to running game"**.
+3. Pick the Minecraft process from the list — the client boots on the next tick. Nothing was modified on disk; the injection is purely in-memory.
 
 **In-game:** **Right Shift** opens the ClickGUI, same as the mod. Config is saved to `qynlclient189.json` in the game directory.
 
@@ -230,7 +237,11 @@ The build runs an offline self-check (`./gradlew -p injector verifyHooks`) that 
 
 ```
 [verify] mappings: 2507 classes, 8434 methods, 8850 fields
-[verify]   ave -> ok (3 marker(s))   ... (all 9 hook targets)
+[verify]   ave -> ok (2 marker(s))   ... (all 8 hook targets)
+[verify] === reflection accessors ===
+[verify]   net/minecraft/client/MinecraftClient.doAttack -> ave.aw()V ok
+[verify]   net/minecraft/client/options/KeyBinding.pressed -> avb.h ok
+[verify]   net/minecraft/network/packet/c2s/play/PlayerMoveC2SPacket.yaw -> ip.d ok
 [verify] ALL CHECKS PASSED
 ```
 

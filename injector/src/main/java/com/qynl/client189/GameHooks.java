@@ -1,6 +1,5 @@
 package com.qynl.client189;
 
-import com.qynl.client189.access.IPlayerMoveAccess;
 import com.qynl.client189.modules.AegisModule;
 import com.qynl.client189.modules.BlinkModule;
 import com.qynl.client189.modules.BlockHitModule;
@@ -102,8 +101,8 @@ public final class GameHooks {
             if (!SilentAim.hasCapturedVisual()) {
                 SilentAim.captureVisual(client.player.yaw, client.player.pitch);
             }
-            ((IPlayerMoveAccess) move).qynlSetYaw(SilentAim.getSilentYaw());
-            ((IPlayerMoveAccess) move).qynlSetPitch(SilentAim.getSilentPitch());
+            ReflectionAccess.playerMoveSetYaw(move, SilentAim.getSilentYaw());
+            ReflectionAccess.playerMoveSetPitch(move, SilentAim.getSilentPitch());
             client.player.yaw = SilentAim.getVisualYaw();
             client.player.pitch = SilentAim.getVisualPitch();
             SilentAim.clear();
