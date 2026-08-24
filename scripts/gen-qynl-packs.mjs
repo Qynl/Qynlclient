@@ -11,7 +11,7 @@
  *   bun scripts/gen-qynl-packs.mjs path/to/1.8.9.jar path/to/1.21.1.jar
  */
 import { deflateSync, inflateRawSync, inflateSync } from "node:zlib";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -244,6 +244,69 @@ function applyPackStyle(out, id) {
   rewrite(out, "assets/minecraft/textures/environment/clouds.png", skyClouds);
 }
 
+function pvpDefenseBlock(a, name) {
+  const source = avg(a), base = name.includes("obsidian") ? [28, 24, 48] : name.includes("end_stone") ? [218, 210, 174] : name.includes("plank") ? [151, 112, 72] : name.includes("sandstone") ? [216, 190, 132] : source;
+  const b = flat(a, base), edge = shade(base, .68), light = shade(base, 1.14);
+  fill(b, 0, 0, b.w, 1, light); fill(b, 0, b.h - 1, b.w, 1, edge); fill(b, 0, 1, 1, Math.max(1, b.h - 2), light); fill(b, b.w - 1, 1, 1, Math.max(1, b.h - 2), edge);
+  if (name.includes("obsidian")) { for (let i = 2; i < b.w - 2; i += 5) px(b, i, (i * 3) % Math.max(1, b.h), [92, 67, 157]); }
+  return b;
+}
+function pvpSprite(a, name) {
+  const b = im(a.w, a.h), palettes = {
+    diamond: [[74, 237, 217], [28, 126, 142]], emerald: [[69, 235, 128], [23, 116, 75]],
+    gold: [[255, 218, 63], [166, 103, 24]], iron: [[224, 231, 240], [108, 125, 147]],
+    fire: [[255, 151, 52], [188, 54, 30]], pearl: [[178, 126, 255], [74, 37, 143]],
+    snow: [[236, 249, 255], [116, 174, 210]], potion: [[222, 93, 232], [103, 35, 139]],
+    food: [[255, 172, 70], [156, 62, 35]],
+  };
+  const key = name.includes("diamond") ? "diamond" : name.includes("emerald") ? "emerald" : name.includes("gold") ? "gold" : name.includes("iron") ? "iron" : name.includes("fire") ? "fire" : name.includes("pearl") ? "pearl" : name.includes("snow") || name.includes("egg") || name.includes("arrow") ? "snow" : name.includes("potion") ? "potion" : "food";
+  const [bright, dark] = palettes[key];
+  for (let y = 0; y < a.h; y++) for (let x = 0; x < a.w; x++) {
+    const i = (y * a.w + x) * 4, alpha = a.data[i + 3]; if (!alpha) continue;
+    const lum = (a.data[i] * 3 + a.data[i + 1] * 6 + a.data[i + 2]) / 10, c = lum > 165 ? bright : dark;
+    px(b, x, y, [c[0], c[1], c[2], alpha]);
+  }
+  return b;
+}
+function pvpGui(a) {
+  const b = im(a.w, a.h);
+  for (let i = 0; i < a.data.length; i += 4) {
+    const alpha = a.data[i + 3]; if (!alpha) continue;
+    const lum = (a.data[i] * 3 + a.data[i + 1] * 6 + a.data[i + 2]) / 10;
+    const c = lum > 215 ? [118, 224, 235] : lum > 135 ? [47, 70, 91] : [13, 19, 29];
+    b.data[i] = c[0]; b.data[i + 1] = c[1]; b.data[i + 2] = c[2]; b.data[i + 3] = alpha;
+  }
+  return b;
+}
+function pvpHud(a, name) {
+  if (name.includes("crosshair")) {
+    const b = im(a.w, a.h), cx = Math.floor(a.w / 2), cy = Math.floor(a.h / 2), c = [77, 239, 230, 255];
+    for (let i = -2; i <= 2; i++) { px(b, cx + i, cy, c); px(b, cx, cy + i, c); }
+    px(b, cx - 3, cy, [10, 18, 28, 255]); px(b, cx + 3, cy, [10, 18, 28, 255]); px(b, cx, cy - 3, [10, 18, 28, 255]); px(b, cx, cy + 3, [10, 18, 28, 255]);
+    return b;
+  }
+  if (name.includes("heart")) {
+    const b = im(a.w, a.h);
+    for (let i = 0; i < a.data.length; i += 4) { const alpha = a.data[i + 3]; if (!alpha) continue; const lum = (a.data[i] + a.data[i + 1] + a.data[i + 2]) / 3; const c = lum > 120 ? [244, 72, 96] : [116, 26, 49]; b.data[i] = c[0]; b.data[i + 1] = c[1]; b.data[i + 2] = c[2]; b.data[i + 3] = alpha; }
+    return b;
+  }
+  return pvpGui(a);
+}
+function walkPngs(dir) {
+  if (!existsSync(dir)) return [];
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, entry.name); if (entry.isDirectory()) files.push(...walkPngs(p)); else if (entry.name.endsWith(".png")) files.push(p); }
+  return files;
+}
+function applyAdvancedPvPStyle(out, id) {
+  const textures = join(out, "assets/minecraft/textures"), blockDir = id === "1.8.9" ? "blocks" : "block", itemDir = id === "1.8.9" ? "items" : "item";
+  const defense = ["end_stone", "obsidian", "planks", "sandstone", "iron_block", "gold_block", "diamond_block", "emerald_block"];
+  for (const path of walkPngs(join(textures, blockDir))) { const name = path.slice(join(textures, blockDir).length + 1, -4); if (defense.some((key) => name.includes(key)) && !name.includes("ore")) { const rel = path.slice(out.length + 1); rewrite(out, rel, (a) => pvpDefenseBlock(a, name)); } }
+  const itemKeys = ["diamond.png", "emerald.png", "iron_ingot.png", "gold_ingot.png", "gold_nugget.png", "ender_pearl.png", "fireball.png", "fire_charge.png", "snowball.png", "egg.png", "arrow.png", "potion", "golden_apple.png", "apple_golden.png", "bucket_water.png", "water_bucket.png", "bucket_lava.png", "lava_bucket.png"];
+  for (const path of walkPngs(join(textures, itemDir))) { const name = path.slice(join(textures, itemDir).length + 1, -4); if (itemKeys.some((key) => name.endsWith(key) || name.includes(key.replace(".png", "")))) { const rel = path.slice(out.length + 1); rewrite(out, rel, (a) => pvpSprite(a, name)); } }
+  for (const path of walkPngs(join(textures, "gui"))) { const rel = path.slice(out.length + 1), name = rel.toLowerCase(); const transform = name.includes("container/") ? pvpGui : name.includes("hotbar") || name.includes("crosshair") || name.includes("heart") || name.includes("armor") ? (a) => pvpHud(a, name) : null; if (transform) rewrite(out, rel, transform); }
+}
+
 async function build(v) {
   const jar = await vanillaJar(v.id, v.jar);
   if (v.id === "1.8.9") {
@@ -254,6 +317,7 @@ async function build(v) {
     rmSync(v.out, { recursive: true, force: true });
     renameSync(legacy, v.out);
     applyPackStyle(v.out, v.id);
+    applyAdvancedPvPStyle(v.out, v.id);
     writeFileSync(join(v.out, "pack.mcmeta"), JSON.stringify({ pack: { pack_format: v.format, description: description(v) } }, null, 2));
     writeFileSync(join(v.out, "README.md"), `# Qyn-L Clean BedWars — Minecraft ${v.id}\n\nOriginal modern Bare-Bones-style BedWars/PvP pack generated by the Qyn-L pipeline. It keeps the clean 1.8.9 asset layout while adding readable team wool, low-clutter glass, custom tools, dark GUI and BedWars accents.\n\nInstall this folder in .minecraft/resourcepacks/. Regenerate both versions with bun scripts/gen-qynl-packs.mjs.\n`);
     write(v.out, "pack.png", packIcon());
@@ -282,6 +346,7 @@ async function build(v) {
     const meta = entries.get(`${name}.mcmeta`); if (meta) { const mp = join(v.out, `assets/minecraft/textures/${base}.mcmeta`); mkdirSync(dirname(mp), { recursive: true }); writeFileSync(mp, meta); }
   }
   applyPackStyle(v.out, v.id);
+  applyAdvancedPvPStyle(v.out, v.id);
   writeFileSync(join(v.out, "pack.mcmeta"), JSON.stringify({ pack: { pack_format: v.format, description: description(v) } }, null, 2));
   write(v.out, "pack.png", packIcon());
   writeFileSync(join(v.out, "README.md"), `# Qyn-L Clean BedWars — Minecraft ${v.id}\n\nOriginal, clean modern PvP textures with a Bare-Bones-inspired minimal style. Vanilla assets remain as a compatibility fallback; BedWars assets are custom-generated by scripts/gen-qynl-packs.mjs.\n\n## BedWars focus\n- readable team wool and terracotta with subtle weave/depth\n- low-clutter glass with visible edges\n- clean red bed and TNT accents\n- modernized tools, bows, HUD and container UI\n- version-correct asset paths and pack metadata\n\n## Install\nCopy this folder into the resourcepacks directory of Minecraft ${v.id}.\n\n## Regenerate\n    bun scripts/gen-qynl-packs.mjs\n`);
