@@ -52,9 +52,6 @@ public class ReachModule extends Module {
     private static int holdTicksLeft = 0;
     private static int cooldownTicks = 0;
     private static boolean flushing = false;
-    /** World reference for the queue-safety check — held packets from a
-     *  previous life/world must never be flushed after a respawn. */
-    private Object lastWorld = null;
 
     public ReachModule() {
         super("Reach", "Extends reach with smooth, human-like fluctuation.", Category.COMBAT);
@@ -163,18 +160,14 @@ public class ReachModule extends Module {
             holdTicksLeft = 0;
             return;
         }
-        if (client.player == null || client.world == null || !client.player.isAlive()
-                || client.world != lastWorld) {
-            // Queue safety: drain any held packets from a previous life or
-            // world immediately — flushing stale coordinates after a respawn
-            // or teleport is exactly the desync that gets you rubberbanded.
+        if (client.player == null || client.world == null || !client.player.isAlive()) {
+            // Death/leave is handled centrally by onWorldChange; this guard
+            // only keeps the choke from re-arming while dead.
             flush(client);
             armed = false;
             holdTicksLeft = 0;
-            lastWorld = client.world;
             return;
         }
-        lastWorld = client.world;
         // On high ping the held packets turn into a bigger server-side
         // catch-up jump — exactly the rubberband signature Grim's movement
         // check flags. The choke only buys reach when the connection is
@@ -256,6 +249,14 @@ public class ReachModule extends Module {
             }
         }
         return best;
+    }
+
+    /** Central world-change/death hook: drain held packets immediately. */
+    @Override
+    public void onWorldChange(MinecraftClient client) {
+        flush(client);
+        armed = false;
+        holdTicksLeft = 0;
     }
 
     @Override

@@ -14,6 +14,15 @@ public class QynlClient189 implements ClientModInitializer {
     private QynlClientConfig config;
     private KeyBinding clickGuiKey;
 
+    // ── central lifecycle tracking (world change / death / disconnect) ──
+    private Object lastWorld = null;
+    private boolean lastPlayerAlive = true;
+
+    // ── TPS estimate from the client tick cadence (server lag throttles
+    //    the client timer, so tick gaps reflect the server's pace) ──
+    private long lastTickTime = -1;
+    private double tpsEstimate = 20.0;
+
     @Override
     public void onInitializeClient() {
         instance = this;
@@ -40,6 +49,30 @@ public class QynlClient189 implements ClientModInitializer {
 
     public void onClientTick() {
         MinecraftClient client = MinecraftClient.getInstance();
+
+        // ── lifecycle: world change / death / disconnect ───────────────
+        boolean died = client.player != null && lastPlayerAlive && !client.player.isAlive();
+        boolean worldChanged = client.world != lastWorld;
+        if (died || worldChanged) {
+            moduleManager.onWorldChange(client);
+        }
+        if (client.world == null && lastWorld != null) {
+            moduleManager.onDisconnect(client);
+        }
+        lastWorld = client.world;
+        lastPlayerAlive = client.player == null || client.player.isAlive();
+
+        // ── TPS estimate ────────────────────────────────────────────────
+        long now = System.currentTimeMillis();
+        if (lastTickTime > 0) {
+            double gap = now - lastTickTime;
+            if (gap > 1.0) {
+                double tps = Math.min(20.0, 1000.0 / gap);
+                tpsEstimate += (tps - tpsEstimate) * 0.2;
+            }
+        }
+        lastTickTime = now;
+
         if (client.player != null && client.world != null) {
             if (clickGuiKey != null && clickGuiKey.wasPressed()) {
                 openGui();
@@ -48,6 +81,9 @@ public class QynlClient189 implements ClientModInitializer {
             moduleManager.tick(client);
         }
     }
+
+    /** Client-side TPS estimate (0–20), for the HUD info widget. */
+    public double getTps() { return tpsEstimate; }
 
     public static QynlClient189 getInstance() { return instance; }
     public ModuleManager getModuleManager() { return moduleManager; }

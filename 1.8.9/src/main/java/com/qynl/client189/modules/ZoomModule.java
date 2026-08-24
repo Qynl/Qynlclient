@@ -58,8 +58,11 @@ public class ZoomModule extends Module {
 
     @Override
     public void onDisable() {
+        // Snap restore: after disable, onTick no longer runs, so a smooth
+        // glide would freeze mid-way and leave the FOV (and the zoomed
+        // sensitivity) permanently altered until the module is re-enabled.
         MinecraftClient client = MinecraftClient.getInstance();
-        restore(client, true);
+        restore(client, false);
     }
 
     private void restore(MinecraftClient client, boolean smooth) {

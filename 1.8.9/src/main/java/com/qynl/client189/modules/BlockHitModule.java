@@ -77,6 +77,21 @@ public class BlockHitModule extends Module {
     public static BlockHitModule getInstance() { return instance; }
     public static boolean isActive() { return instance != null && instance.isEnabled(); }
 
+    /**
+     * Called from the attack mixin at the exact moment an attack executes.
+     * Releases the block <b>before</b> the hit is processed — the attack
+     * always lands unblocked and the state machine re-blocks on the next
+     * tick (true post-attack blocking). Without this, the rising-edge
+     * release fires a tick AFTER the attack, so the swing itself happened
+     * while blocking — the attack-while-using pattern ACs fingerprint.
+     */
+    public static void onAttack(MinecraftClient client) {
+        if (instance == null || !instance.isEnabled()) return;
+        if (instance.state == BLOCKING && client != null && client.options != null) {
+            instance.releaseUse(client);
+        }
+    }
+
     // ── per-tick ────────────────────────────────────────────────
 
     @Override

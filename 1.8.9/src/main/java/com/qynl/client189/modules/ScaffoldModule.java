@@ -60,17 +60,20 @@ public class ScaffoldModule extends Module {
             return;
         }
         ClientPlayerEntity player = client.player;
-        if (player.isSneaking() || player.isUsingItem() || player.hasVehicle()) {
-            releaseSneak(client);
-            return;
-        }
 
         // Safety: restore the camera from last tick's rotation spoof if the
         // movement packet never went out (idempotent if the mixin did it).
+        // Must run BEFORE the early returns — otherwise sneaking/using/riding
+        // while a spoof is pending would skip the restore and leave the
+        // camera stuck on the placement look.
         if (spoofPending) {
             player.yaw = spoofRealYaw;
             player.pitch = spoofRealPitch;
             spoofPending = false;
+        }
+        if (player.isSneaking() || player.isUsingItem() || player.hasVehicle()) {
+            releaseSneak(client);
+            return;
         }
         boolean forwardOnly = "Forward".equals(getStringSetting("mode"));
         if (forwardOnly && player.input.movementForward <= 0.0F) {

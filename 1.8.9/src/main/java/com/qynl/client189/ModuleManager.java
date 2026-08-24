@@ -66,6 +66,18 @@ public class ModuleManager {
         }
     }
 
+    /** Lifecycle: the world changed (or the player died). Modules holding
+     *  buffered packets drain their queues so stale coordinates from a
+     *  previous life/world are never flushed after a respawn/teleport. */
+    public void onWorldChange(MinecraftClient client) {
+        for (Module module : modules) module.onWorldChange(client);
+    }
+
+    /** Lifecycle: disconnected from a server (world became null). */
+    public void onDisconnect(MinecraftClient client) {
+        for (Module module : modules) module.onDisconnect(client);
+    }
+
     public List<Module> getModules() { return modules; }
     public Module find(String name) { for (Module m : modules) if (m.getName().equals(name)) return m; return null; }
     public boolean isEnabled(String name) { Module m = find(name); return m != null && m.isEnabled(); }

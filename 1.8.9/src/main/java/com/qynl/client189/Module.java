@@ -83,6 +83,14 @@ public abstract class Module {
     public void onDisable() {}
     public void onTick(MinecraftClient client) {}
 
+    /** Fired by the central tick when the world reference changes or the
+     *  player dies — the place to drain buffered packets. Runs even while
+     *  the module is disabled, so state never outlives a world. */
+    public void onWorldChange(MinecraftClient client) {}
+
+    /** Fired when the world becomes null (disconnect / leaving). */
+    public void onDisconnect(MinecraftClient client) {}
+
     public String getName() { return name; }
     public String getDescription() { return description; }
     public Category getCategory() { return category; }

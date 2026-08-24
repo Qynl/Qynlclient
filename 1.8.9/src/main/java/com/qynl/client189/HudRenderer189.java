@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * Qyn-L HUD — renders the Text GUI: the list of enabled modules in the
- * chosen corner, Vape-style (clean text, no panels, mode suffix in grey).
+ * chosen corner, Vape-style (clean text, no panels, mode suffix in grey),
+ * plus an optional one-line info widget (FPS / ping / TPS / coordinates).
  * Only renders while {@link TextGuiModule} is enabled.
  */
 public final class HudRenderer189 {
@@ -32,9 +33,6 @@ public final class HudRenderer189 {
             if (module.isEnabled()) {
                 enabled.add(module);
             }
-        }
-        if (enabled.isEmpty()) {
-            return;
         }
 
         boolean right = TextGuiModule.isRight();
@@ -61,6 +59,38 @@ public final class HudRenderer189 {
             }
             y += 10;
         }
+
+        // Info widget — a single dim line under the list. Shows even when no
+        // modules are enabled, so it doubles as a standalone stats readout.
+        if (TextGuiModule.infoEnabled()) {
+            String info = infoLine(client);
+            if (!info.isEmpty()) {
+                y += 3;
+                if (right) {
+                    font.drawWithShadow(info, client.width - 2 - font.getStringWidth(info), y, dim);
+                } else {
+                    font.drawWithShadow(info, 2, y, dim);
+                }
+            }
+        }
+    }
+
+    /** "60 fps · 42 ms · 20 tps · 100 64 -200" — missing data is skipped. */
+    private static String infoLine(MinecraftClient client) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(MinecraftClient.getCurrentFps()).append(" fps");
+        if (PingTracker.hasPing()) {
+            sb.append(" \u00b7 ").append(PingTracker.getPingMs()).append(" ms");
+        }
+        QynlClient189 qynl = QynlClient189.getInstance();
+        int tps = qynl == null ? 20 : (int) Math.round(qynl.getTps());
+        sb.append(" \u00b7 ").append(Math.max(0, Math.min(20, tps))).append(" tps");
+        if (client.player != null) {
+            sb.append(" \u00b7 ").append((int) Math.floor(client.player.x))
+              .append(' ').append((int) Math.floor(client.player.y))
+              .append(' ').append((int) Math.floor(client.player.z));
+        }
+        return sb.toString();
     }
 
     /** Shows the active mode of a module, e.g. " · Auto". */

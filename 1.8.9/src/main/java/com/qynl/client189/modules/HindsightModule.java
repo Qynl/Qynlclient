@@ -98,6 +98,11 @@ public class HindsightModule extends Module {
             wasInReach = false;
             return;
         }
+        // Never click behind a GUI screen.
+        if (client.currentScreen != null) {
+            wasInReach = false;
+            return;
+        }
 
         tickCounter++;
         if (tickCounter % 2 == 0) {

@@ -20,6 +20,7 @@ public class TextGuiModule extends Module {
         bindKey(Keyboard.KEY_NONE);
         addSetting(Setting.options("pos", "Position", "TopLeft", "TopLeft", "TopRight"));
         addSetting(Setting.options("color", "Color", "Green", "Green", "White", "Grey"));
+        addSetting(Setting.options("info", "Info", "On", "On", "Off"));
     }
 
     public static boolean isActive() {
@@ -37,5 +38,10 @@ public class TextGuiModule extends Module {
             case "Grey":  return 0xFF9CA3AF;
             default:      return 0xFF4ADE80;
         }
+    }
+
+    /** Whether the FPS / ping / TPS / coordinates info line is shown. */
+    public static boolean infoEnabled() {
+        return instance == null || "On".equals(instance.getStringSetting("info"));
     }
 }

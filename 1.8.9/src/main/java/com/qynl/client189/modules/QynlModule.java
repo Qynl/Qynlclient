@@ -97,7 +97,6 @@ public class QynlModule extends Module {
      *  steps; keep-alive pings jitter per packet. Chasing every spike makes
      *  the rewind window noisy, so the module settles on a stable value. */
     private int smoothedPing = 100;
-    private Object lastWorld = null;
     private boolean wasInReach = false;
 
     /** Best target + its computed quantum states (shared with render). */
@@ -165,23 +164,17 @@ public class QynlModule extends Module {
             wasInReach = false;
             return;
         }
-        // Hard safety: death or a world switch mid-dodge must never leave
-        // stale movement packets buffered. Flushing coordinates from a
-        // previous life/world after a respawn or teleport is exactly the
-        // desync signature that gets you rubberbanded — or worse. Stand the
-        // dodge down and drain the queue immediately.
-        if (!client.player.isAlive() || client.world != lastWorld) {
-            flush(client);
-            dodgeTicks = 0;
-            dodgeTicksTotal = 0;
-            dodgeDir = 0;
-            dodgeCooldown = 0;
-            if (!client.player.isAlive()) {
-                wasInReach = false;
-                return;
-            }
+        // Death is handled centrally by onWorldChange (queue flush + dodge
+        // stand-down); this guard only stops per-tick processing while dead.
+        if (!client.player.isAlive()) {
+            wasInReach = false;
+            return;
         }
-        lastWorld = client.world;
+        // Never attack or aim-spoof while a GUI screen is open.
+        if (client.currentScreen != null) {
+            wasInReach = false;
+            return;
+        }
 
         tickCounter++;
         // Sample every tick (20 Hz): the rewinds and the velocity-based
@@ -771,6 +764,17 @@ public class QynlModule extends Module {
                 lastSwingTick.remove(id);
             }
         }
+    }
+
+    /** Central world-change/death hook: drain the dodge queue immediately —
+     *  stale coordinates from a previous life/world are a desync signature. */
+    @Override
+    public void onWorldChange(MinecraftClient client) {
+        flush(client);
+        dodgeTicks = 0;
+        dodgeTicksTotal = 0;
+        dodgeDir = 0;
+        dodgeCooldown = 0;
     }
 
     @Override
