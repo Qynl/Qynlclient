@@ -27,7 +27,7 @@ public class StrafeAssistModule extends Module {
         super("StrafeAssist", "Auto-strafes left/right in combat with humanized intervals. Keeps sprint alive.",
                 Category.COMBAT);
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
-        addSetting(Setting.range("intervalMs", "Strafe interval", 400.0, 200, 800, 50, "ms"));
+        addSetting(Setting.range("intervalMs", "Strafe interval", 350.0, 200, 800, 50, "ms"));
         addSetting(Setting.range("skipChance", "Hold skip", 10.0, 0, 25, 5, "%"));
     }
 
@@ -110,7 +110,7 @@ public class StrafeAssistModule extends Module {
 
     private boolean hasNearbyEnemy(Minecraft client) {
         var player = client.player;
-        var box = player.getBoundingBox().inflate(6.0);
+        var box = player.getBoundingBox().inflate(8.0);
         return client.level.getEntities(player, box,
                 e -> (e instanceof Monster || e instanceof Player)
                         && e.isAlive() && e != player).size() > 0;

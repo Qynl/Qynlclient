@@ -54,6 +54,11 @@ public class AutoClickerModule extends Module {
         addSetting(Setting.range("cps",        "Target CPS", 9.0, 5, 16, 1));
         addSetting(Setting.range("jitter",     "Jitter",      8.0, 0, 20, 1, "%"));
         addSetting(Setting.options("pattern",  "Pattern",    "Steady", "Steady", "Burst"));
+        // 1.9+ combat gates every attack on the swing cooldown bar, which
+        // makes a clicker feel dead (max ~3 hits/s). Legacy clicks ignore the
+        // cooldown and click at the full target CPS — the 1.8 feel. Safe on
+        // friends servers; on strict anti-cheat servers switch it off.
+        addSetting(Setting.options("legacy",    "Legacy clicks", "On", "On", "Off"));
         addSetting(Setting.options("blockhit", "Block Hit",  "Off",    "Off",    "On"));
         addSetting(Setting.range("blockChance","Block chance", 100.0, 0, 100, 5, "%"));
         addSetting(Setting.range("blockTicks", "Block time",    4.0,  1,   8,  1, "t"));
@@ -146,8 +151,10 @@ public class AutoClickerModule extends Module {
             return;
         }
 
-        // Respect the attack cooldown (1.9+ combat).
-        if (client.player.getAttackStrengthScale(0.0F) < 0.6F) return;
+        // Respect the attack cooldown (1.9+ combat) unless Legacy clicks is
+        // on — then swing at the full target CPS like a 1.8 client.
+        if ("Off".equals(getStringSetting("legacy"))
+                && client.player.getAttackStrengthScale(0.0F) < 0.6F) return;
 
         // Post-attack blocking: the swing always lands unblocked, then the
         // block comes up right after it. Never blocks at air.

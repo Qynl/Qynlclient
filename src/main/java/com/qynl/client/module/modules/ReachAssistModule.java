@@ -104,9 +104,11 @@ public class ReachAssistModule extends Module {
      */
     private void applyBounds() {
         switch (getStringSetting("mode")) {
-            case "Subtle":     minBonus = 0.01; maxBonus = 0.08; break; // 3.01–3.08 (Grim safe)
-            case "Aggressive": minBonus = 0.15; maxBonus = 0.35; break; // 3.15–3.35 (Vulcan/Matrix limit)
-            default:           minBonus = 0.05; maxBonus = 0.18; break; // 3.05–3.18 (Hypixel safe)
+            case "Subtle":     minBonus = 0.02; maxBonus = 0.10; break; // 3.02–3.10 (Grim safe)
+            // Friends-server use: no anti-cheat, so the reach is meant to be
+            // felt. Normal still stays in the ghost range most servers accept.
+            case "Aggressive": minBonus = 0.20; maxBonus = 0.45; break; // 3.20–3.45 (visible)
+            default:           minBonus = 0.08; maxBonus = 0.22; break; // 3.08–3.22 (felt, still ghost-safe)
         }
         currentBonus = Mth.clamp(currentBonus, minBonus, maxBonus);
         targetBonus = Mth.clamp(targetBonus, minBonus, maxBonus);
@@ -186,7 +188,10 @@ public class ReachAssistModule extends Module {
             cooldownTicks--;
         } else if (inChokeWindow(client)) {
             armed = true;
-            holdTicksLeft = 1 + RANDOM.nextInt(2); // 1–2 server ticks (50–100 ms)
+            // Sprinting covers more distance per held tick — clamp to 1 tick
+            // then so the flush never becomes a visible catch-up jump.
+            holdTicksLeft = client.player.isSprinting()
+                    ? 1 : 1 + RANDOM.nextInt(2);
         }
     }
 
@@ -205,14 +210,12 @@ public class ReachAssistModule extends Module {
         double dy = target.getY() - client.player.getY();
         double dz = target.getZ() - client.player.getZ();
         double distSq = dx * dx + dy * dy + dz * dz;
-        if (distSq < 3.0 * 3.0 || distSq > 3.6 * 3.6) return false;
+        // Wider window (2.5–4.2 blocks) so the choke actually engages in real
+        // fights — the old 3.0–3.6 band almost never happened while chasing.
+        if (distSq < 2.5 * 2.5 || distSq > 4.2 * 4.2) return false;
 
         // Only while running toward the target — never while backing away.
         if (client.player.input == null || client.player.input.forwardImpulse <= 0.0F) return false;
-        // Never choke while sprinting: the held packets cover more distance
-        // at sprint speed, so the flush becomes a visibly larger catch-up
-        // jump — the exact rubberband signature Grim's movement check flags.
-        if (client.player.isSprinting()) return false;
         double vx = client.player.getX() - client.player.xOld;
         double vz = client.player.getZ() - client.player.zOld;
         return vx * dx + vz * dz > 0;

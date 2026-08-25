@@ -86,11 +86,21 @@ public class ModuleManager {
 
 	public void tick(Minecraft client) {
 		for (Module module : modules) {
-			if (module.handleKey(client)) {
-				saveToConfig();
+			try {
+				if (module.handleKey(client)) {
+					saveToConfig();
+				}
+			} catch (Throwable ignored) {
 			}
 			if (module.isEnabled()) {
-				module.onTick(client);
+				try {
+					module.onTick(client);
+				} catch (Throwable ignored) {
+					// One broken module must never kill the tick chain — without
+					// this, an exception in any single onTick stops every module
+					// registered after it AND all later ticks, which reads as
+					// "all modules are dead".
+				}
 			}
 		}
 	}
@@ -100,14 +110,23 @@ public class ModuleManager {
 	 *  previous life/world are never flushed after a respawn/teleport. */
 	public void onWorldChange(Minecraft client) {
 		for (Module module : modules) {
-			module.onWorldChange(client);
+			try {
+				module.onWorldChange(client);
+			} catch (Throwable ignored) {
+				// A throwing module here would otherwise skip every module
+				// after it — e.g. ReachAssist would never flush held packets
+				// and the player would stay frozen.
+			}
 		}
 	}
 
 	/** Lifecycle: disconnected from a server (world became null). */
 	public void onDisconnect(Minecraft client) {
 		for (Module module : modules) {
-			module.onDisconnect(client);
+			try {
+				module.onDisconnect(client);
+			} catch (Throwable ignored) {
+			}
 		}
 	}
 

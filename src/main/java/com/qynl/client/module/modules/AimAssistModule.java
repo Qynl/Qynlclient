@@ -72,7 +72,7 @@ public class AimAssistModule extends Module {
         addSetting(Setting.range ("range",     "Range",      8.0,   3,  16, 0.5, "b"));
         // Default "Players" — the client is built for friends-server PvP.
         addSetting(Setting.options("target",   "Target",    "Players", "Players", "Hostile", "All"));
-        addSetting(Setting.range ("reaction",  "Reaction",  150.0, 50, 400, 25, "ms"));
+        addSetting(Setting.range ("reaction",  "Reaction",  120.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
         addSetting(Setting.options("autoFire", "Auto-fire",  "Off", "Off", "On"));
     }
@@ -108,11 +108,18 @@ public class AimAssistModule extends Module {
         double mx = mc.mouseHandler.xpos(), my = mc.mouseHandler.ypos();
         double move = Math.hypot(mx - lastMx, my - lastMy);
         lastMx = mx; lastMy = my;
+        // The assist keeps pulling while the player moves the mouse — small
+        // tracking movements keep ~85 %, active strafing around an enemy
+        // keeps 65 %, and only a deliberate big flick (>30 px) yields for 2
+        // ticks. The old curve halved the assist on ANY movement, which made
+        // it feel dead during every real fight.
         double influence = 1.0;
         if (move > 30.0) {
             overrideTicks = 2;
+        } else if (move > 12.0) {
+            influence = 0.65;
         } else if (move > 4.0) {
-            influence = 0.5;
+            influence = 0.85;
         }
         if (overrideTicks > 0) overrideTicks--;
 
