@@ -47,9 +47,10 @@ import org.lwjgl.glfw.GLFW;
  * <p><b>Mouse override</b> — small tracking movements keep ~85 % assist,
  * active strafing 65 %, only deliberate flicks yield for 2 ticks.</p>
  *
- * <p>Modes: <b>Rotations</b> (camera glides — the default), <b>LockView</b>
- * (crosshair follows, same humanized glide), <b>Silent</b> (server sees the
- * humanized rotation in packets, camera stays yours).</p>
+ * <p>Modes: <b>Silent</b> (ultra-silent default — camera never moves, the
+ * server-side look flicks to the target with a strong, humanized rotation),
+ * <b>Rotations</b> (camera glides, cleaner and slower), <b>LockView</b>
+ * (crosshair follows, same humanized glide).</p>
  */
 public class AimAssistModule extends Module {
     private final RandomSource r = RandomSource.create();
@@ -78,11 +79,11 @@ public class AimAssistModule extends Module {
               Category.COMBAT);
         bindKey(GLFW.GLFW_KEY_O);
         addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
-        // Rotations is the default: the camera visibly glides to the target —
-        // but the glide is built like a hand: reaction delay, pixel-quantized
-        // mouse steps (GCD), a slowly breathing speed and a tiny settle
-        // overshoot, so the pattern is indistinguishable from real aim.
-        addSetting(Setting.options("mode",     "Mode",      "Rotations", "Rotations", "LockView", "Silent"));
+        // Ultra-silent is the default: the camera never moves a pixel. The
+        // aimed rotation goes into the movement packets — and because it is
+        // invisible, it can be much stronger: the server-side look flicks to
+        // the target in ~2-3 ticks, exactly like a real human flick.
+        addSetting(Setting.options("mode",     "Mode",      "Silent", "Silent", "Rotations", "LockView"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
@@ -157,7 +158,8 @@ public class AimAssistModule extends Module {
 
         // ── compute the smooth step ──
         float cy = mc.player.getYRot(), cp = mc.player.getXRot();
-        float[] step = stepTowards(mc, cy, cp, influenceSmooth);
+        boolean silent = "Silent".equals(getStringSetting("mode"));
+        float[] step = stepTowards(mc, cy, cp, influenceSmooth, silent);
         if (step == null) { SilentAim.clear(); return; }
 
         String mode = getStringSetting("mode");
@@ -204,7 +206,7 @@ public class AimAssistModule extends Module {
         return pos;
     }
 
-    private float[] stepTowards(Minecraft mc, float cy, float cp, double influence) {
+    private float[] stepTowards(Minecraft mc, float cy, float cp, double influence, boolean silent) {
         if (target == null || mc.player == null) return null;
         Vec3 eye = mc.player.getEyePosition();
         Vec3 aim = aimPoint(target);
@@ -221,10 +223,14 @@ public class AimAssistModule extends Module {
         // Deterministic cubic ease-out: the step is a fixed fraction of the
         // remaining error, so the glide decelerates smoothly and stops dead.
         // No per-tick randomness anywhere in the step — that was the glitch.
-        // Strong but clean: 6–22 °/tick of yaw at full strength — locks on
-        // from beside the target in a few ticks, smooth enough to never look
-        // robotic.
-        double maxSpeed = 6.0 + strength * 8.0;
+        // Visual modes stay clean: 6–22 °/tick. Silent gets a much stronger
+        // lock — 12–28 °/tick — because the camera never shows it; the
+        // server-side look flicks to the target in ~2-3 ticks like a real
+        // human flick, and the humanization (reaction, GCD pixel steps,
+        // overshoot) is applied on top of the packet values.
+        double maxSpeed = silent
+                ? (12.0 + strength * 8.0)
+                : (6.0 + strength * 8.0);
 
         // Slow human speed-wander: a smooth sine over ~3 s windows (not
         // per-tick randomness — that was the jitter), so the glide's speed
@@ -270,9 +276,10 @@ public class AimAssistModule extends Module {
             stepP = Math.round(stepP / gcd) * gcd;
         }
 
-        // Physical rotation cap — strong but never a teleport.
-        stepY = Mth.clamp(stepY, -12, 12);
-        stepP = Mth.clamp(stepP, -8, 8);
+        // Physical rotation cap — strong but never a teleport. Silent is
+        // capped higher since the motion is invisible (flick range).
+        stepY = Mth.clamp(stepY, silent ? -26 : -12, silent ? 26 : 12);
+        stepP = Mth.clamp(stepP, silent ? -14 : -8, silent ? 14 : 8);
 
         return new float[]{
             (float) Mth.wrapDegrees(cy + stepY),
