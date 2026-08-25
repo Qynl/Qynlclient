@@ -28,22 +28,28 @@ import org.lwjgl.glfw.GLFW;
  * without hunting. A glitchy aim is a ban signature, so smoothness is
  * the whole point.</p>
  *
- * <p><b>Fast engage</b> — a short human reaction (default 150 ms) then a
- * glide that starts at full speed, not a crawl.</p>
+ * <p><b>Fast engage</b> — a short human reaction (default 100 ms) then a
+ * glide that starts at speed, not a crawl.</p>
  *
  * <p><b>Human settle</b> — near the target the correction moves a fixed
- * fraction of the remaining error (never overshooting, never reversing),
- * so it converges like a hand finishing a flick instead of locking on.</p>
+ * fraction of the remaining error plus a tiny nudge, allowing a subtle
+ * ≤0.25° overshoot that is corrected next tick; the error shrinks every
+ * tick, so it converges like a hand finishing a flick instead of locking
+ * on or hunting.</p>
  *
  * <p><b>Mouse-grid (GCD) snap</b> — every step is rounded to real mouse
- * pixels at the player's sensitivity.</p>
+ * pixels at the player's sensitivity, so the rotation stream is
+ * indistinguishable from genuine mouse input.</p>
  *
- * <p><b>Mouse override</b> — while the player is moving the mouse, the
- * assist yields completely, then resumes.</p>
+ * <p><b>Speed wander</b> — the glide's max speed breathes ±10 % on a slow
+ * sine, so acceleration is never constant (a constant-speed bot signature).</p>
  *
- * <p>Modes: <b>Rotations</b> (camera moves), <b>LockView</b> (crosshair
- * follows, cleaner), <b>Silent</b> (server sees aimed rotations, camera
- * stays yours).</p>
+ * <p><b>Mouse override</b> — small tracking movements keep ~85 % assist,
+ * active strafing 65 %, only deliberate flicks yield for 2 ticks.</p>
+ *
+ * <p>Modes: <b>Rotations</b> (camera glides — the default), <b>LockView</b>
+ * (crosshair follows, same humanized glide), <b>Silent</b> (server sees the
+ * humanized rotation in packets, camera stays yours).</p>
  */
 public class AimAssistModule extends Module {
     private final RandomSource r = RandomSource.create();
@@ -51,6 +57,10 @@ public class AimAssistModule extends Module {
     private int reactionTicks;
     private int overrideTicks;
     private double lastMx, lastMy;
+
+    /** Tick counter for the slow human speed-wander (radians per tick). */
+    private long tickCounter = 0;
+    private static final double WANDER_SPEED = 0.085;
 
     // runtime cfg
     private double strength;
@@ -64,11 +74,11 @@ public class AimAssistModule extends Module {
               Category.COMBAT);
         bindKey(GLFW.GLFW_KEY_O);
         addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
-        // Silent is the default: the camera never moves (visually clean), and
-        // the aimed, humanized rotation is applied to the movement packets in
-        // the background — the anti-cheat sees natural look changes while your
-        // view stays exactly yours.
-        addSetting(Setting.options("mode",     "Mode",      "Silent", "Silent", "Rotations", "LockView"));
+        // Rotations is the default: the camera visibly glides to the target —
+        // but the glide is built like a hand: reaction delay, pixel-quantized
+        // mouse steps (GCD), a slowly breathing speed and a tiny settle
+        // overshoot, so the pattern is indistinguishable from real aim.
+        addSetting(Setting.options("mode",     "Mode",      "Rotations", "Rotations", "LockView", "Silent"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
@@ -96,6 +106,7 @@ public class AimAssistModule extends Module {
 
     @Override public void onTick(Minecraft mc) {
         pullCfg();
+        tickCounter++;
         if (mc.player == null || mc.level == null) return;
 
         boolean always = "Always".equals(getStringSetting("trigger"));
@@ -205,23 +216,34 @@ public class AimAssistModule extends Module {
         // Deterministic cubic ease-out: the step is a fixed fraction of the
         // remaining error, so the glide decelerates smoothly and stops dead.
         // No per-tick randomness anywhere in the step — that was the glitch.
-        // Strong: 5–23 °/tick of yaw at full strength.
-        double maxSpeed = 5.0 + strength * 9.0;
+        // Clean visual range: 4–12 °/tick of yaw at full strength — strong
+        // enough to actually hit, slow enough to never look robotic.
+        double maxSpeed = 4.0 + strength * 4.0;
+
+        // Slow human speed-wander: a smooth sine over ~3 s windows (not
+        // per-tick randomness — that was the jitter), so the glide's speed
+        // breathes ±10 % like a hand. Constant acceleration is a signature;
+        // a gently varying one is not.
+        double wander = 0.9 + 0.2 * Math.sin(tickCounter * WANDER_SPEED);
+        maxSpeed *= wander;
+
         double yawSpeed   = maxSpeed * easeCurve(absY, 30.0);
         double pitchSpeed = maxSpeed * 0.75 * easeCurve(absP, 20.0);
         double stepY = Mth.clamp(yawD, -yawSpeed, yawSpeed);
         double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
 
-        // Human settle near the target: a fixed fraction of the remaining
-        // error plus a tiny constant nudge in the same direction, clamped so
-        // it can NEVER overshoot or reverse — it converges like a hand
-        // finishing a flick, with no hunting or micro-jitter. A third of the
-        // remaining error per tick keeps it fast (no crawl) and dead-smooth.
+        // Human settle near the target: ~1/3 of the remaining error plus a
+        // tiny constant nudge, allowing a subtle ≤0.25° overshoot that is
+        // corrected on the next tick. A perfectly monotonic approach is a bot
+        // signature — one tiny bounce reads human, and the error still
+        // shrinks every tick (0.34 < 1), so it can never oscillate.
         if (absY < 6.0) {
-            stepY = Mth.clamp(yawD * 0.32 + Math.signum(yawD) * 0.08, -absY, absY);
+            stepY = Mth.clamp(yawD * 0.34 + Math.signum(yawD) * 0.10,
+                    -(absY + 0.25), absY + 0.25);
         }
         if (absP < 5.0) {
-            stepP = Mth.clamp(pitchD * 0.28 + Math.signum(pitchD) * 0.06, -absP, absP);
+            stepP = Mth.clamp(pitchD * 0.30 + Math.signum(pitchD) * 0.07,
+                    -(absP + 0.2), absP + 0.2);
         }
 
         // Mouse-influence blend: while the player moves the mouse the assist
@@ -229,9 +251,21 @@ public class AimAssistModule extends Module {
         stepY *= influence;
         stepP *= influence;
 
+        // GCD snap — quantize to real mouse pixels at the player's
+        // sensitivity. The rotation stream then matches genuine mouse input
+        // exactly (pixel-quantized steps, never raw floats), which is the
+        // single strongest "this is a human" signal for rotation checks.
+        double sens = mc.options.sensitivity().get();
+        double f = sens * 0.6 + 0.2;
+        double gcd = (f * f * f) * 8.0 * 0.15;
+        if (gcd > 1e-6) {
+            stepY = Math.round(stepY / gcd) * gcd;
+            stepP = Math.round(stepP / gcd) * gcd;
+        }
+
         // Physical rotation cap — strong but never a teleport.
-        stepY = Mth.clamp(stepY, -14, 14);
-        stepP = Mth.clamp(stepP, -10, 10);
+        stepY = Mth.clamp(stepY, -12, 12);
+        stepP = Mth.clamp(stepP, -8, 8);
 
         return new float[]{
             (float) Mth.wrapDegrees(cy + stepY),
