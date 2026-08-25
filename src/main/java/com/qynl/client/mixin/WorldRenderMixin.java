@@ -7,11 +7,13 @@ import com.qynl.client.module.modules.SearchModule;
 import com.qynl.client.module.modules.StorageESPModule;
 import com.qynl.client.module.modules.TracersModule;
 import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Final;
@@ -24,6 +26,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Renders 3D ESP overlays (Search, StorageESP, Tracers, NameTags, Echo)
  * at the end of the level render pass.
+ *
+ * <p>1.21.1 signature: {@code LevelRenderer.renderLevel(DeltaTracker, boolean,
+ * Camera, GameRenderer, LightTexture, Matrix4f, Matrix4f)} — note the PoseStack
+ * was removed from the method in 1.21, so the camera-rotated model matrix is
+ * rebuilt here for world-space overlays.</p>
  */
 @Mixin(LevelRenderer.class)
 public abstract class WorldRenderMixin {
@@ -31,27 +38,34 @@ public abstract class WorldRenderMixin {
     @Shadow @Final private Minecraft minecraft;
 
     @Inject(method = "renderLevel", at = @At("TAIL"))
-    private void qynlclient$renderESP(PoseStack poseStack, float partialTick, long finishNanoTime,
-                                      boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer,
-                                      LightTexture lightTexture, Matrix4f projectionMatrix, Matrix4f frustumMatrix,
-                                      CallbackInfo ci) {
+    private void qynlclient$renderESP(DeltaTracker deltaTracker, boolean renderBlockOutline,
+                                      Camera camera, GameRenderer gameRenderer,
+                                      LightTexture lightTexture, Matrix4f projectionMatrix,
+                                      Matrix4f frustumMatrix, CallbackInfo ci) {
         if (minecraft.player == null || minecraft.level == null) return;
 
         MultiBufferSource.BufferSource bufferSource = minecraft.renderBuffers().bufferSource();
         Vec3 camPos = camera.getPosition();
 
+        // Camera-rotated model matrix for world-space boxes / lines (the same
+        // matrix vanilla builds inside renderLevel for block outlines).
+        PoseStack worldStack = new PoseStack();
+        worldStack.mulPose(camera.rotation());
+
         // Render ESP modules
         SearchModule search = SearchModule.getInstance();
-        if (search != null) search.render(poseStack, bufferSource, camPos);
+        if (search != null) search.render(worldStack, bufferSource, camPos);
 
         StorageESPModule storage = StorageESPModule.getInstance();
-        if (storage != null) storage.render(poseStack, bufferSource, camPos);
+        if (storage != null) storage.render(worldStack, bufferSource, camPos);
 
         TracersModule tracers = TracersModule.getInstance();
-        if (tracers != null) tracers.render(poseStack, bufferSource, camPos);
+        if (tracers != null) tracers.render(worldStack, bufferSource, camPos);
 
+        // NameTags builds its own billboard transform (translate → face camera → scale),
+        // so it needs an identity pose stack to start from.
         NameTagsModule nameTags = NameTagsModule.getInstance();
-        if (nameTags != null) nameTags.render(poseStack, bufferSource, camPos);
+        if (nameTags != null) nameTags.render(new PoseStack(), bufferSource, camPos);
 
         // Echo markers
         EchoModule echo = EchoModule.getInstance();
@@ -67,10 +81,10 @@ public abstract class WorldRenderMixin {
                 int drawColor = color | ((int) (alpha * 255) << 24);
 
                 minecraft.font.drawInBatch(
-                        net.minecraft.network.chat.Component.literal("\u25cf"),
+                        Component.literal("\u25cf"),
                         (float) renderPos.x - 3, (float) renderPos.y - 3,
                         drawColor,
-                        true, poseStack.last().pose(), bufferSource,
+                        true, worldStack.last().pose(), bufferSource,
                         net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH,
                         0, 0xF000F0);
             }
