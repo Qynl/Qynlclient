@@ -47,10 +47,12 @@ import org.lwjgl.glfw.GLFW;
  * <p><b>Mouse override</b> — small tracking movements keep ~85 % assist,
  * active strafing 65 %, only deliberate flicks yield for 2 ticks.</p>
  *
- * <p>Modes: <b>Silent</b> (ultra-silent default — camera never moves, the
- * server-side look flicks to the target with a strong, humanized rotation),
- * <b>Rotations</b> (camera glides, cleaner and slower), <b>LockView</b>
- * (crosshair follows, same humanized glide).</p>
+ * <p>Modes: <b>Rotations</b> (default — the camera glides onto the target
+ * with a strong, humanized curve), <b>Silent</b> (camera never moves, the
+ * server-side look flicks), <b>LockView</b> (crosshair follows, same
+ * humanized glide). The camera path itself carries all the anti-flag
+ * signatures: GCD pixel-quantized steps, speed wander, subtle overshoot.
+ * Every step is indistinguishable from genuine mouse input.</p>
  */
 public class AimAssistModule extends Module {
     private final RandomSource r = RandomSource.create();
@@ -79,11 +81,11 @@ public class AimAssistModule extends Module {
               Category.COMBAT);
         bindKey(GLFW.GLFW_KEY_O);
         addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
-        // Ultra-silent is the default: the camera never moves a pixel. The
-        // aimed rotation goes into the movement packets — and because it is
-        // invisible, it can be much stronger: the server-side look flicks to
-        // the target in ~2-3 ticks, exactly like a real human flick.
-        addSetting(Setting.options("mode",     "Mode",      "Silent", "Silent", "Rotations", "LockView"));
+        // Rotations is the default: the camera glides visibly onto the
+        // target, but the glide itself carries every anti-flag signature
+        // (GCD pixel steps, speed wander, overshoot) so it reads as real
+        // mouse input. Silent stays available for zero camera movement.
+        addSetting(Setting.options("mode",     "Mode",      "Rotations", "Silent", "Rotations", "LockView"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
@@ -223,14 +225,14 @@ public class AimAssistModule extends Module {
         // Deterministic cubic ease-out: the step is a fixed fraction of the
         // remaining error, so the glide decelerates smoothly and stops dead.
         // No per-tick randomness anywhere in the step — that was the glitch.
-        // Visual modes stay clean: 6–22 °/tick. Silent gets a much stronger
-        // lock — 12–28 °/tick — because the camera never shows it; the
-        // server-side look flicks to the target in ~2-3 ticks like a real
-        // human flick, and the humanization (reaction, GCD pixel steps,
-        // overshoot) is applied on top of the packet values.
+        // Both modes are strong: the camera mode uses 9–18 °/tick so the
+        // visible glide locks on in a few ticks (like a real flick), and
+        // Silent gets an even harder lock — 12–28 °/tick — because nothing
+        // is visible. The anti-flag part is not the speed but the precision:
+        // GCD pixel steps + wander + overshoot are applied to both.
         double maxSpeed = silent
                 ? (12.0 + strength * 8.0)
-                : (6.0 + strength * 8.0);
+                : (9.0 + strength * 9.0);
 
         // Slow human speed-wander: a smooth sine over ~3 s windows (not
         // per-tick randomness — that was the jitter), so the glide's speed
@@ -277,9 +279,11 @@ public class AimAssistModule extends Module {
         }
 
         // Physical rotation cap — strong but never a teleport. Silent is
-        // capped higher since the motion is invisible (flick range).
-        stepY = Mth.clamp(stepY, silent ? -26 : -12, silent ? 26 : 12);
-        stepP = Mth.clamp(stepP, silent ? -14 : -8, silent ? 14 : 8);
+        // capped higher since the motion is invisible (flick range); the
+        // camera mode is capped just under human flick speed so the visible
+        // glide stays smooth and never reads as a snap.
+        stepY = Mth.clamp(stepY, silent ? -26 : -18, silent ? 26 : 18);
+        stepP = Mth.clamp(stepP, silent ? -14 : -10, silent ? 14 : 10);
 
         return new float[]{
             (float) Mth.wrapDegrees(cy + stepY),
