@@ -19,62 +19,58 @@ import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * AimAssist — humanized aim correction while attacking.
+ * AimAssist — buttery-smooth humanized aim correction.
  *
- * <p><b>Cubic ease-out glide</b> — accelerates fast when far from target,
- * decelerates smoothly near it. Never snaps.</p>
+ * <p><b>Deterministic glide</b> — the step speed scales only with the
+ * remaining error (cubic ease-out), never with per-tick randomness. No
+ * random speed jitter, no direction-reversing wobble: the crosshair
+ * accelerates out of a turn, decelerates onto the target and settles
+ * without hunting. A glitchy aim is a ban signature, so smoothness is
+ * the whole point.</p>
  *
- * <p><b>Human convergence</b> — near the target, damped settling with
- * residual wobble instead of a perfect lock. A zero-error lock is a
- * textbook ML-anti-cheat signature.</p>
+ * <p><b>Fast engage</b> — a short human reaction (default 150 ms) then a
+ * glide that starts at full speed, not a crawl.</p>
  *
- * <p><b>Mouse-grid (GCD) snap</b> — every correction step is rounded to
- * real mouse-pixel increments at the player's current sensitivity.</p>
+ * <p><b>Human settle</b> — near the target the correction moves a fixed
+ * fraction of the remaining error (never overshooting, never reversing),
+ * so it converges like a hand finishing a flick instead of locking on.</p>
  *
- * <p><b>Hard rotation-speed cap</b> — never exceeds ~12°/tick (240°/s).
- * Anything faster is physically impossible for a human.</p>
+ * <p><b>Mouse-grid (GCD) snap</b> — every step is rounded to real mouse
+ * pixels at the player's sensitivity.</p>
  *
- * <p><b>Predictive lead</b> — aims at where the target will be next tick
- * based on its current velocity.</p>
+ * <p><b>Mouse override</b> — while the player is moving the mouse, the
+ * assist yields completely, then resumes.</p>
  *
- * <p>Three modes: <b>Rotations</b> (camera moves), <b>LockView</b>
- * (crosshair follows target, cleaner), <b>Silent</b> (server sees aimed
- * rotations, player keeps camera control).</p>
+ * <p>Modes: <b>Rotations</b> (camera moves), <b>LockView</b> (crosshair
+ * follows, cleaner), <b>Silent</b> (server sees aimed rotations, camera
+ * stays yours).</p>
  */
 public class AimAssistModule extends Module {
-    // ── internal aim engine ──
     private final RandomSource r = RandomSource.create();
     private Entity target;
-    private int    reactionTicks;
-    private int    overrideTicks;
+    private int reactionTicks;
+    private int overrideTicks;
     private double lastMx, lastMy;
-    private double aimYawOff, aimPitchOff;
-    private int    wanderTimer;
-    private double wanderPhase;
-    private double convPhase;
 
     // runtime cfg
     private double strength;
-    private double baseSpeed;
-    private int    reactionBase;
     private double aimHeight;
+    private int reactionBase;
     private boolean predictive;
 
     public AimAssistModule() {
         super("AimAssist",
-              "Humanized aim — cubic ease-out glide, convergence wobble, GCD snap, rotation cap, predictive lead.",
-              Category.COMBAT);		bindKey(GLFW.GLFW_KEY_O);
-		// "Always" by default — the camera visibly tracks any player in FOV so
-		// the assist is obviously working out of the box.
-		addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
+              "Buttery-smooth humanized aim — deterministic glide, human settle, GCD snap, mouse override.",
+              Category.COMBAT);
+        bindKey(GLFW.GLFW_KEY_O);
+        addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
         addSetting(Setting.options("mode",     "Mode",      "Rotations", "Rotations", "LockView", "Silent"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
         addSetting(Setting.range ("fov",       "FOV",       40.0,   8,  90, 2, "\u00b0"));
         addSetting(Setting.range ("range",     "Range",      8.0,   3,  16, 0.5, "b"));
-        // Default "Players" — the client is built for friends-server PvP, and
-        // "Hostile" (Enemy marker) would find nothing but zombies there.
+        // Default "Players" — the client is built for friends-server PvP.
         addSetting(Setting.options("target",   "Target",    "Players", "Players", "Hostile", "All"));
         addSetting(Setting.range ("reaction",  "Reaction",  150.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
@@ -86,7 +82,6 @@ public class AimAssistModule extends Module {
 
     private void pullCfg() {
         strength   = getDoubleSetting("strength") / 100.0;
-        baseSpeed  = 1.2 + strength * 1.1;
         reactionBase = (int) Math.round(getDoubleSetting("reaction") / 50.0);
         aimHeight  = switch (getStringSetting("aimPoint")) {
             case "Head" -> 0.95; case "Feet" -> 0.12; default -> 0.60; };
@@ -99,35 +94,31 @@ public class AimAssistModule extends Module {
         pullCfg();
         if (mc.player == null || mc.level == null) return;
 
-        // Trigger: "Always" aims whenever a target is in FOV/range (1.8.9
-        // behavior); "OnAttack" only while the attack key is held.
         boolean always = "Always".equals(getStringSetting("trigger"));
         boolean engaged = (always || mc.options.keyAttack.isDown())
                 && mc.screen == null && !mc.player.isSpectator();
         Entity t = engaged ? findTarget(mc) : null;
 
-        // ── update internal state ──
+        // ── mouse override: the player's own input always wins ──
         double mx = mc.mouseHandler.xpos(), my = mc.mouseHandler.ypos();
         double move = Math.hypot(mx - lastMx, my - lastMy);
         lastMx = mx; lastMy = my;
-        if (move > 4.0) overrideTicks = 6;
+        if (move > 4.0) overrideTicks = 4;
         else if (overrideTicks > 0) overrideTicks--;
 
         if (t != target) {
             target = t;
-            reactionTicks = t != null ? reactionBase + r.nextInt(4) : 0;
-            wanderTimer = 0; convPhase = 0;
-            if (t != null) reWander();
-        } else if (target != null) {
-            if (reactionTicks > 0) reactionTicks--;
-            if (--wanderTimer <= 0) { wanderTimer = 4 + r.nextInt(8); reWander(); }
+            reactionTicks = t != null ? reactionBase + r.nextInt(3) : 0;
+        } else if (target != null && reactionTicks > 0) {
+            reactionTicks--;
         }
 
         if (target == null || reactionTicks > 0 || overrideTicks > 0) {
-            SilentAim.clear(); return;
+            SilentAim.clear();
+            return;
         }
 
-        // ── compute step ──
+        // ── compute the smooth step ──
         float cy = mc.player.getYRot(), cp = mc.player.getXRot();
         float[] step = stepTowards(mc, cy, cp);
         if (step == null) { SilentAim.clear(); return; }
@@ -160,21 +151,15 @@ public class AimAssistModule extends Module {
     public Entity getCurrentTarget() { return target; }
     public boolean isAimLocked()     { return target != null && reactionTicks <= 0 && overrideTicks <= 0; }
 
-    // ── aim engine ──────────────────────────────────────────────
+    // ── smooth aim engine ───────────────────────────────────────
 
     private Vec3 aimPoint(Entity e) {
         double h = e.getBoundingBox().getYsize() * aimHeight;
         Vec3 pos = e.getBoundingBox().getCenter()
                 .add(0, -e.getBoundingBox().getYsize() / 2 + h, 0);
         if (predictive && strength > 0.6)
-            pos = pos.add(e.getDeltaMovement().scale(0.9 + r.nextDouble() * 0.2));
+            pos = pos.add(e.getDeltaMovement().scale(0.9));
         return pos;
-    }
-
-    private void reWander() {
-        double ws = 1.0 / Math.max(0.4, strength);
-        aimYawOff   = (r.nextDouble() - 0.5) * 4.5 * ws;
-        aimPitchOff = (r.nextDouble() - 0.5) * 4.0 * ws;
     }
 
     private float[] stepTowards(Minecraft mc, float cy, float cp) {
@@ -191,45 +176,55 @@ public class AimAssistModule extends Module {
         double pitchD  = Mth.clamp(pitchTo - cp, -90, 90);
         double absY = Math.abs(yawD), absP = Math.abs(pitchD);
 
-        // cubic ease-out
-        double spd = baseSpeed * strength * (0.8 + r.nextDouble() * 0.4);
-        double easeY = ease(absY, spd, 30), easeP = ease(absP, spd * 0.65, 30);
-        double stepY = Mth.clamp(yawD, -easeY, easeY);
-        double stepP = Mth.clamp(pitchD, -easeP, easeP);
+        // Deterministic cubic ease-out: the step is a fixed fraction of the
+        // remaining error, so the glide decelerates smoothly and stops dead.
+        // No per-tick randomness anywhere in the step — that was the glitch.
+        double maxSpeed = 5.0 + strength * 5.0;          // 5–15 °/tick at full
+        double yawSpeed   = maxSpeed * easeCurve(absY, 30.0);
+        double pitchSpeed = maxSpeed * 0.72 * easeCurve(absP, 20.0);
+        double stepY = Mth.clamp(yawD, -yawSpeed, yawSpeed);
+        double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
 
-        // convergence damp
-        if (absY < 6.0) {
-            convPhase += 0.3 + r.nextDouble() * 0.2;
-            stepY = yawD * 0.45 + Math.sin(convPhase * 0.7) * 0.6 * (6.0 - absY) / 6.0;
+        // Human settle near the target: a fixed fraction of the remaining
+        // error plus a tiny constant nudge in the same direction, clamped so
+        // it can NEVER overshoot or reverse — it converges like a hand
+        // finishing a flick, with no hunting or micro-jitter.
+        if (absY < 8.0) {
+            stepY = Mth.clamp(yawD * 0.22 + Math.signum(yawD) * 0.06, -absY, absY);
         }
-        if (absP < 4.0) {
-            stepP = pitchD * 0.40 + Math.cos(convPhase * 0.9) * 0.45 * (4.0 - absP) / 4.0;
+        if (absP < 6.0) {
+            stepP = Mth.clamp(pitchD * 0.20 + Math.signum(pitchD) * 0.05, -absP, absP);
         }
 
-        // hard cap
-        stepY = Mth.clamp(stepY, -12, 12);
-        stepP = Mth.clamp(stepP, -8, 8);
-
-        // GCD snap
+        // GCD snap — real mouse-pixel steps at the player's sensitivity.
         double sens = mc.options.sensitivity().get();
         double f = sens * 0.6 + 0.2;
         double gcd = (f * f * f) * 8.0 * 0.15;
-        if (gcd > 1e-6) { stepY = Math.round(stepY / gcd) * gcd; stepP = Math.round(stepP / gcd) * gcd; }
+        if (gcd > 1e-6) {
+            stepY = Math.round(stepY / gcd) * gcd;
+            stepP = Math.round(stepP / gcd) * gcd;
+        }
 
-        // tremor
-        wanderPhase += 0.45 + r.nextDouble() * 0.25;
-        double trem = Math.sin(wanderPhase) * 0.025 * (1.0 / Math.max(0.4, strength));
+        // Physical rotation cap.
+        stepY = Mth.clamp(stepY, -12, 12);
+        stepP = Mth.clamp(stepP, -8, 8);
 
         return new float[]{
-            (float) Mth.wrapDegrees(cy + stepY + trem),
+            (float) Mth.wrapDegrees(cy + stepY),
             Mth.clamp(cp + (float) stepP, -90, 90)
         };
     }
 
-    private static double ease(double error, double speed, double cap) {
-        if (error < 0.5) return error * 0.35;
-        double t = Math.min(1.0, error / cap);
-        return Math.min(speed * (0.15 + 0.85 * Math.pow(t, 0.65)), error);
+    /**
+     * Ease-out multiplier for the current error: starts at 15 % of max speed
+     * (a human flick starts fast, so engagement is immediate) and ramps to
+     * 100 % while far away, with a hard dead zone under half a degree so the
+     * crosshair stops dead instead of hunting.
+     */
+    private static double easeCurve(double error, double scale) {
+        if (error < 0.5) return 0.0;
+        double t = Math.min(1.0, error / scale);
+        return 0.15 + 0.85 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
     }
 
     // ── silent attack ───────────────────────────────────────────
@@ -280,13 +275,13 @@ public class AimAssistModule extends Module {
             if (sc < bestScore) { bestScore = sc; best = e; }
         }
         return best;
-    }	private static boolean valid(Entity e, String mode) {
-		return switch (mode) {
-			// Hostile = the Enemy marker (zombies, skeletons, spiders, ...) —
-			// never passive mobs like cows/pigs.
-			case "Hostile" -> e instanceof Enemy;
-			case "Players" -> e instanceof Player;
-			default        -> e instanceof Enemy || e instanceof Mob || e instanceof Player;
-		};
-	}
+    }
+
+    private static boolean valid(Entity e, String mode) {
+        return switch (mode) {
+            case "Hostile" -> e instanceof Enemy;
+            case "Players" -> e instanceof Player;
+            default        -> e instanceof Enemy || e instanceof Mob || e instanceof Player;
+        };
+    }
 }
