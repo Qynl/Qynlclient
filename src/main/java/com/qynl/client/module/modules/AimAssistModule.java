@@ -28,7 +28,7 @@ import org.lwjgl.glfw.GLFW;
  * without hunting. A glitchy aim is a ban signature, so smoothness is
  * the whole point.</p>
  *
- * <p><b>Fast engage</b> — a short human reaction (default 100 ms) then a
+ * <p><b>Fast engage</b> — a short human reaction (default 60 ms) then a
  * glide that starts at speed, not a crawl.</p>
  *
  * <p><b>Human settle</b> — near the target the correction moves a fixed
@@ -86,11 +86,11 @@ public class AimAssistModule extends Module {
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
-        addSetting(Setting.range ("fov",       "FOV",       40.0,   8,  90, 2, "\u00b0"));
+        addSetting(Setting.range ("fov",       "FOV",       60.0,   8,  90, 2, "\u00b0"));
         addSetting(Setting.range ("range",     "Range",      8.0,   3,  16, 0.5, "b"));
         // Default "Players" — the client is built for friends-server PvP.
         addSetting(Setting.options("target",   "Target",    "Players", "Players", "Hostile", "All"));
-        addSetting(Setting.range ("reaction",  "Reaction",  100.0, 50, 400, 25, "ms"));
+        addSetting(Setting.range ("reaction",  "Reaction",   60.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
         addSetting(Setting.options("autoFire", "Auto-fire",  "Off", "Off", "On"));
     }
@@ -221,9 +221,10 @@ public class AimAssistModule extends Module {
         // Deterministic cubic ease-out: the step is a fixed fraction of the
         // remaining error, so the glide decelerates smoothly and stops dead.
         // No per-tick randomness anywhere in the step — that was the glitch.
-        // Strong but clean: 5–17 °/tick of yaw at full strength — fast enough
-        // to lock on, smooth enough to never look robotic.
-        double maxSpeed = 5.0 + strength * 6.0;
+        // Strong but clean: 6–22 °/tick of yaw at full strength — locks on
+        // from beside the target in a few ticks, smooth enough to never look
+        // robotic.
+        double maxSpeed = 6.0 + strength * 8.0;
 
         // Slow human speed-wander: a smooth sine over ~3 s windows (not
         // per-tick randomness — that was the jitter), so the glide's speed
@@ -237,18 +238,19 @@ public class AimAssistModule extends Module {
         double stepY = Mth.clamp(yawD, -yawSpeed, yawSpeed);
         double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
 
-        // Human settle near the target: ~40 % of the remaining error plus a
-        // tiny constant nudge, allowing a subtle ≤0.2° overshoot that is
+        // Human settle near the target: ~55 % of the remaining error plus a
+        // tiny constant nudge, allowing a subtle ≤0.25° overshoot that is
         // corrected on the next tick. A perfectly monotonic approach is a bot
         // signature — one tiny bounce reads human, and the error still
-        // shrinks every tick (0.42 < 1), so it can never oscillate.
+        // shrinks every tick (0.55 < 1), so it can never oscillate. The higher
+        // fraction keeps the last degrees from crawling.
         if (absY < 6.0) {
-            stepY = Mth.clamp(yawD * 0.42 + Math.signum(yawD) * 0.06,
-                    -(absY + 0.2), absY + 0.2);
+            stepY = Mth.clamp(yawD * 0.55 + Math.signum(yawD) * 0.08,
+                    -(absY + 0.25), absY + 0.25);
         }
         if (absP < 5.0) {
-            stepP = Mth.clamp(pitchD * 0.38 + Math.signum(pitchD) * 0.05,
-                    -(absP + 0.15), absP + 0.15);
+            stepP = Mth.clamp(pitchD * 0.50 + Math.signum(pitchD) * 0.06,
+                    -(absP + 0.2), absP + 0.2);
         }
 
         // Mouse-influence blend: while the player moves the mouse the assist
@@ -313,9 +315,9 @@ public class AimAssistModule extends Module {
      * third of a degree so the crosshair stops dead instead of hunting.
      */
     private static double easeCurve(double error, double scale) {
-        if (error < 0.3) return 0.0;
+        if (error < 0.4) return 0.0;
         double t = Math.min(1.0, error / scale);
-        return 0.3 + 0.7 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
+        return 0.35 + 0.65 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
     }
 
     // ── silent attack ───────────────────────────────────────────
