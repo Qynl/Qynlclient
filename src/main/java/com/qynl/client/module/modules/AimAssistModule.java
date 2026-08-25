@@ -64,7 +64,11 @@ public class AimAssistModule extends Module {
               Category.COMBAT);
         bindKey(GLFW.GLFW_KEY_O);
         addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
-        addSetting(Setting.options("mode",     "Mode",      "Rotations", "Rotations", "LockView", "Silent"));
+        // Silent is the default: the camera never moves (visually clean), and
+        // the aimed, humanized rotation is applied to the movement packets in
+        // the background — the anti-cheat sees natural look changes while your
+        // view stays exactly yours.
+        addSetting(Setting.options("mode",     "Mode",      "Silent", "Silent", "Rotations", "LockView"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
@@ -72,7 +76,7 @@ public class AimAssistModule extends Module {
         addSetting(Setting.range ("range",     "Range",      8.0,   3,  16, 0.5, "b"));
         // Default "Players" — the client is built for friends-server PvP.
         addSetting(Setting.options("target",   "Target",    "Players", "Players", "Hostile", "All"));
-        addSetting(Setting.range ("reaction",  "Reaction",  120.0, 50, 400, 25, "ms"));
+        addSetting(Setting.range ("reaction",  "Reaction",  100.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
         addSetting(Setting.options("autoFire", "Auto-fire",  "Off", "Off", "On"));
     }
@@ -145,7 +149,12 @@ public class AimAssistModule extends Module {
 
         switch (mode) {
             case "Silent" -> {
-                SilentAim.set(step[0], vl ? cp : step[1]);
+                // Background humanization: the packet rotation gets the GCD
+                // snap (real mouse-pixel steps) so the server's rotation
+                // stream looks like actual mouse input, while the camera
+                // itself never moves a single pixel.
+                float[] human = humanizePacket(step);
+                SilentAim.set(human[0], vl ? cp : human[1]);
                 if ("On".equals(getStringSetting("autoFire"))) silentFire(mc);
             }
             case "LockView" -> {
@@ -196,21 +205,23 @@ public class AimAssistModule extends Module {
         // Deterministic cubic ease-out: the step is a fixed fraction of the
         // remaining error, so the glide decelerates smoothly and stops dead.
         // No per-tick randomness anywhere in the step — that was the glitch.
-        double maxSpeed = 5.0 + strength * 5.0;          // 5–15 °/tick at full
+        // Strong: 5–23 °/tick of yaw at full strength.
+        double maxSpeed = 5.0 + strength * 9.0;
         double yawSpeed   = maxSpeed * easeCurve(absY, 30.0);
-        double pitchSpeed = maxSpeed * 0.72 * easeCurve(absP, 20.0);
+        double pitchSpeed = maxSpeed * 0.75 * easeCurve(absP, 20.0);
         double stepY = Mth.clamp(yawD, -yawSpeed, yawSpeed);
         double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
 
         // Human settle near the target: a fixed fraction of the remaining
         // error plus a tiny constant nudge in the same direction, clamped so
         // it can NEVER overshoot or reverse — it converges like a hand
-        // finishing a flick, with no hunting or micro-jitter.
-        if (absY < 8.0) {
-            stepY = Mth.clamp(yawD * 0.22 + Math.signum(yawD) * 0.06, -absY, absY);
+        // finishing a flick, with no hunting or micro-jitter. A third of the
+        // remaining error per tick keeps it fast (no crawl) and dead-smooth.
+        if (absY < 6.0) {
+            stepY = Mth.clamp(yawD * 0.32 + Math.signum(yawD) * 0.08, -absY, absY);
         }
-        if (absP < 6.0) {
-            stepP = Mth.clamp(pitchD * 0.20 + Math.signum(pitchD) * 0.05, -absP, absP);
+        if (absP < 5.0) {
+            stepP = Mth.clamp(pitchD * 0.28 + Math.signum(pitchD) * 0.06, -absP, absP);
         }
 
         // Mouse-influence blend: while the player moves the mouse the assist
@@ -218,7 +229,30 @@ public class AimAssistModule extends Module {
         stepY *= influence;
         stepP *= influence;
 
-        // GCD snap — real mouse-pixel steps at the player's sensitivity.
+        // Physical rotation cap — strong but never a teleport.
+        stepY = Mth.clamp(stepY, -14, 14);
+        stepP = Mth.clamp(stepP, -10, 10);
+
+        return new float[]{
+            (float) Mth.wrapDegrees(cy + stepY),
+            (float) Mth.clamp(cp + (float) stepP, -90, 90)
+        };
+    }
+
+    /**
+     * Packet-only humanization for Silent mode: the rotation delta is snapped
+     * to real mouse pixels at the player's sensitivity (GCD), so the server's
+     * look stream matches genuine mouse input exactly. Applied AFTER the
+     * camera step is computed — the visual modes never touch this, which is
+     * why they stay perfectly smooth.
+     */
+    private float[] humanizePacket(float[] step) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return step;
+        double cy = mc.player.getYRot(), cp = mc.player.getXRot();
+        double stepY = Mth.wrapDegrees(step[0] - cy);
+        double stepP = step[1] - cp;
+
         double sens = mc.options.sensitivity().get();
         double f = sens * 0.6 + 0.2;
         double gcd = (f * f * f) * 8.0 * 0.15;
@@ -227,26 +261,22 @@ public class AimAssistModule extends Module {
             stepP = Math.round(stepP / gcd) * gcd;
         }
 
-        // Physical rotation cap.
-        stepY = Mth.clamp(stepY, -12, 12);
-        stepP = Mth.clamp(stepP, -8, 8);
-
         return new float[]{
             (float) Mth.wrapDegrees(cy + stepY),
-            Mth.clamp(cp + (float) stepP, -90, 90)
+            (float) Mth.clamp(cp + (float) stepP, -90, 90)
         };
     }
 
     /**
-     * Ease-out multiplier for the current error: starts at 15 % of max speed
-     * (a human flick starts fast, so engagement is immediate) and ramps to
-     * 100 % while far away, with a hard dead zone under half a degree so the
-     * crosshair stops dead instead of hunting.
+     * Ease-out multiplier for the current error: starts at 25 % of max speed
+     * (a human flick starts fast, so engagement is immediate and never feels
+     * slow) and ramps to 100 % while far away, with a hard dead zone under a
+     * third of a degree so the crosshair stops dead instead of hunting.
      */
     private static double easeCurve(double error, double scale) {
-        if (error < 0.5) return 0.0;
+        if (error < 0.35) return 0.0;
         double t = Math.min(1.0, error / scale);
-        return 0.15 + 0.85 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
+        return 0.25 + 0.75 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
     }
 
     // ── silent attack ───────────────────────────────────────────

@@ -27,6 +27,10 @@ public abstract class LocalPlayerSendPositionMixin {
 			SilentAim.captureVisual(self.getYRot(), self.getXRot());
 			self.setYRot(SilentAim.getSilentYaw());
 			self.setXRot(SilentAim.getSilentPitch());
+			// The server's look interpolation uses yHeadRot — aim it too so the
+			// full body look points at the target, then restore it.
+			self.yHeadRot = SilentAim.getSilentYaw();
+			self.yHeadRotO = SilentAim.getSilentYaw();
 		}
 	}
 
@@ -36,6 +40,8 @@ public abstract class LocalPlayerSendPositionMixin {
 			LocalPlayer self = (LocalPlayer) (Object) this;
 			self.setYRot(SilentAim.getVisualYaw());
 			self.setXRot(SilentAim.getVisualPitch());
+			self.yHeadRot = SilentAim.getVisualYaw();
+			self.yHeadRotO = SilentAim.getVisualYaw();
 		}
 	}
 }
