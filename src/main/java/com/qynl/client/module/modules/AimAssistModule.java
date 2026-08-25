@@ -58,6 +58,10 @@ public class AimAssistModule extends Module {
     private int overrideTicks;
     private double lastMx, lastMy;
 
+    /** Smoothed mouse-influence — the blend lerps instead of stepping, so
+     *  crossing a mouse-speed threshold can never stutter the glide. */
+    private double influenceSmooth = 1.0;
+
     /** Tick counter for the slow human speed-wander (radians per tick). */
     private long tickCounter = 0;
     private static final double WANDER_SPEED = 0.085;
@@ -124,18 +128,19 @@ public class AimAssistModule extends Module {
         double move = Math.hypot(mx - lastMx, my - lastMy);
         lastMx = mx; lastMy = my;
         // The assist keeps pulling while the player moves the mouse — small
-        // tracking movements keep ~85 %, active strafing around an enemy
-        // keeps 65 %, and only a deliberate big flick (>30 px) yields for 2
-        // ticks. The old curve halved the assist on ANY movement, which made
-        // it feel dead during every real fight.
+        // tracking movements keep ~90 %, active strafing around an enemy
+        // keeps 75 %, and only a deliberate big flick (>30 px) yields for 2
+        // ticks. The blend is smoothed (lerped) so crossing a threshold never
+        // steps the glide speed — that stepping was the visible stutter.
         double influence = 1.0;
         if (move > 30.0) {
             overrideTicks = 2;
         } else if (move > 12.0) {
-            influence = 0.65;
+            influence = 0.75;
         } else if (move > 4.0) {
-            influence = 0.85;
+            influence = 0.9;
         }
+        influenceSmooth += (influence - influenceSmooth) * 0.4;
         if (overrideTicks > 0) overrideTicks--;
 
         if (t != target) {
@@ -152,7 +157,7 @@ public class AimAssistModule extends Module {
 
         // ── compute the smooth step ──
         float cy = mc.player.getYRot(), cp = mc.player.getXRot();
-        float[] step = stepTowards(mc, cy, cp, influence);
+        float[] step = stepTowards(mc, cy, cp, influenceSmooth);
         if (step == null) { SilentAim.clear(); return; }
 
         String mode = getStringSetting("mode");
@@ -216,15 +221,15 @@ public class AimAssistModule extends Module {
         // Deterministic cubic ease-out: the step is a fixed fraction of the
         // remaining error, so the glide decelerates smoothly and stops dead.
         // No per-tick randomness anywhere in the step — that was the glitch.
-        // Clean visual range: 4–12 °/tick of yaw at full strength — strong
-        // enough to actually hit, slow enough to never look robotic.
-        double maxSpeed = 4.0 + strength * 4.0;
+        // Strong but clean: 5–17 °/tick of yaw at full strength — fast enough
+        // to lock on, smooth enough to never look robotic.
+        double maxSpeed = 5.0 + strength * 6.0;
 
         // Slow human speed-wander: a smooth sine over ~3 s windows (not
         // per-tick randomness — that was the jitter), so the glide's speed
-        // breathes ±10 % like a hand. Constant acceleration is a signature;
+        // breathes ±7 % like a hand. Constant acceleration is a signature;
         // a gently varying one is not.
-        double wander = 0.9 + 0.2 * Math.sin(tickCounter * WANDER_SPEED);
+        double wander = 0.93 + 0.14 * Math.sin(tickCounter * WANDER_SPEED);
         maxSpeed *= wander;
 
         double yawSpeed   = maxSpeed * easeCurve(absY, 30.0);
@@ -232,18 +237,18 @@ public class AimAssistModule extends Module {
         double stepY = Mth.clamp(yawD, -yawSpeed, yawSpeed);
         double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
 
-        // Human settle near the target: ~1/3 of the remaining error plus a
-        // tiny constant nudge, allowing a subtle ≤0.25° overshoot that is
+        // Human settle near the target: ~40 % of the remaining error plus a
+        // tiny constant nudge, allowing a subtle ≤0.2° overshoot that is
         // corrected on the next tick. A perfectly monotonic approach is a bot
         // signature — one tiny bounce reads human, and the error still
-        // shrinks every tick (0.34 < 1), so it can never oscillate.
+        // shrinks every tick (0.42 < 1), so it can never oscillate.
         if (absY < 6.0) {
-            stepY = Mth.clamp(yawD * 0.34 + Math.signum(yawD) * 0.10,
-                    -(absY + 0.25), absY + 0.25);
+            stepY = Mth.clamp(yawD * 0.42 + Math.signum(yawD) * 0.06,
+                    -(absY + 0.2), absY + 0.2);
         }
         if (absP < 5.0) {
-            stepP = Mth.clamp(pitchD * 0.30 + Math.signum(pitchD) * 0.07,
-                    -(absP + 0.2), absP + 0.2);
+            stepP = Mth.clamp(pitchD * 0.38 + Math.signum(pitchD) * 0.05,
+                    -(absP + 0.15), absP + 0.15);
         }
 
         // Mouse-influence blend: while the player moves the mouse the assist
@@ -308,9 +313,9 @@ public class AimAssistModule extends Module {
      * third of a degree so the crosshair stops dead instead of hunting.
      */
     private static double easeCurve(double error, double scale) {
-        if (error < 0.35) return 0.0;
+        if (error < 0.3) return 0.0;
         double t = Math.min(1.0, error / scale);
-        return 0.25 + 0.75 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
+        return 0.3 + 0.7 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
     }
 
     // ── silent attack ───────────────────────────────────────────
