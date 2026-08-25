@@ -19,18 +19,17 @@ import org.lwjgl.glfw.GLFW;
  *       randomized timing. Hardened with burst fake lag (never a constant rate)
  *       and only activates on the ground while moving.</li>
  * </ul>
- */
-public class BlinkModule extends Module {
-    private static final RandomSource RANDOM = RandomSource.create();
+ */public class BlinkModule extends Module {
+	private static final RandomSource RANDOM = RandomSource.create();
+	private static BlinkModule instance;
 
-    private boolean holding = false;
+	private boolean holding = false;
     private int autoTimer = 0;
     private int holdDuration = 0;
-    private int gapTicks = 0;
-
-    public BlinkModule() {
-        super("Blink", "Holds movement packets and releases in bursts — breaks enemy combos.",
-                Category.ASSIST);
+    private int gapTicks = 0;	public BlinkModule() {
+		super("Blink", "Holds movement packets and releases in bursts — breaks enemy combos.",
+				Category.UTILITY);
+		instance = this;
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.options("mode", "Mode", "Auto", "Auto", "Hold"));
         addSetting(Setting.range("holdMs", "Hold duration", 400.0, 100, 1000, 50, "ms"));
@@ -98,11 +97,13 @@ public class BlinkModule extends Module {
         holdDuration = (int) Math.round(getDoubleSetting("holdMs") / 50.0)
                 + RANDOM.nextInt(6) - 3;
         if (holdDuration < 2) holdDuration = 2;
-    }
+    }	public boolean isHolding() {
+		return isEnabled() && holding;
+	}
 
-    public boolean isHolding() {
-        return isEnabled() && holding;
-    }
+	public static boolean isActive() {
+		return instance != null && instance.isEnabled();
+	}
 
     private void flushPackets(Minecraft client) {
         if (client.getConnection() != null && client.getConnection().getConnection() != null) {

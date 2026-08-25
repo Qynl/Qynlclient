@@ -3,7 +3,7 @@
 **Qyn-L** is a Minecraft client available for **Fabric 1.21.1** and **Legacy Fabric 1.8.9**.
 
 - **Qyn-L 1.8.9** — a clean, silent **ghost client** in the style of Vape Lite: a small set of high-quality modules tuned to look like a normal player. A flagship quantum-strike engine (**Qynl**), an AI **Director** that decides which combat modules may act and how hard, aim assistance, reach, velocity, auto-clicker, WTap, sprint, an evasion engine (**Aegis**), render helpers (Search, NameTags, Tracers, StorageESP, Echo, Fullbright), utility (Scaffold, ChestSteal, Blink, Refill, Throwpot, Clutch), a Text GUI and friends. The UI is a minimal, dark, Vape-style ClickGUI.
-- **Qyn-L 1.21.1** — an assistive client with a broader set of convenience modules for easier play.
+- **Qyn-L 1.21.1** — the same ghost client, ported: the identical 32-module set (Qynl quantum engine, Director AI, AimAssist, AutoClicker with Block Hit, Reach with Silent Pack-Choke, Velocity, WTap, BlockHit, Criticals, Aegis, StrafeAssist, Hindsight, Sprint, Blink, Clutch, Refill, Throwpot, VersionAssist, Text GUI, render helpers) with a Vape-style HUD.
 
 All modules are deliberately tuned to mimic a real player: aim corrections snap to the mouse's own pixel grid and react with a human delay, clicks come at irregular intervals, reach fluctuates inside the ghost range, knockback is softened by a percentage rather than removed. No module is immune to aggressive anti-cheat — keep the flashier assists (Scaffold, Blink, the Reach pack-choke) on servers that tolerate them.
 
@@ -13,7 +13,7 @@ All modules are deliberately tuned to mimic a real player: aim corrections snap 
 
 | Version | Minecraft | Mod ID | Download |
 |---------|-----------|--------|----------|
-| **1.21.1** | 1.21.1 | `qynlclient` | `qynlclient-*.jar` |
+| **1.21.1** | 1.21.1 | `qynlclient` | `qynlclient-2.1.0.jar` |
 | **1.8.9** | 1.8.9 | `qynlclient189` | `qynlclient-1.8.9-*.jar` |
 
 The 1.8.9 jar ships with **ViaFabric (ViaVersion) embedded** — you can join 1.9–1.21.x servers from your 1.8.9 client with no extra mods.
@@ -70,92 +70,59 @@ The generator downloads the official jars into `.cache/` when they are not alrea
 
 ### 1.21.1 Modules
 
+Exact 1.8.9 parity — the same 32 modules, ported to the 1.21.1 API.
+
 #### Combat
 
 | Module | Description |
 |--------|-------------|
-| **Director** | The combat AI brain — watches fights and decides which modules to use and how hard, switching between 7 tactics (Engage / Combo / Trade / Defend / Evade / Retreat / Survive) with humanized reaction delays. Never starts a fight by itself |
-| **AimAssist** | Gently guides aim toward nearest hostile while attacking — humanized with GCD, convergence, rotation cap |
-| **AutoClicker** | Holds attack with burst pattern, CPS random walk, micro-pauses, occasional missed clicks |
-| **ReachAssist** | Extends your reach with natural fluctuation. Silent Pack-Choke mode for ghost servers |
-| **VelocityAssist** | Softens knockback by a percentage with per-hit chance — some hits take full KB like real jitter |
+| **AimAssist** | Smoothly aims at nearby targets — Rotations / LockView / Silent modes, cubic ease-out glide, human convergence (residual wobble, never perfect lock), GCD snap, hard rotation-speed cap, reaction delay, priority modes. Never targets friends |
+| **AutoClicker** | Clicks while you hold attack — human timing variance, burst pattern, random start reaction, CPS random walk, occasional missed clicks, and **Block Hit** (re-blocks after every swing when an enemy is in range, randomized hold, sprint-reset) |
+| **ReachAssist** | Extends reach with natural fluctuation locked to the ghost range (3.01–3.35 blocks per mode) plus a real **Silent Pack-Choke** — holds movement packets 1–2 ticks while closing on a target (never mid-air, never while sprinting, ping-gated) |
+| **VelocityAssist** | Reduces knockback by a percentage with per-hit variance and a **per-hit chance** (default 75 %) — some hits take full knockback. Mixin dampening plus a per-tick nth-root fallback, never applied twice |
+| **AutoSprint** | Sprints automatically while you move — vanilla rules plus randomized start delay, a post-attack re-engage window, and occasional missed starts |
 | **WTap** | Taps W after each hit to reset sprint — extra knockback on enemies |
-| **BlockHit** | Auto-blocks when enemy attacks (Reactive) or after your swings (Rhythm). Vape-Lite-grade |
-| **Criticals** | Airborne Engine — crits from jumps, knockback arcs, and edge falls. Zero modified packets |
-| **Aegis** | Evasion Engine — dodges arrows, snowballs, and projectiles with weighted vector sidesteps |
-| **StrafeAssist** | Auto-strafes left/right in combat with randomized intervals. Keeps sprint alive |
-| **Hindsight** | Server-Time Replay — tracks server-side positions for lag-compensated attacks |
-| **CritAssist** | Mini-jump packet crits (Y+0.06 up, Y+0.01 down) or Silent onGround spoof — no jumping needed |
-| **ShieldAssist** | Auto-blocks when enemy attacks (BlockHit / Hold modes) with human reaction delay |
-| **AutoSprint** | Sprint stays on while moving with randomized start delays and occasional misses |
-| **BowAssist** | Draws and releases your bow/crossbow at full charge with human release delay |
-
-#### Assist
-
-| Module | Description |
-|--------|-------------|
-| **AntiAFK** | Turns your view gently so servers don't kick you for being idle |
-| **AntiDrown** | Swims up when you're about to drown |
-| **AutoArmor** | Equips the best armor from your inventory automatically |
-| **AutoClimb** | Climbs ladders and vines automatically |
-| **AutoEat** | Eats the best food in your hotbar when hungry |
-| **AutoFish** | Reels in fish when they bite, then re-casts for you |
-| **AutoJump** | Automatically hops over small gaps and up stairs |
-| **AutoMine** | Keeps mining a block until it breaks — you don't have to hold the button |
-| **AutoPotion** | Splashes healing potions automatically when health is low |
-| **AutoRespawn** | Clicks the respawn button for you when you die |
-| **AutoStep** | Steps up one-block-high edges without jumping |
-| **AutoSwim** | Swims up automatically when underwater |
-| **AutoSword** | Switches to your strongest weapon when you attack |
-| **AutoTool** | Switches to the right tool for the block you're looking at |
-| **AutoTorch** | Places torches from your hotbar when light is too low |
-| **AutoTotem** | Moves a Totem of Undying to your offhand when health is low |
-| **AutoWalk** | Walks forward — free your hands while travelling |
-| **ChestStealer** | Open a chest and it automatically takes everything |
-| **FastPlaceAssist** | Speeds up block placement |
-| **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla) |
-| **InvWalk** | Walk while your inventory or any menu is open |
-| **NinjaBridge** | Auto-sneak + auto-place while bridging. 45° diagonal mode for max speed |
-| **NoFall** | Prevents fall damage |
-| **SafeWalk** | Stops you from walking off edges |
-| **ScaffoldWalk** | Places blocks under you while you walk |
-| **ToggleSneak** | Sneak stays on until you press the key again |
-
-#### Utility
-
-| Module | Description |
-|--------|-------------|
-| **Blink** | Holds movement packets and releases in bursts — breaks enemy combos (Auto / Hold) |
-| **Clutch** | Auto-Save Engine — catches lethal falls with MLG water/lava placement |
-| **Refill** | Refills your hotbar with food and potions from inventory (Manual / Auto) |
-| **Throwpot** | Press the bind to throw/drink/eat your best healing item instantly |
+| **BlockHit** | Vape-Lite-grade auto-blocking: **Reactive** (blocks when an enemy swings) or **Rhythm** (re-blocks after your own swings, attacks land unblocked). Randomized hold/chance/cooldown |
+| **Hindsight** | **Server-Time Replay** — replays the past, which is what the server actually checks: shows your own server-side position and every enemy's server-side hitbox, clicks exactly when the server's rewind-reach check passes. Works on retreating targets too. Defers to Qynl when both are on |
+| **Qynl** | The flagship engine — **Quantum Superposition**. Rebuilds every enemy's server-side position by rewinding the packet history one ping (measured from the real keep-alive RTT) and projects where they'll be when your attack lands; clicks at the earliest crossing into reach. Silently aims the server at the server-side hitbox, and collapses into a 1–2 tick dodge strafe the instant an enemy swings at you. Every packet is an ordinary vanilla attack |
+| **Criticals** | The Airborne Engine — attacks only inside vanilla airtime: your own jumps, knockback arcs and edge falls. Zero modified packets |
+| **Aegis** | The Evasion Engine — integrates every inbound projectile's trajectory and sidesteps out of the way with pure vanilla input. Weighted-vector dodge, void guard, randomized reaction window |
+| **StrafeAssist** | Auto-strafes left/right in combat with randomized intervals — never strafes while idle, keeps sprint alive |
+| **Director** | The combat AI brain — watches the fight and decides, tick by tick, which combat modules may act and how hard, switching between 7 tactics (Engage / Combo / Trade / Defend / Evade / Retreat / Survive) with humanized reaction delays, parameter re-tuning and an aggression slider. Never starts a fight by itself (engagement gate: crosshair on target + attack held), never runs anything constantly, sends zero packets. Force-enables Clutch the instant a fall turns lethal |
 
 #### Render
 
 | Module | Description |
 |--------|-------------|
-| **Fullbright** | Boost brightness so you can see clearly in the dark |
-| **Zoom** | Hold the key to zoom in for a closer look |
-| **NoHurtCam** | Removes the damage camera tilt — damage/knockback untouched (render-only) |
-| **NoViewBob** | Removes walking view bobbing — movement untouched (render-only) |
-| **Search** | Outlines chests, ores, storage blocks through walls (cached scan, configurable blocks) |
+| **Search** | Outlines chests, ores or storage blocks through walls (cached scan) |
 | **NameTags** | Renders entity nametags through walls — friends green, enemies red |
-| **Tracers** | Draws a line to every entity in range — players red, mobs orange, friends green |
-| **StorageESP** | Outlines all storage blocks (chests, shulkers, furnaces, etc.) through walls |
-| **Echo** | Soundscape radar — listens to sound packets and shows fading 3D markers. Zero packets sent |
-| **StreamerMode** | Hides all mod HUD elements — safe for OBS and recording |
+| **Tracers** | Draws a line to every entity in range (players red, mobs orange, friends green) |
+| **StorageESP** | Outlines all storage blocks through walls |
+| **Fullbright** | Makes everything bright |
+| **NoHurtCam** | Removes the damage camera tilt — damage and knockback untouched (render-only, silent) |
+| **NoViewBob** | Removes walking view bobbing — movement untouched (render-only, silent) |
+| **Zoom** | Hold the key to zoom in smoothly (2×–6× adjustable) |
+| **Echo** | Soundscape radar — listens to the server's own sound packets (read-only) and draws fading 3D markers. Zero packets sent |
 
-#### Info
+#### Utility
 
 | Module | Description |
 |--------|-------------|
-| **CoordConvert** | Shows Nether ↔ Overworld coordinate conversions |
-| **DeathCoords** | Remembers where you died and shows it on HUD |
-| **DurabilityWarn** | Shows a warning when your tools are about to break |
-| **EffectTimers** | Shows how much time is left on your active effects |
-| **InfoHUD** | Shows coordinates, FPS, direction, biome, time, and ping |
-| **Keystrokes** | On-screen WASD / mouse / CPS display |
-| **TargetInfo** | Shows info about the entity you're looking at |
+| **Clutch** | Auto-Save Engine — latches a lethal fall, edge-sneaks at the very last moment, then MLG water/lava with ping-adaptive placement. The Director force-enables it when a fall turns lethal |
+| **ScaffoldWalk** | Places a block under your feet while walking — bridge gaps without aiming down |
+| **ChestStealer** | Takes everything from an opened chest, one shift-click at a time |
+| **Blink** | Holds your movement packets briefly (Auto / Hold) — breaks the opponent's combo. Hardened: burst fake lag, holds only on the ground while moving |
+| **Refill** | Refills your hotbar with food and potions from the inventory |
+| **Throwpot** | Press the bind to throw / drink / eat your best healing item |
+| **VersionAssist** | Play on 1.21.2+ servers from 1.21.1 — ViaFabric translates automatically; pick a target version or Auto — key V |
+
+#### Other
+
+| Module | Description |
+|--------|-------------|
+| **Text GUI** | Shows the enabled modules on the HUD (position + color options) |
+| **Friends** | Comma-separated names that are never targeted and render green |
+| **StreamerMode** | Hides the HUD from OBS/recordings — assists keep working silently |
 
 ---
 

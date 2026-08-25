@@ -8,72 +8,88 @@ import net.minecraft.util.RandomSource;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * AutoSprint — sprints automatically while moving.
- * Randomized start delay and occasional missed starts for human-like pattern.
+ * AutoSprint — sprint automatically while you move forward, without holding
+ * the sprint key.
+ *
+ * <p>Anti-cheat hardened: sprint starts with a randomized delay after you
+ * start moving (humans don't sprint the instant they press W), never
+ * re-engages within 5 ticks after an attack (vanilla cancels sprint on attack
+ * and real players take a moment to re-engage), and occasionally misses the
+ * start and retries. Uses the same vanilla sprint rules (food, not sneaking,
+ * not using an item) so the pattern matches a normal player perfectly.</p>
  */
 public class AutoSprintModule extends Module {
-	private static final RandomSource RANDOM = RandomSource.create();
-	private int startDelay = 0;
-	private int postAttackWindow = 0;
+    private static final RandomSource RANDOM = RandomSource.create();
 
-	public AutoSprintModule() {
-		super("AutoSprint", "Automatically sprint while you move — with humanized random delays.",
-				Category.COMBAT);
-		bindKey(GLFW.GLFW_KEY_Y);
-		addSetting(Setting.options("mode", "Mode", "Always", "Always", "Forward"));
-		addSetting(Setting.range("missChance", "Miss start", 8.0, 0, 25, 5, "%"));
-	}
+    private int startDelayTicks = 0;
+    private int lastAttackTick = -100;
+    private boolean wasSwinging = false;
+    private int tickCounter = 0;
 
-	@Override
-	public void onTick(Minecraft client) {
-		if (client.player == null) return;
-		var player = client.player;
-		if (player.isSprinting()) {
-			startDelay = 0;
-			postAttackWindow = 0;
-			return;
-		}
+    public AutoSprintModule() {
+        super("AutoSprint", "Sprint automatically while you move — no need to hold the sprint key.",
+                Category.COMBAT);
+        bindKey(GLFW.GLFW_KEY_Y);
+        addSetting(Setting.options("mode", "Mode", "Forward", "Forward", "Always"));
+    }
 
-		// Post-attack re-engage window: after attacking, sprint again quickly
-		if (client.options.keyAttack.isDown() && player.getAttackStrengthScale(0.0F) < 0.5F) {
-			postAttackWindow = 4;
-		}
+    @Override
+    public void onTick(Minecraft client) {
+        if (client.player == null || client.level == null) {
+            return;
+        }
+        var player = client.player;
+        tickCounter++;
 
-		boolean moving = "Always".equals(getStringSetting("mode"))
-				? (player.input.forwardImpulse > 0.0F || player.input.leftImpulse != 0.0F)
-				: player.input.forwardImpulse > 0.0F;
-		boolean canSprint = player.getFoodData().getFoodLevel() > 6
-				&& !player.isCrouching()
-				&& !player.isUsingItem()
-				&& !player.isPassenger();
-		if (!moving || !canSprint) {
-			startDelay = 0;
-			return;
-		}
+        // Track our own swings: vanilla cancels sprint on attack, and
+        // re-sprinting instantly after a hit is a bot signature.
+        boolean swinging = player.swinging;
+        if (swinging && !wasSwinging) {
+            lastAttackTick = tickCounter;
+        }
+        wasSwinging = swinging;
 
-		// Randomized start delay: 1-4 ticks of natural delay before sprint begins
-		if (postAttackWindow > 0) {
-			postAttackWindow--;
-			player.setSprinting(true);
-			return;
-		}
+        if (player.isSprinting()) {
+            return;
+        }
 
-		if (startDelay > 0) {
-			startDelay--;
-			return;
-		}
+        boolean moving = "Always".equals(getStringSetting("mode"))
+                ? (player.input.forwardImpulse > 0.0F || player.input.leftImpulse != 0.0F)
+                : player.input.forwardImpulse > 0.0F;
+        if (!moving) {
+            startDelayTicks = 0;
+            return;
+        }
 
-		// Occasional missed start
-		double missChance = getDoubleSetting("missChance") / 100.0;
-		if (RANDOM.nextDouble() < missChance) {
-			startDelay = 2 + RANDOM.nextInt(6);
-			return;
-		}
+        // Randomized start delay after movement begins (3–7 ticks).
+        if (startDelayTicks == 0) {
+            startDelayTicks = 3 + RANDOM.nextInt(5);
+            return;
+        }
+        if (--startDelayTicks > 0) {
+            return;
+        }
 
-		// Random initial delay
-		startDelay = RANDOM.nextInt(4);
-		if (startDelay == 0) {
-			player.setSprinting(true);
-		}
-	}
+        // Respect the post-attack sprint re-engage window.
+        if (tickCounter - lastAttackTick < 5) {
+            return;
+        }
+        // Occasionally miss the sprint start and retry next tick.
+        if (RANDOM.nextInt(100) < 10) {
+            return;
+        }
+
+        boolean canSprint = player.getFoodData().getFoodLevel() > 6
+                && !player.isCrouching()
+                && !player.isUsingItem()
+                && !player.isPassenger();
+        if (canSprint) {
+            player.setSprinting(true);
+        }
+    }
+
+    @Override
+    public void onDisable() {
+        startDelayTicks = 0;
+    }
 }

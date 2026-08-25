@@ -4,7 +4,6 @@ import com.qynl.client.QynlClient;
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -142,13 +141,9 @@ public class ClickGuiScreen extends Screen {
             }
         }
         return super.mouseClicked(mx, my, btn);
-    }
-
-    @Override public void onClose() {
-        super.onClose();
-        Module cg = QynlClient.getInstance().getModuleManager().find("ClickGUI");
-        if (cg != null && cg.isEnabled()) cg.setEnabled(false);
-    }
+    }	@Override public void onClose() {
+		super.onClose();
+	}
 
     @Override public boolean isPauseScreen() { return false; }
 }

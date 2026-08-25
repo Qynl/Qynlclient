@@ -26,7 +26,7 @@ public class ScaffoldWalkModule extends Module {
 
 	public ScaffoldWalkModule() {
 		super("ScaffoldWalk", "Places blocks under you as you walk, so you never fall.",
-				Category.ASSIST);
+				Category.UTILITY);
 		bindKey(GLFW.GLFW_KEY_B);
 		addSetting(Setting.range("cooldown", "Place delay", 3.0, 1, 10, 1, "t"));
 	}

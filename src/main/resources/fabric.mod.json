@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "qynlclient",
 	"version": "${version}",    "name": "Qyn-L",
-    "description": "Qyn-L 1.21.1 — 1.8.9-tier utility client. Director AI, AimAssist, AutoClicker, Reach, Velocity, WTap, BlockHit, Criticals, Aegis evasion, StrafeAssist, Hindsight, Blink, Clutch, Refill, Throwpot, Search, Tracers, NameTags, StorageESP, Echo, NoHurtCam, NoViewBob. Vape-Lite dark HUD.",
+    "description": "Qyn-L 1.21.1 — the 1.8.9 assist client, for real. Qynl Quantum engine, Director AI, AimAssist, AutoClicker (Block Hit), Reach (Silent Pack-Choke), Velocity, WTap, BlockHit, Criticals, Aegis, StrafeAssist, Hindsight, Sprint, Blink, Clutch, Refill, Throwpot, VersionAssist, Text GUI. 32 modules, Vape-Lite HUD.",
 	"authors": [
 		"Qynl"
 	],

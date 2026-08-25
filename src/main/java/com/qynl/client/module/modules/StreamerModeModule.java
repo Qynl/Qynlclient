@@ -22,7 +22,7 @@ public class StreamerModeModule extends Module {
     public StreamerModeModule() {
         super("StreamerMode",
                 "Hides all mod HUD elements — safe for OBS and recording. Assists still work silently.",
-                Category.RENDER);
+                Category.OTHER);
         instance = this;
         bindKey(GLFW.GLFW_KEY_F8);
         addSetting(Setting.options("hideStyle", "Hide style", "All", "All", "HUD only", "Module list"));

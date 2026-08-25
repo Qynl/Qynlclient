@@ -25,12 +25,14 @@ import org.lwjgl.glfw.GLFW;
  */
 public class ClutchModule extends Module {
     private static final double LETHAL_FALL = 3.5; // blocks to start worrying
+    private static ClutchModule instance;
     private boolean clutching = false;
     private boolean waterPlaced = false;
 
     public ClutchModule() {
         super("Clutch", "Auto-Save — catches lethal falls with MLG water/lava placement.",
-                Category.ASSIST);
+                Category.UTILITY);
+        instance = this;
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.options("item", "Clutch item", "Water", "Water", "Lava", "Slime", "Hay"));
         addSetting(Setting.range("triggerDist", "Trigger fall", 4.0, 2.5, 8.0, 0.5, "b"));
@@ -143,6 +145,16 @@ public class ClutchModule extends Module {
             }
         }
         return null;
+    }
+
+    /** True while a lethal fall is latched (the Director's survival trigger). */
+    public static boolean isInDanger() {
+        return instance != null && instance.isEnabled() && instance.clutching && !instance.waterPlaced;
+    }
+
+    /** True while a save is actively in progress (water placed, waiting to land). */
+    public static boolean isSaving() {
+        return instance != null && instance.isEnabled() && instance.clutching;
     }
 
     private void reset() {

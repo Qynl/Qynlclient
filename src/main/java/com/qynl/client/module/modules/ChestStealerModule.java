@@ -20,7 +20,7 @@ public class ChestStealerModule extends Module {
 
 	public ChestStealerModule() {
 		super("ChestStealer", "Open a chest and it automatically takes everything for you.",
-				Category.ASSIST);
+				Category.UTILITY);
 		bindKey(GLFW.GLFW_KEY_T);
 	}
 

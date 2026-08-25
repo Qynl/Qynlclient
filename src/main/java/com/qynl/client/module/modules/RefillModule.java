@@ -22,7 +22,7 @@ public class RefillModule extends Module {
 
     public RefillModule() {
         super("Refill", "Refills your hotbar with food and potions from your inventory.",
-                Category.ASSIST);
+                Category.UTILITY);
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.options("mode", "Mode", "Manual", "Manual", "Auto"));
         addSetting(Setting.range("delay", "Swap delay", 5.0, 2, 15, 1, "t"));

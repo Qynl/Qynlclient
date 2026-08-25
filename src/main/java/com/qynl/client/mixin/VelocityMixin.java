@@ -25,10 +25,14 @@ public abstract class VelocityMixin {
 		if (module == null || !module.isActive()) {
 			return;
 		}
+		if (!VelocityAssistModule.rollChance()) {
+			return; // this hit takes full knockback — human variance
+		}
 		double x = packet.getXa() * module.horizontalFactor();
 		double y = packet.getYa() * module.verticalFactor();
 		double z = packet.getZa() * module.horizontalFactor();
 		client.player.setDeltaMovement(x, y, z);
+		VelocityAssistModule.markMixinDampened();
 		ci.cancel();
 	}
 }

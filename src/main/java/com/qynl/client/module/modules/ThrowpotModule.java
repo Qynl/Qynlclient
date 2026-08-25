@@ -24,7 +24,7 @@ public class ThrowpotModule extends Module {
 
     public ThrowpotModule() {
         super("Throwpot", "Press the bind to throw/drink/eat your best healing item instantly.",
-                Category.ASSIST);
+                Category.UTILITY);
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.range("healthPct", "Use below", 60.0, 20, 90, 5, "%"));
     }

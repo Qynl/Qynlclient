@@ -2,11 +2,8 @@ package com.qynl.client.mixin;
 
 import com.qynl.client.QynlClient;
 import com.qynl.client.module.modules.AegisModule;
-import com.qynl.client.module.modules.AutoStepModule;
-import com.qynl.client.module.modules.InvWalkModule;
-import com.qynl.client.module.modules.SafeWalkModule;
+import com.qynl.client.module.modules.QynlModule;
 import com.qynl.client.module.modules.StrafeAssistModule;
-import com.qynl.client.module.modules.ToggleSneakModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.Input;
 import org.spongepowered.asm.mixin.Mixin;
@@ -29,23 +26,13 @@ public abstract class InputMixin {
             return;
         }
 
-        // ToggleSneak — sneak without holding the key.
-        if (ToggleSneakModule.isActive()) {
-            input.shiftKeyDown = true;
+        // Qynl — Quantum Collapse dodge strafe (only while the dodge hold is
+        // active; the player must already be moving, enforced by QynlModule).
+        float dodge = QynlModule.dodgeStrafe();
+        if (dodge != 0.0F) {
+            // positive dodge = strafe right → negative leftImpulse
+            input.leftImpulse = -dodge;
         }
-
-        // SafeWalk — sneak at block edges so you never walk off.
-        if (SafeWalkModule.shouldSneak(client)) {
-            input.shiftKeyDown = true;
-        }
-
-        // AutoStep — jump when walking into a one-block ledge.
-        if (AutoStepModule.shouldJump(client)) {
-            input.jumping = true;
-        }
-
-        // InvWalk — keep moving while a screen is open.
-        InvWalkModule.apply(client, input);
 
         // Aegis — evasion engine (projectile dodging).
         AegisModule aegis = (AegisModule) QynlClient.getInstance().getModuleManager().find("Aegis");

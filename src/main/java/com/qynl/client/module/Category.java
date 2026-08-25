@@ -2,11 +2,9 @@ package com.qynl.client.module;
 
 public enum Category {
 	COMBAT("Combat"),
-	ASSIST("Assist"),
 	RENDER("Render"),
-	UTIL("Utility"),
-	INFO("Info"),
-	GUI("GUI");
+	UTILITY("Utility"),
+	OTHER("Other");
 
 	private final String label;
 

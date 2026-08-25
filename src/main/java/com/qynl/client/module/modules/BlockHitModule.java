@@ -28,6 +28,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class BlockHitModule extends Module {
     private static final RandomSource RANDOM = RandomSource.create();
+    private static BlockHitModule instance;
 
     private boolean forcingBlock = false;
     private int blockTimer = 0;
@@ -39,6 +40,7 @@ public class BlockHitModule extends Module {
     public BlockHitModule() {
         super("BlockHit", "Auto-blocks when enemy attacks (Reactive) or after your swings (Rhythm).",
                 Category.COMBAT);
+        instance = this;
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.options("mode", "Mode", "Reactive", "Reactive", "Rhythm"));
         addSetting(Setting.range("reactionMs", "Reaction delay", 150.0, 50, 300, 10, "ms"));
@@ -197,6 +199,10 @@ public class BlockHitModule extends Module {
             }
         }
         return best;
+    }
+
+    public static boolean isActive() {
+        return instance != null && instance.isEnabled();
     }
 
     @Override

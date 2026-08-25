@@ -1,8 +1,10 @@
 package com.qynl.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.qynl.client.module.modules.DirectorModule;
 import com.qynl.client.module.modules.EchoModule;
 import com.qynl.client.module.modules.NameTagsModule;
+import com.qynl.client.module.modules.QynlModule;
 import com.qynl.client.module.modules.SearchModule;
 import com.qynl.client.module.modules.StorageESPModule;
 import com.qynl.client.module.modules.TracersModule;
@@ -24,8 +26,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Renders 3D ESP overlays (Search, StorageESP, Tracers, NameTags, Echo)
- * at the end of the level render pass.
+ * Renders 3D ESP overlays (Qynl, Director, Search, StorageESP, Tracers,
+ * NameTags, Echo) at the end of the level render pass.
  *
  * <p>1.21.1 signature: {@code LevelRenderer.renderLevel(DeltaTracker, boolean,
  * Camera, GameRenderer, LightTexture, Matrix4f, Matrix4f)} — note the PoseStack
@@ -51,6 +53,10 @@ public abstract class WorldRenderMixin {
         // matrix vanilla builds inside renderLevel for block outlines).
         PoseStack worldStack = new PoseStack();
         worldStack.mulPose(camera.rotation());
+
+        // Render the flagship quantum overlay (Qynl) and the Director focus ring.
+        QynlModule.render(worldStack, bufferSource, camPos);
+        DirectorModule.render(worldStack, bufferSource, camPos);
 
         // Render ESP modules
         SearchModule search = SearchModule.getInstance();
