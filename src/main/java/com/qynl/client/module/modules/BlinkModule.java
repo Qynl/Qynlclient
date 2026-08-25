@@ -3,10 +3,14 @@ package com.qynl.client.module.modules;
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
-import com.qynl.client.mixin.BlinkMixin;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.util.RandomSource;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Blink — holds movement packets briefly then releases them all at once.
@@ -22,6 +26,9 @@ import org.lwjgl.glfw.GLFW;
  */public class BlinkModule extends Module {
 	private static final RandomSource RANDOM = RandomSource.create();
 	private static BlinkModule instance;
+
+	/** Movement packets currently held by Blink, flushed on release. */
+	private static final List<ServerboundMovePlayerPacket> heldPackets = new ArrayList<>();
 
 	private boolean holding = false;
     private int autoTimer = 0;
@@ -105,9 +112,28 @@ import org.lwjgl.glfw.GLFW;
 		return instance != null && instance.isEnabled();
 	}
 
+	/** True while Blink is enabled and in a hold window — called by the send mixin. */
+	public static boolean shouldHold() {
+		return instance != null && instance.isHolding();
+	}
+
+	/** Add a movement packet to the hold buffer (called by the send mixin). */
+	public static void buffer(ServerboundMovePlayerPacket packet) {
+		heldPackets.add(packet);
+	}
+
+	/** Flush all held packets through the given connection. */
+	public static void releasePackets(Connection connection) {
+		if (heldPackets.isEmpty()) return;
+		for (ServerboundMovePlayerPacket pkt : heldPackets) {
+			connection.send(pkt, null);
+		}
+		heldPackets.clear();
+	}
+
     private void flushPackets(Minecraft client) {
         if (client.getConnection() != null && client.getConnection().getConnection() != null) {
-            BlinkMixin.releasePackets(client.getConnection().getConnection());
+            releasePackets(client.getConnection().getConnection());
         }
     }
 

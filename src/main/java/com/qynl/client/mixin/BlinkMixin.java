@@ -1,6 +1,5 @@
 package com.qynl.client.mixin;
 
-import com.qynl.client.QynlClient;
 import com.qynl.client.module.modules.BlinkModule;
 import com.qynl.client.module.modules.QynlModule;
 import com.qynl.client.module.modules.ReachAssistModule;
@@ -11,13 +10,9 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Packet choke-point: everything leaving the client passes through
@@ -27,10 +22,14 @@ import java.util.List;
  *
  * <p>Deferral order (never two holds at once): Qynl defers to Blink and the
  * Reach choke; the Reach choke defers to Blink; Blink holds whatever remains.</p>
+ *
+ * <p>Note: this mixin deliberately holds no state of its own. The Blink hold
+ * buffer lives in {@link BlinkModule} (a plain class) — Mixin rejects any
+ * non-private static method on a mixin class at apply time, so helpers that
+ * must be called from normal classes never belong inside a mixin.</p>
  */
 @Mixin(Connection.class)
 public abstract class BlinkMixin {
-    private static final List<ServerboundMovePlayerPacket> qynlclient$heldPackets = new ArrayList<>();
 
     @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V",
             at = @At("HEAD"), cancellable = true)
@@ -57,30 +56,9 @@ public abstract class BlinkMixin {
         // 3. Blink — movement-packet burst hold.
         if (!(packet instanceof ServerboundMovePlayerPacket movePacket)) return;
 
-        QynlClient qynl = QynlClient.getInstance();
-        if (qynl == null) return;
-
-        BlinkModule blink = (BlinkModule) qynl.getModuleManager().find("Blink");
-        if (blink == null || !blink.isHolding()) return;
-
-        qynlclient$heldPackets.add(movePacket);
-        ci.cancel();
-    }
-
-    /**
-     * Called when Blink releases — sends all held packets.
-     *
-     * <p>{@code @Unique} keeps this helper callable from {@link BlinkModule}
-     * while telling Mixin it is a mixin-only utility, not a method to merge
-     * into {@link Connection} (non-private statics are otherwise rejected at
-     * apply time).</p>
-     */
-    @Unique
-    public static void releasePackets(Connection connection) {
-        if (qynlclient$heldPackets.isEmpty()) return;
-        for (ServerboundMovePlayerPacket pkt : qynlclient$heldPackets) {
-            connection.send(pkt, null);
+        if (BlinkModule.shouldHold()) {
+            BlinkModule.buffer(movePacket);
+            ci.cancel();
         }
-        qynlclient$heldPackets.clear();
     }
 }
