@@ -34,7 +34,9 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 java {
-    withSourcesJar()
+    // NOTE: no withSourcesJar() — the sources jar contains fabric.mod.json
+    // but no classes, so Fabric treats it as a broken duplicate of the mod.
+    // One single jar artifact keeps installation foolproof.
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
