@@ -135,8 +135,20 @@ public class ModuleManager {
 			if (state != module.isEnabled()) {
 				module.setEnabled(state);
 			}
+			// Key restore rules:
+			// 1. A vanilla Controls unbind (mapping is UNKNOWN) always wins —
+			//    never resurrect a stale config key over it.
+			// 2. A config key that merely equals the module's constructor
+			//    default is treated as "never customized" and skipped.
+			// 3. Anything else (a real rebind or an explicit -1) is applied.
+			boolean vanillaUnbound = module.getKeyMapping() != null
+					&& module.getKeyMapping().isUnbound();
 			int key = config.getModuleKey(module.getName(), module.getKeyCode());
-			if (key != module.getKeyCode()) {
+			if (vanillaUnbound) {
+				if (module.getKeyCode() != -1) {
+					module.setKeyCode(-1);
+				}
+			} else if (key != module.getDefaultKeyCode() && key != module.getKeyCode()) {
 				module.setKeyCode(key);
 			}
 			for (Map.Entry<String, String> entry : config.getModuleSettings(module.getName()).entrySet()) {

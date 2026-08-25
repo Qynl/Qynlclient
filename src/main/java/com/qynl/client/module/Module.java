@@ -20,6 +20,7 @@ public abstract class Module {
 	private KeyMapping keyMapping;
 	private String keyLabel = "";
 	private int keyCode = -1;
+	private int defaultKeyCode = -1;
 	private boolean keyLabelResolved;
 	private boolean enabled;
 
@@ -41,6 +42,7 @@ public abstract class Module {
 				"category.qynlclient"
 		));
 		this.keyCode = keyCode;
+		this.defaultKeyCode = keyCode;
 		// Defer GLFW: keyLabel stays "" until first getKeyLabel() call.
 		keyLabelResolved = false;
 	}
@@ -69,6 +71,13 @@ public abstract class Module {
 
 	public int getKeyCode() {
 		return keyCode;
+	}
+
+	/** The key this module was constructed with — used so a stale config
+	 *  value that merely equals the default is never re-applied over a
+	 *  vanilla Controls unbind. */
+	public int getDefaultKeyCode() {
+		return defaultKeyCode;
 	}
 
 	/**

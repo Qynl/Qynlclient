@@ -21,7 +21,9 @@ public class ChestStealerModule extends Module {
 	public ChestStealerModule() {
 		super("ChestStealer", "Open a chest and it automatically takes everything for you.",
 				Category.UTILITY);
-		bindKey(GLFW.GLFW_KEY_T);
+		// No default key — T was a constant accidental-toggle source. Bind it
+		// yourself in Keybinds if you want a quick key.
+		bindKey(GLFW.GLFW_KEY_UNKNOWN);
 	}
 
 	@Override

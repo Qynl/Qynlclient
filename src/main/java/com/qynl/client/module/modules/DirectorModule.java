@@ -221,9 +221,10 @@ public class DirectorModule extends Module {
     public DirectorModule() {
         super("Director",
                 "Combat AI — reads the fight and decides which combat modules may act and how hard, per tactic (engage/combo/trade/defend/evade/retreat/survive). Nothing runs constantly, every switch is humanized, zero packets sent. Clutch is force-enabled the moment a fall turns lethal and every combat module is stood down while you are saving yourself.",
-                Category.COMBAT);
-        instance = this;
-        bindKey(GLFW.GLFW_KEY_B);
+                Category.COMBAT);		instance = this;
+		// No default key (B is ScaffoldWalk's) — the Director runs passively
+		// once enabled from the ClickGUI.
+		bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.range("aggression", "Aggression", 65.0, 0, 100, 5, "%"));
         addSetting(Setting.range("retreatHp",  "Retreat HP", 25.0, 10, 50, 5, "%"));
         addSetting(Setting.options("humanize", "Humanize",   "On",   "On", "Off"));

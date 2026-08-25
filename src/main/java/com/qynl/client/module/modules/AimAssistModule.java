@@ -63,9 +63,10 @@ public class AimAssistModule extends Module {
     public AimAssistModule() {
         super("AimAssist",
               "Humanized aim — cubic ease-out glide, convergence wobble, GCD snap, rotation cap, predictive lead.",
-              Category.COMBAT);
-        bindKey(GLFW.GLFW_KEY_O);
-        addSetting(Setting.options("trigger",  "Trigger",   "OnAttack", "OnAttack", "Always"));
+              Category.COMBAT);		bindKey(GLFW.GLFW_KEY_O);
+		// "Always" by default — the camera visibly tracks any player in FOV so
+		// the assist is obviously working out of the box.
+		addSetting(Setting.options("trigger",  "Trigger",   "Always", "Always", "OnAttack"));
         addSetting(Setting.options("mode",     "Mode",      "Rotations", "Rotations", "LockView", "Silent"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));

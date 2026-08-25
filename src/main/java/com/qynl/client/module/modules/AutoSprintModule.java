@@ -28,10 +28,12 @@ public class AutoSprintModule extends Module {
 
     public AutoSprintModule() {
         super("AutoSprint", "Sprint automatically while you move — no need to hold the sprint key.",
-                Category.COMBAT);
-        bindKey(GLFW.GLFW_KEY_Y);
-        addSetting(Setting.options("mode", "Mode", "Forward", "Forward", "Always"));
-    }
+                Category.COMBAT);		bindKey(GLFW.GLFW_KEY_Y);
+		addSetting(Setting.options("mode", "Mode", "Forward", "Forward", "Always"));
+		// On by default, like every quality client — sprinting is expected
+		// behaviour, not a feature you have to discover.
+		setEnabled(true);
+	}
 
     @Override
     public void onTick(Minecraft client) {
