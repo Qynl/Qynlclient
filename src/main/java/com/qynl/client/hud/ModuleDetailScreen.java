@@ -22,6 +22,7 @@ public class ModuleDetailScreen extends Screen {
 
     private final Module module;
     private boolean waitingForKey = false;
+    private int scroll = 0;
 
     /** Rows: either a label+value pair or a button (toggle / keybind / clear / back). */
     private final List<Object[]> rows = new ArrayList<>(); // {type, setting|module, extra}
@@ -58,8 +59,14 @@ public class ModuleDetailScreen extends Screen {
         return 56;
     }
 
+    /** Rows that fit between the header and the bottom of the screen. */
+    private int maxVisibleRows() {
+        int available = this.height - panelY() - 24;
+        return Math.max(3, available / (ROW_H + GAP));
+    }
+
     private int panelH() {
-        return rows.size() * (ROW_H + GAP) + 14;
+        return Math.min(rows.size(), maxVisibleRows()) * (ROW_H + GAP) + 14;
     }
 
     @Override
@@ -73,11 +80,15 @@ public class ModuleDetailScreen extends Screen {
 
         int x = panelX(), y = panelY();
         Glass.panel(g, x, y, PANEL_W, panelH(), 8.0F);
-        int ry = y + 8;
+        int ry = y + 8 - scroll * (ROW_H + GAP);
 
         for (int i = 0; i < rows.size(); i++) {
             Object[] row = rows.get(i);
             String type = (String) row[0];
+            if (ry + ROW_H < y || ry > y + panelH()) {
+                ry += ROW_H + GAP;
+                continue;
+            }
             boolean hover = Glass.in(mx, my, x + 2, ry, PANEL_W - 4, ROW_H - 2);
             if (hover && !"nosettings".equals(type)) {
                 Glass.fillRound(g, x + 4, ry + 1, PANEL_W - 8, ROW_H - 2, 5.0F, Glass.HOVER, 0x1AFFFFFF);
@@ -120,11 +131,17 @@ public class ModuleDetailScreen extends Screen {
             }
             ry += ROW_H + GAP;
         }
+
+        // Scroll hint when rows are clipped.
+        if (rows.size() > maxVisibleRows()) {
+            String hint = (scroll > 0 ? "\u2191 " : "") + (scroll < rows.size() - maxVisibleRows() ? "\u2193" : "");
+            g.drawCenteredString(this.font, hint, this.width / 2, y + panelH() - 10, Glass.DIM);
+        }
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        int x = panelX(), y = panelY() + 8;
+        int x = panelX(), y = panelY() + 8 - scroll * (ROW_H + GAP);
         for (Object[] row : rows) {
             String type = (String) row[0];
             if (!"nosettings".equals(type) && Glass.in((float) mx, (float) my, x + 2, y, PANEL_W - 4, ROW_H - 2)) {
@@ -174,6 +191,14 @@ public class ModuleDetailScreen extends Screen {
             return true;
         }
         return super.mouseClicked(mx, my, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double dx, double dy) {
+        if (rows.size() > maxVisibleRows()) {
+            scroll = Math.max(0, Math.min(rows.size() - maxVisibleRows(), scroll + (dy > 0 ? -1 : 1)));
+        }
+        return true;
     }
 
     private void goBack() {

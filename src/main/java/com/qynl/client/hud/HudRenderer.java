@@ -96,6 +96,9 @@ public class HudRenderer {
         float y = 22;
 
         Glass.panel(g, x, y, pw, ph, Glass.RADIUS);
+        // Green accent strip on the anchored edge — the Vape signature.
+        float stripX = right ? x + pw - 3 : x + 1;
+        Glass.fillRound(g, stripX, y + 4, 2, ph - 8, 1.0F, Glass.ACCENT, 0x6655FF55);
 
         int ry = (int) (y + PAD_Y + 1);
         for (Module m : list) {
