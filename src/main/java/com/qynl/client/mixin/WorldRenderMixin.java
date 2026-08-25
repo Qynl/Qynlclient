@@ -46,7 +46,22 @@ public abstract class WorldRenderMixin {
                                       Matrix4f frustumMatrix, CallbackInfo ci) {
         if (minecraft.player == null || minecraft.level == null) return;
 
-        MultiBufferSource.BufferSource bufferSource = minecraft.renderBuffers().bufferSource();
+        // The whole ESP block is crash-isolated: a rendering exception here
+        // would otherwise propagate out of renderLevel and kill the frame
+        // (which looks exactly like a server kick / disconnect). No module
+        // may ever take the render thread down.
+        try {
+            renderESP(camera, bufferSource());
+        } catch (Throwable ignored) {
+            // Skip this frame's overlays; never crash the game.
+        }
+    }
+
+    private MultiBufferSource.BufferSource bufferSource() {
+        return minecraft.renderBuffers().bufferSource();
+    }
+
+    private void renderESP(Camera camera, MultiBufferSource.BufferSource bufferSource) {
         Vec3 camPos = camera.getPosition();
 
         // Camera-rotated model matrix for world-space boxes / lines (the same
@@ -79,10 +94,13 @@ public abstract class WorldRenderMixin {
             for (EchoModule.EchoMarker marker : echo.getMarkers()) {
                 long elapsed = System.currentTimeMillis() - marker.timestamp();
                 double fadeMs = echo.getDoubleSetting("fadeMs");
+                if (fadeMs <= 0) continue;
                 float alpha = 1.0f - Math.min(1.0f, (float) elapsed / (float) fadeMs);
                 if (alpha <= 0) continue;
 
                 Vec3 renderPos = marker.pos().subtract(camPos);
+                if (!Double.isFinite(renderPos.x) || !Double.isFinite(renderPos.y)
+                        || !Double.isFinite(renderPos.z)) continue;
                 int color = marker.color();
                 int drawColor = color | ((int) (alpha * 255) << 24);
 

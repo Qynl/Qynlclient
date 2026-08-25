@@ -53,12 +53,22 @@ public class ClickGuiScreen extends Screen {
 
     /** Rows that fit above the footer at the current window height. */
     private int maxVisibleRows() {
-        int available = this.height - panelY() - 46;
+        int available = this.height - panelY() - 72;
         return Math.max(MIN_ROWS_VISIBLE, available / ROW_H);
     }
 
     private int visibleRows(List<Module> list) {
         return Math.min(list.size(), maxVisibleRows());
+    }
+
+    /** Panel height: rows + padding + an integrated footer strip. */
+    private int panelHeight(List<Module> list) {
+        return visibleRows(list) * ROW_H + 14 + 26;
+    }
+
+    /** Footer strip top inside the panel. */
+    private int footerY(List<Module> list) {
+        return panelY() + panelHeight(list) - 26;
     }
 
     // ── render ──────────────────────────────────────────────────
@@ -77,7 +87,6 @@ public class ClickGuiScreen extends Screen {
 
         renderTabs(g, mx, my);
         renderModuleList(g, mx, my);
-        renderFooter(g, mx, my);
     }
 
     private void renderTabs(GuiGraphics g, int mx, int my) {
@@ -95,16 +104,16 @@ public class ClickGuiScreen extends Screen {
 
     private void renderModuleList(GuiGraphics g, int mx, int my) {
         List<Module> list = categoryModules();
-        int rows = visibleRows(list);
-        int ph = rows * ROW_H + 14;
+        int ph = panelHeight(list);
         int x = panelX(), y = panelY();
+        int fy = footerY(list);
 
         Glass.panel(g, x, y, PANEL_W, ph, 8.0F);
 
         int ry = y + 8 - scroll * ROW_H;
         for (int i = 0; i < list.size(); i++) {
             Module m = list.get(i);
-            if (ry + ROW_H < y || ry > y + ph) {
+            if (ry + ROW_H < y || ry > fy - 4) {
                 ry += ROW_H;
                 continue;
             }
@@ -139,18 +148,18 @@ public class ClickGuiScreen extends Screen {
         // Scroll hint when the list is clipped.
         if (list.size() > maxVisibleRows()) {
             String hint = (scroll > 0 ? "\u2191 " : "") + (scroll < list.size() - maxVisibleRows() ? "\u2193" : "");
-            g.drawCenteredString(this.font, hint, this.width / 2, y + ph - 11, Glass.DIM);
+            g.drawCenteredString(this.font, hint, this.width / 2, fy - 12, Glass.DIM);
         }
-    }
 
-    private void renderFooter(GuiGraphics g, int mx, int my) {
-        int y = panelY() + visibleRows(categoryModules()) * ROW_H + 30;
-        int totalW = 3 * 96 + 2 * 8;
-        int x = this.width / 2 - totalW / 2;
+        // Divider above the integrated footer.
+        Glass.fillRound(g, x + 10, fy - 4, PANEL_W - 20, 1.0F, 0.5F, Glass.BORDER_DIM, Glass.BORDER_DIM);
 
-        drawAction(g, x, y, 96, "Keybinds\u2026", Glass.in(mx, my, x, y, 96, 18));
-        drawAction(g, x + 104, y, 96, "Settings\u2026", Glass.in(mx, my, x + 104, y, 96, 18));
-        drawAction(g, x + 208, y, 96, "Close", Glass.in(mx, my, x + 208, y, 96, 18));
+        // Footer buttons live inside the panel — nothing floats disconnected.
+        int totalW = 3 * 78 + 2 * 6;
+        int bx = x + (PANEL_W - totalW) / 2;
+        drawAction(g, bx, fy + 4, 78, "Keybinds\u2026", Glass.in(mx, my, bx, fy + 4, 78, 18));
+        drawAction(g, bx + 84, fy + 4, 78, "Settings\u2026", Glass.in(mx, my, bx + 84, fy + 4, 78, 18));
+        drawAction(g, bx + 168, fy + 4, 78, "Close", Glass.in(mx, my, bx + 168, fy + 4, 78, 18));
     }
 
     private void drawAction(GuiGraphics g, float x, float y, float w, String label, boolean hover) {
@@ -186,8 +195,15 @@ public class ClickGuiScreen extends Screen {
         }
 
         List<Module> list = categoryModules();
+        int fy = footerY(list);
         int y = panelY() + 8 - scroll * ROW_H;
         for (int i = 0; i < list.size(); i++) {
+            // Only rows inside the panel (above the footer divider) are clickable.
+            if (y + ROW_H < panelY()) {
+                y += ROW_H;
+                continue;
+            }
+            if (y >= fy - 4) break;
             if (Glass.in((float) mx, (float) my, panelX() + 2, y, PANEL_W - 4, ROW_H - 2)) {
                 Module m = list.get(i);
                 if (btn == 0) {
@@ -201,17 +217,17 @@ public class ClickGuiScreen extends Screen {
             y += ROW_H;
         }
 
-        // Footer actions.
-        int fy = panelY() + visibleRows(list) * ROW_H + 30;
-        if (Glass.in((float) mx, (float) my, this.width / 2 - 148, fy, 96, 18) && this.minecraft != null) {
+        // Footer actions (inside the panel).
+        int bx = panelX() + (PANEL_W - (3 * 78 + 2 * 6)) / 2;
+        if (Glass.in((float) mx, (float) my, bx, fy + 4, 78, 18) && this.minecraft != null) {
             this.minecraft.setScreen(new KeybindScreen());
             return true;
         }
-        if (Glass.in((float) mx, (float) my, this.width / 2 - 44, fy, 96, 18) && this.minecraft != null) {
+        if (Glass.in((float) mx, (float) my, bx + 84, fy + 4, 78, 18) && this.minecraft != null) {
             this.minecraft.setScreen(new ModuleSettingsScreen());
             return true;
         }
-        if (Glass.in((float) mx, (float) my, this.width / 2 + 60, fy, 96, 18)) {
+        if (Glass.in((float) mx, (float) my, bx + 168, fy + 4, 78, 18)) {
             onClose();
             return true;
         }

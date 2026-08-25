@@ -30,7 +30,7 @@ public class TracersModule extends Module {
                 Category.RENDER);
         instance = this;
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
-        addSetting(Setting.range("maxDist", "Max distance", 64.0, 16, 128, 8, "b"));
+        addSetting(Setting.range("maxDist", "Max distance", 40.0, 16, 128, 8, "b"));
     }
 
     public static TracersModule getInstance() { return instance; }
@@ -50,10 +50,13 @@ public class TracersModule extends Module {
             if (entity == client.player) continue;
             if (!(entity instanceof Player || entity instanceof Monster)) continue;
             if (entity instanceof LivingEntity living && !living.isAlive()) continue;
-
+            // Ghost/invalid entities (mid world-load, NaN positions) would push
+            // garbage vertices into the GPU — skip anything non-finite.
             Vec3 entityPos = entity.getBoundingBox().getCenter();
+            if (!Double.isFinite(entityPos.x) || !Double.isFinite(entityPos.y)
+                    || !Double.isFinite(entityPos.z)) continue;
             double dist = playerEye.distanceTo(entityPos);
-            if (dist > maxDist) continue;
+            if (!Double.isFinite(dist) || dist > maxDist) continue;
 
             Vec3 renderPos = entityPos.subtract(camPos);
             int color;

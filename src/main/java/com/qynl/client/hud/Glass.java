@@ -15,19 +15,24 @@ import net.minecraft.client.renderer.GameRenderer;
  * vertical gradient and a 1px light border ring.
  */
 public final class Glass {
-    public static final int ACCENT = 0xFF55FF55;
+    /** Soft mint accent — the Vape-style green, tuned down from neon. */
+    public static final int ACCENT = 0xFF4ADE80;
     public static final int TEXT   = 0xFFECECEC;
     public static final int DIM    = 0xFF9CA3AF;
     public static final int ON     = ACCENT;
     public static final int OFF    = 0xFF6B7280;
 
-    public static final int GLASS_TOP    = 0x99141414;
-    public static final int GLASS_BOTTOM = 0x99070707;
-    public static final int BORDER       = 0x4DFFFFFF;
-    public static final int BORDER_DIM   = 0x1FFFFFFF;
+    /** Frosted fill: translucent enough that the world glows through. */
+    public static final int GLASS_TOP    = 0x8C161616;
+    public static final int GLASS_BOTTOM = 0x8C080808;
+    /** Crisp light edge on top, softer on the bottom — the glass rim. */
+    public static final int BORDER       = 0x59FFFFFF;
+    public static final int BORDER_DIM   = 0x21FFFFFF;
     public static final int HOVER        = 0x2EFFFFFF;
+    /** 1px inner top highlight — the light catching the glass edge. */
+    public static final int SHINE = 0x3DFFFFFF;
 
-    public static final float RADIUS = 6.0F;
+    public static final float RADIUS = 5.0F;
 
     private Glass() {
     }
@@ -37,20 +42,24 @@ public final class Glass {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
-    /** Translucent rounded panel: light border ring + inset gradient fill. */
+    /** Translucent rounded panel: light border ring + inset gradient fill + top shine. */
     public static void panel(GuiGraphics g, float x, float y, float w, float h, float r) {
         if (w <= 2 || h <= 2) return;
         fillRound(g, x, y, w, h, r, BORDER, BORDER_DIM);
         fillRound(g, x + 1, y + 1, w - 2, h - 2, Math.max(0.0F, r - 1), GLASS_TOP, GLASS_BOTTOM);
+        // Light catches the top edge of the glass.
+        if (h >= 4) {
+            fillRound(g, x + 2, y + 1, w - 4, 1.5F, 0.75F, SHINE, SHINE);
+        }
     }
 
     /** A compact glass pill (tab / button). Highlighted when {@code active}. */
     public static void pill(GuiGraphics g, float x, float y, float w, float h, boolean active, boolean hover) {
         fillRound(g, x, y, w, h, h / 2.0F,
-                active ? 0xCC1F3D1F : (hover ? 0x66222222 : 0x59141414),
-                active ? 0xCC0F2A0F : (hover ? 0x55141414 : 0x59070707));
+                active ? 0xCC173A22 : (hover ? 0x66222222 : 0x59141414),
+                active ? 0xCC0C2416 : (hover ? 0x55141414 : 0x59070707));
         fillRound(g, x, y, w, h, h / 2.0F,
-                active ? 0x8C55FF55 : BORDER, active ? 0x3355FF55 : BORDER_DIM);
+                active ? 0x8C4ADE80 : BORDER, active ? 0x334ADE80 : BORDER_DIM);
     }
 
     /**
