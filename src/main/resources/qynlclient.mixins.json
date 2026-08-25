@@ -12,7 +12,12 @@
 		"KeyMappingAccessor",
 		"CritAssistMixin",
 		"CritAttackMixin",
-		"FlyGroundSpoofMixin"
+		"FlyGroundSpoofMixin",
+		"NoHurtCamMixin",
+		"NoViewBobMixin",
+		"BlinkMixin",
+		"SoundPacketMixin",
+		"WorldRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

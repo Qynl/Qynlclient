@@ -41,7 +41,7 @@ public class CritAssistModule extends Module {
     public CritAssistModule() {
         super("CritAssist",
                 "Mini-jump packet crits (Y+0.06 up, Y+0.01 down) before each hit — no jumping needed.",
-                Category.ASSIST);
+                Category.COMBAT);
         instance = this;
         bindKey(GLFW.GLFW_KEY_F10);
         addSetting(Setting.options("technique", "Technique", "MiniJump", "MiniJump", "Silent"));

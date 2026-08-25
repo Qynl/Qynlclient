@@ -15,31 +15,33 @@ import net.minecraft.world.phys.HitResult;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * AutoClicker — you only have to hold the attack button and it keeps
- * attacking/mining for you. The pauses between clicks are randomized and it
- * always respects the attack cooldown, so it never clicks with the perfectly
- * regular, machine-like timing anti-cheat systems look for. Great for players
- * who cannot click fast or for long periods.
+ * AutoClicker — holds attack with humanly irregular timing.
  *
- * <p>Two modes, chosen in the Settings screen:</p>
+ * <p>Features:</p>
  * <ul>
- *   <li><b>Normal</b> (default) — clicks whatever is under your crosshair.</li>
- *   <li><b>Packets</b> — clicks whatever AimAssist is aiming at (works with
- *       AimAssist in Packets mode, where the camera doesn't move).</li>
+ *   <li>Burst pattern — 3-5 fast clicks then a micro-pause.</li>
+ *   <li>Slow CPS random walk — CPS drifts by ±1 over several seconds.</li>
+ *   <li>Random start reaction delay.</li>
+ *   <li>Micro-pauses while adjusting aim.</li>
+ *   <li>Occasional missed clicks.</li>
  * </ul>
  */
 public class AutoClickerModule extends Module {
 	private final RandomSource random = RandomSource.create();
 	private int clickTicks = 0;
 	private int nextInterval = 4;
+	private int burstClicks = 0;
+	private int burstPause = 0;
+	private double currentCps = 7.0;
+	private int cpsWalkTimer = 0;
 
 	public AutoClickerModule() {
 		super("AutoClicker",
-				"Hold the attack button and it attacks and mines for you — with humanly irregular timing.",
-				Category.ASSIST);
+				"Holds attack with burst pattern, CPS random walk, and human timing — no robotic clicking.",
+				Category.COMBAT);
 		bindKey(GLFW.GLFW_KEY_G);
 		addSetting(Setting.options("mode", "Mode", "Normal", "Normal", "Packets"));
-		addSetting(Setting.range("cps", "Clicks / sec", 6.0, 3, 12, 1));
+		addSetting(Setting.range("cps", "Clicks / sec", 7.0, 3, 14, 1));
 	}
 
 	@Override
@@ -50,26 +52,54 @@ public class AutoClickerModule extends Module {
 		}
 		if (client.screen != null || client.player.isUsingItem() || !client.options.keyAttack.isDown()) {
 			clickTicks = 0;
+			currentCps = getDoubleSetting("cps");
+			return;
+		}
+
+		// CPS random walk: slowly drift CPS for natural variation
+		cpsWalkTimer++;
+		if (cpsWalkTimer >= 40) { // every 2 seconds
+			cpsWalkTimer = 0;
+			double targetCps = getDoubleSetting("cps");
+			double walk = (random.nextDouble() - 0.5) * 1.0;
+			currentCps = Math.max(2, Math.min(14, currentCps + walk));
+			// Pull back toward target
+			currentCps = currentCps + (targetCps - currentCps) * 0.2;
+		}
+
+		// Burst pause between bursts
+		if (burstPause > 0) {
+			burstPause--;
+			clickTicks = 0;
 			return;
 		}
 
 		clickTicks++;
-		if (clickTicks < nextInterval) {
-			return;
-		}
+		if (clickTicks < nextInterval) return;
 		clickTicks = 0;
 
-		double cps = getDoubleSetting("cps");
-		if (cps < 1) {
-			cps = 6;
-		}
-		// Human jitter: the next click comes ±1 tick sooner or later than average.
+		double cps = Math.max(1.0, currentCps);
 		nextInterval = Math.max(2, (int) Math.round(20.0 / cps) + random.nextInt(3) - 1);
 
-		// Respect the attack cooldown so this never out-performs a normal player.
-		if (client.player.getAttackStrengthScale(0.0F) < 0.6F) {
+		// Occasional missed click
+		if (random.nextDouble() < 0.03) {
 			return;
 		}
+
+		// Burst counter
+		burstClicks++;
+		if (burstClicks >= 3 + random.nextInt(3)) {
+			burstClicks = 0;
+			double pausePct = random.nextDouble();
+			// ~10% chance of a micro-pause
+			if (pausePct < 0.10) {
+				burstPause = 1 + random.nextInt(3);
+				return;
+			}
+		}
+
+		// Respect the attack cooldown
+		if (client.player.getAttackStrengthScale(0.0F) < 0.6F) return;
 
 		if (getStringSetting("mode").equals("Packets")) {
 			AimAssistModule aim = (AimAssistModule) QynlClient.getInstance().getModuleManager().find("AimAssist");
@@ -79,9 +109,7 @@ public class AutoClickerModule extends Module {
 			}
 		}
 
-		if (client.hitResult == null) {
-			return;
-		}
+		if (client.hitResult == null) return;
 		if (client.hitResult.getType() == HitResult.Type.ENTITY) {
 			Entity target = ((EntityHitResult) client.hitResult).getEntity();
 			client.gameMode.attack(client.player, target);

@@ -46,6 +46,10 @@ public final class Setting<T> {
 		return new Setting<>(key, label, value, null, true, min, max, step, unit);
 	}
 
+	public static Setting<String> text(String key, String label, String value) {
+		return new Setting<>(key, label, value, null, false, 0, 0, 0, "");
+	}
+
 	public String getKey() {
 		return key;
 	}

@@ -1,8 +1,11 @@
 package com.qynl.client.mixin;
 
+import com.qynl.client.QynlClient;
+import com.qynl.client.module.modules.AegisModule;
 import com.qynl.client.module.modules.AutoStepModule;
 import com.qynl.client.module.modules.InvWalkModule;
 import com.qynl.client.module.modules.SafeWalkModule;
+import com.qynl.client.module.modules.StrafeAssistModule;
 import com.qynl.client.module.modules.ToggleSneakModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.Input;
@@ -13,10 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Applies input overrides AFTER vanilla {@link Input#tick} has read the
- * keyboard. This is the only reliable moment to force sneak/jump/movement
- * flags: writing to {@code player.input} from a module tick runs at
- * END_CLIENT_TICK, which happens after the player has already moved for
- * that tick — and the next {@code Input.tick} would wipe the write anyway.
+ * keyboard.
  */
 @Mixin(Input.class)
 public abstract class InputMixin {
@@ -44,8 +44,33 @@ public abstract class InputMixin {
             input.jumping = true;
         }
 
-        // InvWalk — keep moving while a screen is open (key bindings don't
-        // update while a screen consumes keyboard input, so read GLFW raw).
+        // InvWalk — keep moving while a screen is open.
         InvWalkModule.apply(client, input);
+
+        // Aegis — evasion engine (projectile dodging).
+        AegisModule aegis = (AegisModule) QynlClient.getInstance().getModuleManager().find("Aegis");
+        if (aegis != null && aegis.isDodging()) {
+            double forward = aegis.getForwardDodge();
+            double strafe = aegis.getStrafeDodge();
+            // Blend dodge with existing player input
+            if (Math.abs(forward) > 0.1) {
+                input.forwardImpulse = (float) Math.signum(forward);
+            }
+            if (Math.abs(strafe) > 0.1) {
+                input.leftImpulse = (float) -Math.signum(strafe);
+            }
+        }
+
+        // StrafeAssist — auto-strafe in combat.
+        StrafeAssistModule strafe = (StrafeAssistModule) QynlClient.getInstance().getModuleManager().find("StrafeAssist");
+        if (strafe != null && strafe.isEnabled()) {
+            if (strafe.shouldStrafeLeft()) {
+                input.leftImpulse = 1.0F;
+                input.forwardImpulse = Math.max(0, input.forwardImpulse);
+            } else if (strafe.shouldStrafeRight()) {
+                input.leftImpulse = -1.0F;
+                input.forwardImpulse = Math.max(0, input.forwardImpulse);
+            }
+        }
     }
 }

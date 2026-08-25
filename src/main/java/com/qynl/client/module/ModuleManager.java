@@ -25,6 +25,7 @@ import com.qynl.client.module.modules.ClickGuiModule;
 import com.qynl.client.module.modules.CoordConvertModule;
 import com.qynl.client.module.modules.CritAssistModule;
 import com.qynl.client.module.modules.DeathCoordsModule;
+import com.qynl.client.module.modules.FriendsModule;
 import com.qynl.client.module.modules.SafeWalkModule;
 import com.qynl.client.module.modules.DurabilityWarnModule;
 import com.qynl.client.module.modules.EffectTimersModule;
@@ -47,6 +48,27 @@ import com.qynl.client.module.modules.VelocityAssistModule;
 import com.qynl.client.module.modules.ZoomModule;
 import com.qynl.client.module.modules.FlyAssistModule;
 import com.qynl.client.module.modules.NinjaBridgeModule;
+
+// ── New 1.8.9-tier modules ──
+import com.qynl.client.module.modules.WTapModule;
+import com.qynl.client.module.modules.BlockHitModule;
+import com.qynl.client.module.modules.CriticalsModule;
+import com.qynl.client.module.modules.AegisModule;
+import com.qynl.client.module.modules.StrafeAssistModule;
+import com.qynl.client.module.modules.HindsightModule;
+import com.qynl.client.module.modules.DirectorModule;
+import com.qynl.client.module.modules.BlinkModule;
+import com.qynl.client.module.modules.ClutchModule;
+import com.qynl.client.module.modules.RefillModule;
+import com.qynl.client.module.modules.ThrowpotModule;
+import com.qynl.client.module.modules.NoHurtCamModule;
+import com.qynl.client.module.modules.NoViewBobModule;
+import com.qynl.client.module.modules.SearchModule;
+import com.qynl.client.module.modules.NameTagsModule;
+import com.qynl.client.module.modules.TracersModule;
+import com.qynl.client.module.modules.StorageESPModule;
+import com.qynl.client.module.modules.EchoModule;
+
 import net.minecraft.client.Minecraft;
 
 import java.util.Map;
@@ -58,9 +80,26 @@ public class ModuleManager {
 	private final List<Module> modules = new ArrayList<>();
 
 	public void registerDefaults() {
+		// ── Combat (1.8.9 tier) ──
+		register(new DirectorModule());
+		register(new AimAssistModule());
+		register(new AutoClickerModule());
+		register(new ReachAssistModule());
+		register(new VelocityAssistModule());
+		register(new WTapModule());
+		register(new BlockHitModule());
+		register(new CriticalsModule());
+		register(new AegisModule());
+		register(new StrafeAssistModule());
+		register(new HindsightModule());
+		register(new CritAssistModule());
+		register(new ShieldAssistModule());
+		register(new AutoSprintModule());
+		register(new BowAssistModule());
+
+		// ── Assist ──
 		register(new FullbrightModule());
 		register(new ZoomModule());
-		register(new AutoSprintModule());
 		register(new ToggleSneakModule());
 		register(new AutoJumpModule());
 		register(new AutoMineModule());
@@ -70,15 +109,12 @@ public class ModuleManager {
 		register(new AutoArmorModule());
 		register(new ChestStealerModule());
 		register(new DeathCoordsModule());
-		register(new AutoClickerModule());
 		register(new NoFallModule());
 		register(new AutoSwimModule());
 		register(new InvWalkModule());
 		register(new AutoEatModule());
 		register(new AutoRespawnModule());
 		register(new AutoFishModule());
-		register(new ReachAssistModule());
-		register(new AimAssistModule());
 		register(new AutoStepModule());
 		register(new AutoTorchModule());
 		register(new ScaffoldWalkModule());
@@ -88,20 +124,36 @@ public class ModuleManager {
 		register(new AutoTotemModule());
 		register(new AutoSwordModule());
 		register(new AntiAfkModule());
+		register(new FlyAssistModule());
+		register(new NinjaBridgeModule());
+		register(new FastPlaceAssistModule());
+		register(new DurabilityWarnModule());
+
+		// ── Utility (1.8.9 tier) ──
+		register(new BlinkModule());
+		register(new ClutchModule());
+		register(new RefillModule());
+		register(new ThrowpotModule());
+
+		// ── Render (1.8.9 tier) ──
+		register(new NoHurtCamModule());
+		register(new NoViewBobModule());
+		register(new SearchModule());
+		register(new NameTagsModule());
+		register(new TracersModule());
+		register(new StorageESPModule());
+		register(new EchoModule());
+		register(new StreamerModeModule());
+
+		// ── Info ──
+		register(new FriendsModule());
 		register(new KeystrokesModule());
 		register(new InfoHudModule());
 		register(new EffectTimersModule());
-		register(new DurabilityWarnModule());
 		register(new TargetInfoModule());
 		register(new CoordConvertModule());
-		register(new VelocityAssistModule());
-		register(new ShieldAssistModule());
-		register(new CritAssistModule());
-		register(new BowAssistModule());
-		register(new FastPlaceAssistModule());
-		        register(new NinjaBridgeModule());
-        register(new FlyAssistModule());
-                register(new StreamerModeModule());
+
+		// ── GUI ──
         register(new ClickGuiModule());
 	}
 

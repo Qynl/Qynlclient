@@ -20,6 +20,7 @@ public abstract class Module {
 	private KeyMapping keyMapping;
 	private String keyLabel = "";
 	private int keyCode = -1;
+	private boolean keyLabelResolved;
 	private boolean enabled;
 
 	public Module(String name, String description, Category category) {
@@ -28,7 +29,9 @@ public abstract class Module {
 		this.category = category;
 	}
 
-	/** Registers a toggle keybind with the game's Controls screen. */
+	/** Registers a toggle keybind with the game's Controls screen.
+	 *  GLFW is NOT called during construction — the label is resolved
+	 *  lazily on first access, well after Minecraft has initialised. */
 	protected void bindKey(int keyCode) {
 		String keyName = name.toLowerCase().replace(" ", "_");
 		keyMapping = KeyBindingHelper.registerKeyBinding(new KeyMapping(
@@ -38,7 +41,8 @@ public abstract class Module {
 				"category.qynlclient"
 		));
 		this.keyCode = keyCode;
-		updateKeyLabel(keyCode);
+		// Defer GLFW: keyLabel stays "" until first getKeyLabel() call.
+		keyLabelResolved = false;
 	}
 
 	/** Changes the toggle key at runtime (used by the in-game keybind editor). */
@@ -50,9 +54,10 @@ public abstract class Module {
 		if (keyCode <= 0) {
 			keyMapping.setKey(InputConstants.UNKNOWN);
 			keyLabel = "None";
+			keyLabelResolved = true;
 		} else {
 			keyMapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(keyCode));
-			updateKeyLabel(keyCode);
+			keyLabelResolved = false; // lazy-resolve on next getKeyLabel()
 		}
 	}
 
@@ -60,9 +65,22 @@ public abstract class Module {
 		return keyCode;
 	}
 
-	private void updateKeyLabel(int keyCode) {
-		String glfwName = GLFW.glfwGetKeyName(keyCode, 0);
-		keyLabel = glfwName != null ? glfwName.toUpperCase() : "KEY_" + keyCode;
+	/**
+	 * Returns a human-readable key name.  The first call resolves the name
+	 * via GLFW (which is guaranteed to be initialised by that point).
+	 * The result is cached so GLFW is only called once per module.
+	 */
+	public String getKeyLabel() {
+		if (!keyLabelResolved) {
+			keyLabelResolved = true;
+			if (keyCode <= 0) {
+				keyLabel = "None";
+			} else {
+				String glfwName = GLFW.glfwGetKeyName(keyCode, 0);
+				keyLabel = glfwName != null ? glfwName.toUpperCase() : "KEY_" + keyCode;
+			}
+		}
+		return keyLabel;
 	}
 
 	public boolean handleKey(Minecraft client) {
@@ -100,42 +118,17 @@ public abstract class Module {
 		}
 	}
 
-	public void onEnable() {
-	}
+	public void onEnable() {}
+	public void onDisable() {}
+	public void onTick(Minecraft client) {}
 
-	public void onDisable() {
-	}
+	public String getName()        { return name; }
+	public String getDescription() { return description; }
+	public Category getCategory()  { return category; }
+	public KeyMapping getKeyMapping() { return keyMapping; }
+	public boolean isEnabled()     { return enabled; }
 
-	public void onTick(Minecraft client) {
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public Category getCategory() {
-		return category;
-	}
-
-	public KeyMapping getKeyMapping() {
-		return keyMapping;
-	}
-
-	public String getKeyLabel() {
-		return keyLabel;
-	}
-
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	// ------------------------------------------------------------------
-	// Settings (per-module options shown in the in-game Settings screen)
-	// ------------------------------------------------------------------
+	// ── settings ────────────────────────────────────────────────
 
 	protected void addSetting(Setting<?> setting) {
 		settings.put(setting.getKey(), setting);
@@ -165,8 +158,6 @@ public abstract class Module {
 
 	public void applySetting(String key, String value) {
 		Setting<?> s = settings.get(key);
-		if (s != null) {
-			s.setFromString(value);
-		}
+		if (s != null) s.setFromString(value);
 	}
 }

@@ -4,10 +4,9 @@ import com.qynl.client.QynlClient;
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
-import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -15,152 +14,141 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ClickGuiScreen — the in-game module manager.
+ * Vape-Lite style ClickGUI — dark, clean, minimal.
  *
- * <p>Left-click a module to toggle it on/off.
- * Right-click a module row to open its detail panel — the bigger view
- * with the module's description, on/off toggle, keybind editor and all
- * of its settings in one place.
- * Right-click outside any row closes the GUI.</p>
+ * <p>Category tabs across the top. Module list in the center.
+ * Left-click = toggle. Right-click = settings panel.</p>
  */
 public class ClickGuiScreen extends Screen {
-	private static final int ROW_HEIGHT = 22;
-	private static final int COL_WIDTH = 260;
-	private static final int START_Y = 40;
+    private static final int ROW_H = 18;
+    private static final int COL_W = 240;
+    private static final int TABS_Y = 36;
 
-	private final List<Module> rows = new ArrayList<>();
-	private final List<Integer> rowY = new ArrayList<>();
+    private Category selectedCategory = Category.COMBAT;
+    private final List<Module> rows = new ArrayList<>();
+    private final List<Integer> rowYs = new ArrayList<>();
 
-	public ClickGuiScreen() {
-		super(Component.literal("QynlClient \u2014 Module Manager"));
-	}
+    // ── palette ──
+    private static final int BG       = 0xC8101010;
+    private static final int ACCENT   = 0xFF55FF55;
+    private static final int WHITE    = 0xFFD0D0D0;
+    private static final int GRAY     = 0xFF7A7A7A;
+    private static final int TAB_BG   = 0xC01A1A1A;
+    private static final int TAB_SEL  = 0xC0222B22;
+    private static final int ON_COLOR = ACCENT;
+    private static final int OFF_COLOR = 0xFF555555;
 
-	@Override
-	protected void init() {
-		rows.clear();
-		rowY.clear();
+    public ClickGuiScreen() { super(Component.literal("Qynl")); }
 
-		int centerX = this.width / 2;
-		int y = START_Y;
-		ModuleManager modules = QynlClient.getInstance().getModuleManager();
+    @Override protected void init() { rebuild(); }
 
-		for (Category category : Category.values()) {
-			List<Module> categoryModules = modules.getModules().stream()
-					.filter(m -> m.getCategory() == category).toList();
-			if (categoryModules.isEmpty()) {
-				continue;
-			}
-			StringWidget header = new StringWidget(
-					Component.literal(category.getLabel()).withStyle(ChatFormatting.BOLD, ChatFormatting.GREEN),
-					this.font);
-			header.setX(centerX - COL_WIDTH / 2);
-			header.setY(y);
-			this.addRenderableWidget(header);
-			y += 14;
+    private void rebuild() {
+        rows.clear(); rowYs.clear(); this.clearWidgets();
 
-			for (Module module : categoryModules) {
-				rows.add(module);
-				rowY.add(y);
-				this.addRenderableWidget(Button.builder(
-						rowLabel(module),
-						b -> { /* handled in mouseClicked below */ })
-						.bounds(centerX - COL_WIDTH / 2, y, COL_WIDTH, ROW_HEIGHT - 2).build());
-				y += ROW_HEIGHT;
-			}
-			y += 6;
-		}
+        int cx = this.width / 2, y = TABS_Y + 16;
+        int lx = cx - COL_W / 2;
 
-		this.addRenderableWidget(Button.builder(Component.literal("Keybinds\u2026"), b ->
-						this.minecraft.setScreen(new KeybindScreen()))
-				.bounds(centerX - 120, y + 10, 76, 20).build());
-		this.addRenderableWidget(Button.builder(Component.literal("Settings\u2026"), b ->
-						this.minecraft.setScreen(new ModuleSettingsScreen()))
-				.bounds(centerX - 40, y + 10, 76, 20).build());
-		this.addRenderableWidget(Button.builder(Component.literal("Close"), b -> this.onClose())
-				.bounds(centerX + 40, y + 10, 76, 20).build());
-	}
+        // ── category tabs ──
+        int tabX = cx - (Category.values().length * 58) / 2;
+        for (Category cat : Category.values()) {
+            boolean sel = cat == selectedCategory;
+            int c = sel ? ACCENT : GRAY;
+            Button b = Button.builder(Component.literal(cat.getLabel()), btn -> {
+                selectedCategory = cat; rebuild();
+            }).bounds(tabX, TABS_Y, 54, 14).build();
+            this.addRenderableWidget(b);
+            tabX += 58;
+        }
 
-	private Component rowLabel(Module m) {
-		String name = m.getName();
-		String state = m.isEnabled() ? "ON" : "OFF";
-		String key = m.getKeyLabel();
-		if (key.isEmpty() || "None".equals(key)) {
-			key = "";
-		} else {
-			key = "[" + key + "]";
-		}
-		int pad = Math.max(0, 28 - name.length());
-		return Component.literal(name + "  " + state + spaces(pad) + key);
-	}
+        // ── modules in selected category ──
+        ModuleManager mm = QynlClient.getInstance().getModuleManager();
+        List<Module> cats = mm.getModules().stream()
+                .filter(m -> m.getCategory() == selectedCategory).toList();
+        if (cats.isEmpty()) {
+            this.addRenderableWidget(Button.builder(Component.literal("(none)"), b -> {})
+                    .bounds(cx - 40, y, 80, ROW_H).build());
+        }
+        for (Module m : cats) {
+            rows.add(m);
+            rowYs.add(y);
+            String label = m.isEnabled() ? "[ON]  " + m.getName() : "[OFF] " + m.getName();
+            String key = m.getKeyLabel();
+            if (key != null && !key.isEmpty() && !"None".equals(key))
+                label = label + "  [" + key + "]";
 
-	private static String spaces(int n) {
-		return " ".repeat(Math.max(0, n));
-	}
+            int color = m.isEnabled() ? ACCENT : GRAY;
+            final String fl = label;
+            Button b = Button.builder(Component.literal(fl), btn -> { /* handled in mouseClicked */ })
+                    .bounds(lx, y, COL_W, ROW_H - 2).build();
+            this.addRenderableWidget(b);
+            y += ROW_H;
+        }
 
-	private void refreshButtons() {
-		this.clearWidgets();
-		this.init();
-	}
+        // ── bottom buttons ──
+        y += 4;
+        this.addRenderableWidget(Button.builder(Component.literal("Keybinds\u2026"),
+                b -> { if (this.minecraft != null) this.minecraft.setScreen(new KeybindScreen()); })
+                .bounds(cx - 122, y, 76, 18).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Settings\u2026"),
+                b -> { if (this.minecraft != null) this.minecraft.setScreen(new ModuleSettingsScreen()); })
+                .bounds(cx - 38, y, 76, 18).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Close"), b -> onClose())
+                .bounds(cx + 46, y, 76, 18).build());
+    }
 
-	@Override
-	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-		this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-		guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFFFF);
-		guiGraphics.drawCenteredString(this.font,
-				Component.literal("Left-click = toggle  \u00b7  Right-click = module settings & keybind  \u00b7  right-click outside = close"),
-				this.width / 2, 28, 0xFF9CA3AF);
-		super.render(guiGraphics, mouseX, mouseY, partialTick);
-	}
+    @Override public void render(GuiGraphics g, int mx, int my, float pt) {
+        // full dark background
+        g.fill(0, 0, this.width, this.height, BG);
+        // title
+        String title = "Qynl  v" + QynlClient.VERSION;
+        g.drawCenteredString(this.font, title, this.width / 2, 8, ACCENT);
+        g.drawCenteredString(this.font,
+                "\u00a77L-click toggle  \u00b7  R-click settings  \u00b7  R-click outside close",
+                this.width / 2, 22, 0xFF555555);
 
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		int centerX = this.width / 2;
-		int halfW = COL_WIDTH / 2;
+        // draw category tab backgrounds
+        int tabX = this.width / 2 - (Category.values().length * 58) / 2;
+        for (Category cat : Category.values()) {
+            g.fill(tabX, TABS_Y, tabX + 54, TABS_Y + 14, cat == selectedCategory ? TAB_SEL : TAB_BG);
+            if (cat == selectedCategory) g.fill(tabX, TABS_Y + 13, tabX + 54, TABS_Y + 14, ACCENT);
+            g.drawCenteredString(this.font, cat.getLabel(), tabX + 27, TABS_Y + 3,
+                    cat == selectedCategory ? ACCENT : GRAY);
+            tabX += 58;
+        }
 
-		if (button == 1) {
-			// Right-click: find the module row under the cursor → open detail panel.
-			for (int i = 0; i < rows.size(); i++) {
-				int ry = rowY.get(i);
-				if (mouseX >= centerX - halfW && mouseX <= centerX + halfW
-						&& mouseY >= ry && mouseY <= ry + ROW_HEIGHT - 2) {
-					this.minecraft.setScreen(new ModuleDetailScreen(rows.get(i)));
-					return true;
-				}
-			}
-			// Right-click outside any row → close the GUI.
-			this.onClose();
-			return true;
-		}
+        super.render(g, mx, my, pt);
+    }
 
-		// Left-click: toggle the module under the cursor.
-		if (button == 0) {
-			for (int i = 0; i < rows.size(); i++) {
-				int ry = rowY.get(i);
-				if (mouseX >= centerX - halfW && mouseX <= centerX + halfW
-						&& mouseY >= ry && mouseY <= ry + ROW_HEIGHT - 2) {
-					Module m = rows.get(i);
-					m.toggle();
-					QynlClient.getInstance().getModuleManager().saveToConfig();
-					refreshButtons();
-					return true;
-				}
-			}
-		}
+    @Override public boolean mouseClicked(double mx, double my, int btn) {
+        int cx = this.width / 2, halfW = COL_W / 2;
 
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
+        if (btn == 1) {
+            // right-click module row → detail
+            for (int i = 0; i < rows.size(); i++) {
+                if (mx >= cx - halfW && mx <= cx + halfW && my >= rowYs.get(i) && my <= rowYs.get(i) + ROW_H - 2) {
+                    if (this.minecraft != null) this.minecraft.setScreen(new ModuleDetailScreen(rows.get(i)));
+                    return true;
+                }
+            }
+            onClose(); return true;
+        }
+        if (btn == 0) {
+            for (int i = 0; i < rows.size(); i++) {
+                if (mx >= cx - halfW && mx <= cx + halfW && my >= rowYs.get(i) && my <= rowYs.get(i) + ROW_H - 2) {
+                    rows.get(i).toggle();
+                    QynlClient.getInstance().getModuleManager().saveToConfig();
+                    rebuild(); return true;
+                }
+            }
+        }
+        return super.mouseClicked(mx, my, btn);
+    }
 
-	@Override
-	public void onClose() {
-		super.onClose();
-		Module clickGui = QynlClient.getInstance().getModuleManager().find("ClickGUI");
-		if (clickGui != null && clickGui.isEnabled()) {
-			clickGui.setEnabled(false);
-		}
-	}
+    @Override public void onClose() {
+        super.onClose();
+        Module cg = QynlClient.getInstance().getModuleManager().find("ClickGUI");
+        if (cg != null && cg.isEnabled()) cg.setEnabled(false);
+    }
 
-	@Override
-	public boolean isPauseScreen() {
-		return false;
-	}
+    @Override public boolean isPauseScreen() { return false; }
 }

@@ -3,15 +3,7 @@ package com.qynl.client.hud;
 import com.qynl.client.QynlClient;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
-import com.qynl.client.module.Setting;
-import com.qynl.client.module.modules.CoordConvertModule;
-import com.qynl.client.module.modules.DeathCoordsModule;
-import com.qynl.client.module.modules.DurabilityWarnModule;
-import com.qynl.client.module.modules.EffectTimersModule;
-import com.qynl.client.module.modules.InfoHudModule;
-import com.qynl.client.module.modules.KeystrokesModule;
-import com.qynl.client.module.modules.StreamerModeModule;
-import com.qynl.client.module.modules.TargetInfoModule;
+import com.qynl.client.module.modules.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -19,316 +11,238 @@ import net.minecraft.world.effect.MobEffectInstance;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
- * HUD renderer for 1.21.1 — clean, single-panel design.
- *
- * <p>Top-left: the title and one soft panel holding every enabled module,
- * each row clickable (hover highlights the row). Right side: one soft panel
- * per info section (InfoHUD, TargetInfo, EffectTimers, DeathCoords,
- * CoordConvert) with an accent edge instead of per-line boxes. Everything is
- * hidden while StreamerMode is active so recordings stay OBS-safe.</p>
+ * Vape-Lite style HUD — dark translucent panels, green accents,
+ * watermark header, compact module arraylist, right-side info stack.
  */
 public class HudRenderer {
-	public static final int PANEL = 0x40000000;
-	public static final int PANEL_HOVER = 0x14FFFFFF;
-	public static final int ACCENT = 0xFF6EE7A0;
-	public static final int WHITE = 0xFFFFFFFF;
-	public static final int GRAY = 0xFF9CA3AF;
-	public static final int RED = 0xFFFF6B6B;
-	public static final int RED_BG = 0xB33D0000;
+    // ── palette ──
+    private static final int BG       = 0x80000000;
+    private static final int HOVER    = 0x20FFFFFF;
+    private static final int ACCENT   = 0xFF55FF55;
+    private static final int WHITE    = 0xFFD0D0D0;
+    private static final int GRAY     = 0xFF7A7A7A;
+    private static final int RED      = 0xFFFF5555;
+    private static final int YELLOW   = 0xFFFFAA00;
+    private static final int DARK_RED = 0xB3140000;
 
-	private final List<int[]> moduleRects = new ArrayList<>();
-	private final List<Module> moduleRowModules = new ArrayList<>();
-	private boolean lastClickState = false;
+    private final List<int[]>  clickRects = new ArrayList<>();
+    private final List<Module> clickMods  = new ArrayList<>();
+    private boolean prevClick;
 
-	public void render(GuiGraphics guiGraphics, Minecraft client) {
-		moduleRects.clear();
-		moduleRowModules.clear();
+    // ── render entry ────────────────────────────────────────────
 
-		ModuleManager modules = QynlClient.getInstance().getModuleManager();
+    public void render(GuiGraphics g, Minecraft mc) {
+        clickRects.clear(); clickMods.clear();
+        if (mc.player == null || mc.level == null) return;
+        if (mc.screen != null) return;
+        if (StreamerModeModule.shouldHide("any")) return;
 
-		boolean hideList = StreamerModeModule.shouldHide("all");
-		boolean hideHud = StreamerModeModule.shouldHide("hud");
+        int w = mc.getWindow().getGuiScaledWidth();
+        int h = mc.getWindow().getGuiScaledHeight();
 
-		if (!hideList) {
-			renderTitle(guiGraphics, client);
-			renderModuleList(guiGraphics, client, modules);
-		}
-		if (!hideHud) {
-			renderRightColumn(guiGraphics, client, modules);
-			renderKeystrokes(guiGraphics, client, modules);
-			renderDurabilityWarn(guiGraphics, client, modules);
-		}
-	}
+        if (!StreamerModeModule.shouldHide("all")) {
+            renderWatermark(g, mc, w);
+            renderArrayList(g, mc, w);
+        }
+        if (!StreamerModeModule.shouldHide("hud")) {
+            renderInfo(g, mc, w, h);
+            renderKeystrokes(g, mc);
+            renderDuraWarn(g, mc);
+        }
+    }
 
-	private void renderTitle(GuiGraphics g, Minecraft client) {
-		Component title = Component.literal("QynlClient");
-		g.drawString(client.font, title, 4, 4, ACCENT, true);
-		g.drawString(client.font, Component.literal("v" + QynlClient.VERSION),
-				4 + client.font.width(title) + 6, 6, GRAY, false);
-	}
+    // ── watermark ───────────────────────────────────────────────
 
-	private int renderRightColumn(GuiGraphics g, Minecraft client, ModuleManager modules) {
-		int y = 18;
-		int rightX = client.getWindow().getGuiScaledWidth() - 6;
+    private void renderWatermark(GuiGraphics g, Minecraft mc, int w) {
+        String line = "Qynl  v" + QynlClient.VERSION;
+        int tw = mc.font.width(line);
+        g.fill(1, 1, tw + 8, 13, BG);
+        g.drawString(mc.font, line, 4, 3, ACCENT, false);
+    }
 
-		InfoHudModule info = (InfoHudModule) modules.find("InfoHUD");
-		if (info != null && info.isEnabled()) {
-			List<String> lines = new ArrayList<>();
-			for (String line : List.of(
-					info.fps(client), info.coords(client), info.direction(client),
-					info.biome(client), info.time(client), info.ping(client))) {
-				if (!line.isEmpty()) {
-					lines.add(line);
-				}
-			}
-			y = drawRightSection(g, client, lines, WHITE, rightX, y) + 5;
-		}
+    // ── arraylist (enabled modules, left side) ──────────────────
 
-		TargetInfoModule target = (TargetInfoModule) modules.find("TargetInfo");
-		if (target != null && target.isEnabled()) {
-			String line = target.getInfo(client);
-			if (!line.isEmpty()) {
-				y = drawRightSection(g, client, List.of(line), ACCENT, rightX, y) + 5;
-			}
-		}
+    private void renderArrayList(GuiGraphics g, Minecraft mc, int w) {
+        ModuleManager mm = QynlClient.getInstance().getModuleManager();
+        List<Module> list = mm.getModules().stream()
+                .filter(m -> m.isEnabled() && !"ClickGUI".equals(m.getName()))
+                .toList();
+        if (list.isEmpty()) return;
 
-		EffectTimersModule effects = (EffectTimersModule) modules.find("EffectTimers");
-		if (effects != null && effects.isEnabled()) {
-			List<String> lines = new ArrayList<>();
-			List<Integer> colors = new ArrayList<>();
-			for (MobEffectInstance effect : effects.getEffects(client)) {
-				String name = Component.translatable(effect.getEffect().value().getDescriptionId()).getString();
-				String line = name + roman(effect.getAmplifier()) + "  " + formatTime(effect.getDuration());
-				boolean shortTime = effect.getDuration() > 0 && effect.getDuration() / 20 <= 5;
-				lines.add(line);
-				colors.add(shortTime ? RED : WHITE);
-			}
-			y = drawRightSection(g, client, lines, colors, rightX, y) + 5;
-		}
+        // measure
+        int maxW = 0;
+        for (Module m : list) {
+            String s = m.getName();
+            Setting<?> mode = m.getSetting("mode");
+            if (mode != null && !"Default".equals(String.valueOf(mode.getValue())))
+                s += " \u00b7 " + mode.getValue();
+            maxW = Math.max(maxW, mc.font.width(s));
+        }
 
-		DeathCoordsModule death = (DeathCoordsModule) modules.find("DeathCoords");
-		if (death != null && death.isEnabled()) {
-			String line = death.getHudLine(client);
-			if (!line.isEmpty()) {
-				y = drawRightSection(g, client, List.of(line), RED, rightX, y) + 5;
-			}
-		}
+        int x = 4, y = 17, rowH = 10, pad = 6;
+        int pw = maxW + pad * 2 + 2;
+        int ph = list.size() * rowH + 4;
 
-		CoordConvertModule convert = (CoordConvertModule) modules.find("CoordConvert");
-		if (convert != null && convert.isEnabled()) {
-			String line = convert.getInfo(client);
-			if (!line.isEmpty()) {
-				y = drawRightSection(g, client, List.of(line), GRAY, rightX, y) + 5;
-			}
-		}
-		return y;
-	}
+        g.fill(x, y, x + pw, y + ph, BG);
+        // left accent edge
+        g.fill(x, y, x + 1, y + ph, ACCENT);
 
-	/** Draws one soft panel with right-aligned lines and a left accent edge. */
-	private int drawRightSection(GuiGraphics g, Minecraft client, List<String> lines, int color, int rightX, int y) {
-		if (lines.isEmpty()) {
-			return y;
-		}
-		return drawRightSection(g, client, lines, Collections.nCopies(lines.size(), color), rightX, y);
-	}
+        double scale = mc.getWindow().getGuiScale();
+        int mx = (int) (mc.mouseHandler.xpos() / scale);
+        int my = (int) (mc.mouseHandler.ypos() / scale);
 
-	private int drawRightSection(GuiGraphics g, Minecraft client, List<String> lines, List<Integer> colors, int rightX, int y) {
-		if (lines.isEmpty()) {
-			return y;
-		}
-		int maxWidth = 0;
-		for (String line : lines) {
-			maxWidth = Math.max(maxWidth, client.font.width(line));
-		}
-		int pad = 7;
-		int lineH = 11;
-		int panelW = maxWidth + pad * 2;
-		int panelH = lines.size() * lineH + 4;
-		int panelX = rightX - panelW;
-		g.fill(panelX, y, rightX + 2, y + panelH, PANEL);
-		g.fill(panelX, y, panelX + 2, y + panelH, ACCENT);
-		for (int i = 0; i < lines.size(); i++) {
-			g.drawString(client.font, lines.get(i), panelX + pad, y + 3 + i * lineH, colors.get(i), false);
-		}
-		return y + panelH;
-	}
+        int ry = y + 2;
+        for (Module m : list) {
+            String label = m.getName();
+            Setting<?> mode = m.getSetting("mode");
+            String modeStr = "";
+            if (mode != null && !"Default".equals(String.valueOf(mode.getValue())))
+                modeStr = " \u00b7 " + mode.getValue();
 
-	private void renderModuleList(GuiGraphics g, Minecraft client, ModuleManager modules) {
-		List<Module> enabled = new ArrayList<>();
-		for (Module module : modules.getModules()) {
-			if (module.isEnabled() && !"ClickGUI".equals(module.getName())) {
-				enabled.add(module);
-			}
-		}
-		if (enabled.isEmpty()) {
-			return;
-		}
+            boolean hover = mx >= x && mx < x + pw && my >= ry - 1 && my < ry + rowH;
+            if (hover) g.fill(x, ry - 1, x + pw, ry + rowH - 1, HOVER);
 
-		int maxWidth = 0;
-		for (Module module : enabled) {
-			String label = module.getName() + modeSuffix(module);
-			String key = module.getKeyLabel();
-			int w = client.font.width(label);
-			if (!key.isEmpty() && !"None".equals(key)) {
-				w = Math.max(w, client.font.width(key) + 4);
-			}
-			maxWidth = Math.max(maxWidth, w);
-		}
+            g.drawString(mc.font, label, x + pad + 2, ry, hover ? ACCENT : WHITE, false);
+            if (!modeStr.isEmpty())
+                g.drawString(mc.font, modeStr, x + pad + 2 + mc.font.width(label), ry, GRAY, false);
 
-		int x = 4;
-		int y = 22;
-		int rowHeight = 11;
-		int padX = 7;
-		int panelW = maxWidth + padX * 2 + 2;
-		int panelH = enabled.size() * rowHeight + 4;
+            clickRects.add(new int[]{x, ry - 1, x + pw, ry + rowH - 1});
+            clickMods.add(m);
+            ry += rowH;
+        }
+    }
 
-		g.fill(x, y, x + panelW, y + panelH, PANEL);
-		g.fill(x, y, x + 2, y + panelH, ACCENT);
+    // ── right-side info ─────────────────────────────────────────
 
-		double scale = client.getWindow().getGuiScale();
-		int mouseX = (int) (client.mouseHandler.xpos() / scale);
-		int mouseY = (int) (client.mouseHandler.ypos() / scale);
+    private void renderInfo(GuiGraphics g, Minecraft mc, int w, int h) {
+        ModuleManager mm = QynlClient.getInstance().getModuleManager();
+        InfoHudModule info = (InfoHudModule) mm.find("InfoHUD");
+        TargetInfoModule ti = (TargetInfoModule) mm.find("TargetInfo");
+        EffectTimersModule fx = (EffectTimersModule) mm.find("EffectTimers");
+        DeathCoordsModule  dc = (DeathCoordsModule) mm.find("DeathCoords");
+        CoordConvertModule cc = (CoordConvertModule) mm.find("CoordConvert");
 
-		int rowY = y + 2;
-		for (Module module : enabled) {
-			if (mouseX >= x && mouseX < x + panelW && mouseY >= rowY - 1 && mouseY < rowY + rowHeight - 1) {
-				g.fill(x, rowY - 1, x + panelW, rowY + rowHeight - 1, PANEL_HOVER);
-			}
+        List<String> lines = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
 
-			int nameX = x + padX + 2;
-			g.drawString(client.font, Component.literal(module.getName()), nameX, rowY, WHITE, false);
+        if (info != null && info.isEnabled()) {
+            for (String s : new String[]{info.fps(mc), info.coords(mc), info.direction(mc),
+                    info.biome(mc), info.time(mc), info.ping(mc)})
+                if (!s.isEmpty()) { lines.add(s); colors.add(WHITE); }
+        }
+        if (ti != null && ti.isEnabled() && !ti.getInfo(mc).isEmpty())
+            { lines.add(ti.getInfo(mc)); colors.add(ACCENT); }
+        if (fx != null && fx.isEnabled()) {
+            for (MobEffectInstance ef : fx.getEffects(mc)) {
+                String name = net.minecraft.network.chat.Component.translatable(
+                        ef.getEffect().value().getDescriptionId()).getString();
+                String line = name + roman(ef.getAmplifier()) + "  " + fmt(ef.getDuration());
+                boolean low = ef.getDuration() > 0 && ef.getDuration() / 20 <= 5;
+                lines.add(line); colors.add(low ? RED : YELLOW);
+            }
+        }
+        if (dc != null && dc.isEnabled() && !dc.getHudLine(mc).isEmpty())
+            { lines.add(dc.getHudLine(mc)); colors.add(RED); }
+        if (cc != null && cc.isEnabled() && !cc.getInfo(mc).isEmpty())
+            { lines.add(cc.getInfo(mc)); colors.add(GRAY); }
 
-			int cursorX = nameX + client.font.width(module.getName());
-			String modeText = modeSuffix(module);
-			if (!modeText.isEmpty()) {
-				g.drawString(client.font, Component.literal(modeText), cursorX, rowY, ACCENT, false);
-			}
+        if (lines.isEmpty()) return;
 
-			String key = module.getKeyLabel();
-			if (!key.isEmpty() && !"None".equals(key)) {
-				int keyX = x + panelW - padX - client.font.width(key);
-				g.drawString(client.font, Component.literal(key), keyX, rowY, GRAY, false);
-			}
+        int maxW = 0;
+        for (String s : lines) maxW = Math.max(maxW, mc.font.width(s));
+        int pad = 6, lh = 10, pw = maxW + pad * 2, ph = lines.size() * lh + 4;
+        int px = w - pw - 3, py = 1;
 
-			moduleRects.add(new int[]{x, rowY - 1, x + panelW, rowY + rowHeight - 1});
-			moduleRowModules.add(module);
-			rowY += rowHeight;
-		}
-	}
+        g.fill(px, py, px + pw, py + ph, BG);
+        g.fill(px + pw - 1, py, px + pw, py + ph, ACCENT); // right accent edge
 
-	/** Shows the active mode of assist modules, e.g. " · Silent". */
-	private String modeSuffix(Module module) {
-		Setting<?> mode = module.getSetting("mode");
-		if (mode == null) {
-			return "";
-		}
-		String v = String.valueOf(mode.getValue());
-		if (v.isEmpty() || "Default".equals(v)) {
-			return "";
-		}
-		return " \u00b7 " + v;
-	}
+        for (int i = 0; i < lines.size(); i++)
+            g.drawString(mc.font, lines.get(i), px + pad, py + 2 + i * lh, colors.get(i), false);
+    }
 
-	private void renderKeystrokes(GuiGraphics g, Minecraft client, ModuleManager modules) {
-		KeystrokesModule keystrokes = (KeystrokesModule) modules.find("Keystrokes");
-		if (keystrokes == null || !keystrokes.isEnabled()) {
-			return;
-		}
+    // ── keystrokes ──────────────────────────────────────────────
 
-		int size = 22;
-		int gap = 2;
-		int startX = 6;
-		int startY = client.getWindow().getGuiScaledHeight() - 6 - size * 2 - gap - size / 2;
+    private void renderKeystrokes(GuiGraphics g, Minecraft mc) {
+        if (!QynlClient.getInstance().getModuleManager().isEnabled("Keystrokes")) return;
+        KeystrokesModule ks = (KeystrokesModule) QynlClient.getInstance().getModuleManager().find("Keystrokes");
+        if (ks == null) return;
 
-		// WASD
-		drawKey(g, client, keystrokes, KeystrokesModule.KEY_W, startX + size + gap, startY, size, size, "W");
-		int rowY = startY + size + gap;
-		drawKey(g, client, keystrokes, KeystrokesModule.KEY_A, startX, rowY, size, size, "A");
-		drawKey(g, client, keystrokes, KeystrokesModule.KEY_S, startX + size + gap, rowY, size, size, "S");
-		drawKey(g, client, keystrokes, KeystrokesModule.KEY_D, startX + (size + gap) * 2, rowY, size, size, "D");
-		// Space bar
-		int spaceY = rowY + size + gap;
-		drawKey(g, client, keystrokes, KeystrokesModule.KEY_SPACE, startX, spaceY, size * 3 + gap * 2, size / 2, "");
+        int s = 20, gap = 1, h = mc.getWindow().getGuiScaledHeight();
+        int x = 4, y = h - s * 2 - gap - s / 2 - 6;
 
-		// Mouse + CPS
-		int mouseX = startX + (size + gap) * 3 + 10;
-		drawKey(g, client, keystrokes, KeystrokesModule.MOUSE_L, mouseX, rowY, 34, size, "L " + keystrokes.getCps(client, KeystrokesModule.MOUSE_L));
-		drawKey(g, client, keystrokes, KeystrokesModule.MOUSE_R, mouseX + 36, rowY, 34, size, "R " + keystrokes.getCps(client, KeystrokesModule.MOUSE_R));
-	}
+        drawKey(g, mc, ks, KeystrokesModule.KEY_W,     x + s + gap, y, s, s, "W");
+        int r2 = y + s + gap;
+        drawKey(g, mc, ks, KeystrokesModule.KEY_A,     x, r2, s, s, "A");
+        drawKey(g, mc, ks, KeystrokesModule.KEY_S,     x + s + gap, r2, s, s, "S");
+        drawKey(g, mc, ks, KeystrokesModule.KEY_D,     x + (s + gap) * 2, r2, s, s, "D");
+        drawKey(g, mc, ks, KeystrokesModule.KEY_SPACE, x, r2 + s + gap, s * 3 + gap * 2, s / 2, "");
 
-	private void drawKey(GuiGraphics g, Minecraft client, KeystrokesModule keystrokes,
-						int key, int x, int y, int width, int height, String label) {
-		boolean down = keystrokes.isKeyDown(client, key);
-		int bg = down ? ACCENT : PANEL;
-		g.fill(x, y, x + width, y + height, bg);
-		if (down) {
-			g.fill(x, y, x + width, y + 1, 0xFF2E7D4F);
-		}
-		int color = down ? 0xFF0B1B12 : WHITE;
-		Component text = Component.literal(label);
-		int textWidth = client.font.width(text);
-		g.drawString(client.font, text,
-				x + (width - textWidth) / 2,
-				y + (height - client.font.lineHeight) / 2,
-				color, false);
-	}
+        int mx = x + (s + gap) * 3 + 8;
+        drawKey(g, mc, ks, KeystrokesModule.MOUSE_L, mx, r2, 34, s,
+                "L " + ks.getCps(mc, KeystrokesModule.MOUSE_L));
+        drawKey(g, mc, ks, KeystrokesModule.MOUSE_R, mx + 36, r2, 34, s,
+                "R " + ks.getCps(mc, KeystrokesModule.MOUSE_R));
+    }
 
-	private void renderDurabilityWarn(GuiGraphics g, Minecraft client, ModuleManager modules) {
-		DurabilityWarnModule warn = (DurabilityWarnModule) modules.find("DurabilityWarn");
-		if (warn == null || !warn.isEnabled() || !warn.isWarning(client)) {
-			return;
-		}
-		Component text = Component.literal("\u26a0 LOW TOOL DURABILITY");
-		int width = client.font.width(text);
-		int x = (client.getWindow().getGuiScaledWidth() - width) / 2;
-		int y = 24;
-		g.fill(x - 6, y - 2, x + width + 6, y + 10, RED_BG);
-		g.drawString(client.font, text, x, y, RED, false);
-	}
+    private void drawKey(GuiGraphics g, Minecraft mc, KeystrokesModule ks,
+                          int key, int x, int y, int w, int h, String label) {
+        boolean down = ks.isKeyDown(mc, key);
+        int bg = down ? ACCENT : BG;
+        g.fill(x, y, x + w, y + h, bg);
+        if (down) g.fill(x, y, x + w, y + 1, 0xFF2E7D4F);
+        int c = down ? 0xFF0B1B12 : WHITE;
+        Component t = Component.literal(label);
+        int tw = mc.font.width(t);
+        g.drawString(mc.font, t, x + (w - tw) / 2, y + (h - mc.font.lineHeight) / 2, c, false);
+    }
 
-	/** Poll-based click detection: left-click on an enabled module row toggles it. */
-	public void handleClick(Minecraft client) {
-		if (client.screen != null || client.player == null) {
-			lastClickState = false;
-			return;
-		}
-		long handle = client.getWindow().getWindow();
-		boolean nowDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		if (nowDown && !lastClickState) {
-			double scale = client.getWindow().getGuiScale();
-			double mouseX = client.mouseHandler.xpos() / scale;
-			double mouseY = client.mouseHandler.ypos() / scale;
-			for (int i = 0; i < moduleRects.size(); i++) {
-				int[] rect = moduleRects.get(i);
-				if (mouseX >= rect[0] && mouseX <= rect[2] && mouseY >= rect[1] && mouseY <= rect[3]) {
-					moduleRowModules.get(i).toggle();
-					QynlClient.getInstance().getModuleManager().saveToConfig();
-					break;
-				}
-			}
-		}
-		lastClickState = nowDown;
-	}
+    // ── durability warning ──────────────────────────────────────
 
-	private String formatTime(int ticks) {
-		if (ticks <= 0) {
-			return "0:00";
-		}
-		int seconds = (ticks + 19) / 20;
-		return String.format("%d:%02d", seconds / 60, seconds % 60);
-	}
+    private void renderDuraWarn(GuiGraphics g, Minecraft mc) {
+        DurabilityWarnModule dw = (DurabilityWarnModule) QynlClient.getInstance()
+                .getModuleManager().find("DurabilityWarn");
+        if (dw == null || !dw.isEnabled() || !dw.isWarning(mc)) return;
+        String msg = "\u26a0 TOOL ABOUT TO BREAK";
+        int tw = mc.font.width(msg);
+        int x = (mc.getWindow().getGuiScaledWidth() - tw) / 2;
+        g.fill(x - 6, 22, x + tw + 6, 33, DARK_RED);
+        g.drawString(mc.font, msg, x, 24, RED, false);
+    }
 
-	private String roman(int amplifier) {
-		return switch (amplifier) {
-			case 0 -> "";
-			case 1 -> " II";
-			case 2 -> " III";
-			case 3 -> " IV";
-			default -> " V";
-		};
-	}
+    // ── click handling ──────────────────────────────────────────
+
+    public void handleClick(Minecraft mc) {
+        if (mc.screen != null || mc.player == null) { prevClick = false; return; }
+        long h = mc.getWindow().getWindow();
+        boolean now = GLFW.glfwGetMouseButton(h, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        if (now && !prevClick) {
+            double s = mc.getWindow().getGuiScale();
+            double mx = mc.mouseHandler.xpos() / s, my = mc.mouseHandler.ypos() / s;
+            for (int i = 0; i < clickRects.size(); i++) {
+                int[] r = clickRects.get(i);
+                if (mx >= r[0] && mx <= r[2] && my >= r[1] && my <= r[3]) {
+                    clickMods.get(i).toggle();
+                    QynlClient.getInstance().getModuleManager().saveToConfig();
+                    break;
+                }
+            }
+        }
+        prevClick = now;
+    }
+
+    // ── helpers ─────────────────────────────────────────────────
+
+    private static String fmt(int ticks) {
+        if (ticks <= 0) return "0:00";
+        int sec = (ticks + 19) / 20;
+        return sec / 60 + ":" + String.format("%02d", sec % 60);
+    }
+
+    private static String roman(int amp) {
+        return switch (amp) { case 0 -> ""; case 1 -> " II"; case 2 -> " III";
+            case 3 -> " IV"; default -> " V"; };
+    }
 }

@@ -70,52 +70,80 @@ The generator downloads the official jars into `.cache/` when they are not alrea
 
 ### 1.21.1 Modules
 
+#### Combat
+
+| Module | Description |
+|--------|-------------|
+| **Director** | The combat AI brain — watches fights and decides which modules to use and how hard, switching between 7 tactics (Engage / Combo / Trade / Defend / Evade / Retreat / Survive) with humanized reaction delays. Never starts a fight by itself |
+| **AimAssist** | Gently guides aim toward nearest hostile while attacking — humanized with GCD, convergence, rotation cap |
+| **AutoClicker** | Holds attack with burst pattern, CPS random walk, micro-pauses, occasional missed clicks |
+| **ReachAssist** | Extends your reach with natural fluctuation. Silent Pack-Choke mode for ghost servers |
+| **VelocityAssist** | Softens knockback by a percentage with per-hit chance — some hits take full KB like real jitter |
+| **WTap** | Taps W after each hit to reset sprint — extra knockback on enemies |
+| **BlockHit** | Auto-blocks when enemy attacks (Reactive) or after your swings (Rhythm). Vape-Lite-grade |
+| **Criticals** | Airborne Engine — crits from jumps, knockback arcs, and edge falls. Zero modified packets |
+| **Aegis** | Evasion Engine — dodges arrows, snowballs, and projectiles with weighted vector sidesteps |
+| **StrafeAssist** | Auto-strafes left/right in combat with randomized intervals. Keeps sprint alive |
+| **Hindsight** | Server-Time Replay — tracks server-side positions for lag-compensated attacks |
+| **CritAssist** | Mini-jump packet crits (Y+0.06 up, Y+0.01 down) or Silent onGround spoof — no jumping needed |
+| **ShieldAssist** | Auto-blocks when enemy attacks (BlockHit / Hold modes) with human reaction delay |
+| **AutoSprint** | Sprint stays on while moving with randomized start delays and occasional misses |
+| **BowAssist** | Draws and releases your bow/crossbow at full charge with human release delay |
+
 #### Assist
 
-| Module | Description | Key |
-|--------|-------------|-----|
-| **AimAssist** | Gently guides aim toward nearest hostile while attacking | None |
-| **AntiAFK** | Turns your view gently so servers don't kick you for being idle | None |
-| **AntiDrown** | Swims up when you're about to drown | None |
-| **AutoArmor** | Equips the best armor from your inventory automatically | J |
-| **AutoClicker** | Holds attack with humanly irregular timing | None |
-| **AutoClimb** | Climbs ladders and vines automatically | None |
-| **AutoEat** | Eats the best food in your hotbar when hungry | None |
-| **AutoFish** | Reels in fish when they bite, then re-casts for you | None |
-| **AutoJump** | Automatically hops over small gaps and up stairs | N |
-| **AutoMine** | Keeps mining a block until it breaks — you don't have to hold the button | H |
-| **AutoPotion** | Splashes healing potions automatically when health is low | None |
-| **AutoRespawn** | Clicks the respawn button for you when you die | None |
-| **AutoSprint** | Sprint stays on while you move forward | Y |
-| **AutoStep** | Steps up one-block-high edges without jumping | None |
-| **AutoSwim** | Swims up automatically when underwater | None |
-| **AutoSword** | Switches to your strongest weapon when you attack | None |
-| **AutoTool** | Switches to the right tool for the block you're looking at | None |
-| **AutoTorch** | Places torches from your hotbar when light is too low | None |
-| **AutoTotem** | Moves a Totem of Undying to your offhand when health is low | None |
-| **AutoWalk** | Walks forward — free your hands while travelling | B |
-| **BowAssist** | Draws and releases your bow/crossbow at full charge | None |
-| **ChestStealer** | Open a chest and it automatically takes everything | T |
-| **CritAssist** | Time your jumps so hits land as critical strikes (MiniJump / OnGround modes) | None |
-| **FastPlaceAssist** | Speeds up block placement | None |
-| **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla modes) | G |
-| **InvWalk** | Walk while your inventory or any menu is open | P |
-| **NinjaBridge** | Auto-sneak and auto-place while bridging across gaps | None |
-| **NoFall** | Prevents fall damage — for players with depth-perception issues | None |
-| **ReachAssist** | Extends your reach slightly with natural fluctuation | None |
-| **SafeWalk** | Stops you from walking off edges | None |
-| **ScaffoldWalk** | Places blocks under you while you walk (sneak to use) | None |
-| **ShieldAssist** | Auto-blocks when an enemy attacks (BlockHit / Hold modes) | None |
-| **StreamerMode** | Hides sensitive info from the HUD for OBS/streaming | None |
-| **ToggleSneak** | Sneak stays on until you press the key again | V |
-| **VelocityAssist** | Softens knockback by a percentage you choose | None |
+| Module | Description |
+|--------|-------------|
+| **AntiAFK** | Turns your view gently so servers don't kick you for being idle |
+| **AntiDrown** | Swims up when you're about to drown |
+| **AutoArmor** | Equips the best armor from your inventory automatically |
+| **AutoClimb** | Climbs ladders and vines automatically |
+| **AutoEat** | Eats the best food in your hotbar when hungry |
+| **AutoFish** | Reels in fish when they bite, then re-casts for you |
+| **AutoJump** | Automatically hops over small gaps and up stairs |
+| **AutoMine** | Keeps mining a block until it breaks — you don't have to hold the button |
+| **AutoPotion** | Splashes healing potions automatically when health is low |
+| **AutoRespawn** | Clicks the respawn button for you when you die |
+| **AutoStep** | Steps up one-block-high edges without jumping |
+| **AutoSwim** | Swims up automatically when underwater |
+| **AutoSword** | Switches to your strongest weapon when you attack |
+| **AutoTool** | Switches to the right tool for the block you're looking at |
+| **AutoTorch** | Places torches from your hotbar when light is too low |
+| **AutoTotem** | Moves a Totem of Undying to your offhand when health is low |
+| **AutoWalk** | Walks forward — free your hands while travelling |
+| **ChestStealer** | Open a chest and it automatically takes everything |
+| **FastPlaceAssist** | Speeds up block placement |
+| **FlyAssist** | Smooth flight without fly permission (Silent / Smooth / Vanilla) |
+| **InvWalk** | Walk while your inventory or any menu is open |
+| **NinjaBridge** | Auto-sneak + auto-place while bridging. 45° diagonal mode for max speed |
+| **NoFall** | Prevents fall damage |
+| **SafeWalk** | Stops you from walking off edges |
+| **ScaffoldWalk** | Places blocks under you while you walk |
+| **ToggleSneak** | Sneak stays on until you press the key again |
+
+#### Utility
+
+| Module | Description |
+|--------|-------------|
+| **Blink** | Holds movement packets and releases in bursts — breaks enemy combos (Auto / Hold) |
+| **Clutch** | Auto-Save Engine — catches lethal falls with MLG water/lava placement |
+| **Refill** | Refills your hotbar with food and potions from inventory (Manual / Auto) |
+| **Throwpot** | Press the bind to throw/drink/eat your best healing item instantly |
 
 #### Render
 
-| Module | Description | Key |
-|--------|-------------|-----|
-| **Fullbright** | Boost brightness so you can see clearly in the dark | K |
-| **Zoom** | Hold the key to zoom in for a closer look | Z |
+| Module | Description |
+|--------|-------------|
+| **Fullbright** | Boost brightness so you can see clearly in the dark |
+| **Zoom** | Hold the key to zoom in for a closer look |
+| **NoHurtCam** | Removes the damage camera tilt — damage/knockback untouched (render-only) |
+| **NoViewBob** | Removes walking view bobbing — movement untouched (render-only) |
+| **Search** | Outlines chests, ores, storage blocks through walls (cached scan, configurable blocks) |
+| **NameTags** | Renders entity nametags through walls — friends green, enemies red |
+| **Tracers** | Draws a line to every entity in range — players red, mobs orange, friends green |
+| **StorageESP** | Outlines all storage blocks (chests, shulkers, furnaces, etc.) through walls |
+| **Echo** | Soundscape radar — listens to sound packets and shows fading 3D markers. Zero packets sent |
+| **StreamerMode** | Hides all mod HUD elements — safe for OBS and recording |
 
 #### Info
 
@@ -125,7 +153,7 @@ The generator downloads the official jars into `.cache/` when they are not alrea
 | **DeathCoords** | Remembers where you died and shows it on HUD |
 | **DurabilityWarn** | Shows a warning when your tools are about to break |
 | **EffectTimers** | Shows how much time is left on your active effects |
-| **InfoHUD** | Shows coordinates, FPS, and other info |
+| **InfoHUD** | Shows coordinates, FPS, direction, biome, time, and ping |
 | **Keystrokes** | On-screen WASD / mouse / CPS display |
 | **TargetInfo** | Shows info about the entity you're looking at |
 

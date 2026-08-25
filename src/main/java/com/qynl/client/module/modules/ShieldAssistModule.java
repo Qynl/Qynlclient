@@ -40,10 +40,9 @@ public class ShieldAssistModule extends Module {
 	private int cooldownTicks = 0;
 	private boolean blockedThisSwing = false;
 
-	public ShieldAssistModule() {
-		super("ShieldAssist",
-				"Auto-blocks when an enemy attacks — quick tap (BlockHit) or hold. Human-timed so anti-cheat sees a normal player.",
-				Category.ASSIST);
+	public ShieldAssistModule() {        super("ShieldAssist",
+                "Auto-blocks when an enemy attacks — quick tap (BlockHit) or hold. Human-timed so anti-cheat sees a normal player.",
+                Category.COMBAT);
 		bindKey(GLFW.GLFW_KEY_F9);
 		addSetting(Setting.options("mode", "Mode", "BlockHit", "BlockHit", "Hold"));
 		addSetting(Setting.range("reactionMs", "Reaction delay", 180.0, 50, 350, 10, "ms"));
