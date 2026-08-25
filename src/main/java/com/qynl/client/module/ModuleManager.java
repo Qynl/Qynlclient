@@ -136,20 +136,25 @@ public class ModuleManager {
 				module.setEnabled(state);
 			}
 			// Key restore rules:
-			// 1. A vanilla Controls unbind (mapping is UNKNOWN) always wins —
-			//    never resurrect a stale config key over it.
-			// 2. A config key that merely equals the module's constructor
-			//    default is treated as "never customized" and skipped.
-			// 3. Anything else (a real rebind or an explicit -1) is applied.
-			boolean vanillaUnbound = module.getKeyMapping() != null
-					&& module.getKeyMapping().isUnbound();
+			// 1. A config key that merely equals the module's constructor
+			//    default is treated as "never customized" and skipped — a
+			//    stale default (e.g. ChestStealer=T from an old version) can
+			//    then never resurrect a key the user removed.
+			// 2. A real rebind (any key ≠ default) is applied.
+			// 3. If the config says unbound (or the mapping is already
+			//    unbound), force the live mapping to UNKNOWN too — this also
+			//    overrides a stale binding in vanilla options.txt, so the key
+			//    is dead even if the game still remembered it.
 			int key = config.getModuleKey(module.getName(), module.getKeyCode());
-			if (vanillaUnbound) {
+			int def = module.getDefaultKeyCode();
+			boolean mappingUnbound = module.getKeyMapping() != null
+					&& module.getKeyMapping().isUnbound();
+			if (key != -1 && key != def) {
+				module.setKeyCode(key);
+			} else if (key == -1 || mappingUnbound) {
 				if (module.getKeyCode() != -1) {
 					module.setKeyCode(-1);
 				}
-			} else if (key != module.getDefaultKeyCode() && key != module.getKeyCode()) {
-				module.setKeyCode(key);
 			}
 			for (Map.Entry<String, String> entry : config.getModuleSettings(module.getName()).entrySet()) {
 				try {

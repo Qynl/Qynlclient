@@ -18,6 +18,15 @@ public class QynlClientConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger("qynlclient-config");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+	/**
+	 * Bump when defaults change in a way that makes old saved values stale
+	 * or harmful. v2 (2.1.7): keys + settings reset once — old builds saved
+	 * e.g. ChestStealer=T, AimAssist OnAttack/Hostile and AutoSprint off,
+	 * which resurrected exactly the bugs users kept hitting. Module states
+	 * (on/off) are kept.
+	 */
+	private static final int CONFIG_VERSION = 2;
+
 	private final Map<String, Boolean> moduleStates = new LinkedHashMap<>();
 	private final Map<String, Integer> moduleKeys = new LinkedHashMap<>();
 	private final Map<String, Map<String, String>> moduleSettings = new LinkedHashMap<>();
@@ -48,6 +57,7 @@ public class QynlClientConfig {
 
 	public void save() {
 		JsonObject root = new JsonObject();
+		root.addProperty("version", CONFIG_VERSION);
 		JsonObject modules = new JsonObject();
 		for (Map.Entry<String, Boolean> entry : moduleStates.entrySet()) {
 			modules.addProperty(entry.getKey(), entry.getValue());
@@ -77,27 +87,35 @@ public class QynlClientConfig {
 		try {
 			String json = Files.readString(path());
 			JsonObject root = JsonParser.parseString(json).getAsJsonObject();
-			if (root.has("modules") && root.get("modules").isJsonObject()) {
-				JsonObject modules = root.get("modules").getAsJsonObject();
-				modules.entrySet().forEach(entry ->
-						cfg.moduleStates.put(entry.getKey(), entry.getValue().getAsBoolean()));
+			int version = root.has("version") ? root.get("version").getAsInt() : 1;
+			if (version >= CONFIG_VERSION) {
+				if (root.has("modules") && root.get("modules").isJsonObject()) {
+					JsonObject modules = root.get("modules").getAsJsonObject();
+					modules.entrySet().forEach(entry ->
+							cfg.moduleStates.put(entry.getKey(), entry.getValue().getAsBoolean()));
+				}
+				if (root.has("keys") && root.get("keys").isJsonObject()) {
+					JsonObject keys = root.get("keys").getAsJsonObject();
+					keys.entrySet().forEach(entry ->
+							cfg.moduleKeys.put(entry.getKey(), entry.getValue().getAsInt()));
+				}
+				if (root.has("settings") && root.get("settings").isJsonObject()) {
+					JsonObject settings = root.get("settings").getAsJsonObject();
+					settings.entrySet().forEach(module -> {
+						if (module.getValue().isJsonObject()) {
+							Map<String, String> values = new LinkedHashMap<>();
+							module.getValue().getAsJsonObject().entrySet().forEach(e ->
+									values.put(e.getKey(), e.getValue().getAsString()));
+							cfg.moduleSettings.put(module.getKey(), values);
+						}
+					});
+				}
 			}
-			if (root.has("keys") && root.get("keys").isJsonObject()) {
-				JsonObject keys = root.get("keys").getAsJsonObject();
-				keys.entrySet().forEach(entry ->
-						cfg.moduleKeys.put(entry.getKey(), entry.getValue().getAsInt()));
-			}
-			if (root.has("settings") && root.get("settings").isJsonObject()) {
-				JsonObject settings = root.get("settings").getAsJsonObject();
-				settings.entrySet().forEach(module -> {
-					if (module.getValue().isJsonObject()) {
-						Map<String, String> values = new LinkedHashMap<>();
-						module.getValue().getAsJsonObject().entrySet().forEach(e ->
-								values.put(e.getKey(), e.getValue().getAsString()));
-						cfg.moduleSettings.put(module.getKey(), values);
-					}
-				});
-			}
+			// v1 configs: module states, keys and settings are all dropped so
+			// every module starts with the current defaults (AutoSprint on,
+			// AimAssist Always/Players, no stale keybindings like ChestStealer=T).
+			// This one-time reset clears every stale default that made the
+			// client feel dead.
 		} catch (Exception ignored) {
 			// First run or unreadable config: start fresh with defaults.
 		}
