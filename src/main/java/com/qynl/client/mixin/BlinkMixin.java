@@ -11,6 +11,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -66,17 +67,20 @@ public abstract class BlinkMixin {
         ci.cancel();
     }
 
-    /** Called when Blink releases — sends all held packets. */
+    /**
+     * Called when Blink releases — sends all held packets.
+     *
+     * <p>{@code @Unique} keeps this helper callable from {@link BlinkModule}
+     * while telling Mixin it is a mixin-only utility, not a method to merge
+     * into {@link Connection} (non-private statics are otherwise rejected at
+     * apply time).</p>
+     */
+    @Unique
     public static void releasePackets(Connection connection) {
         if (qynlclient$heldPackets.isEmpty()) return;
         for (ServerboundMovePlayerPacket pkt : qynlclient$heldPackets) {
             connection.send(pkt, null);
         }
-        qynlclient$heldPackets.clear();
-    }
-
-    /** Clear held packets without sending (e.g., on disconnect). */
-    public static void clearPackets() {
         qynlclient$heldPackets.clear();
     }
 }
