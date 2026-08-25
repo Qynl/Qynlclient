@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class QynlClient implements ClientModInitializer {
 	public static final String MOD_ID = "qynlclient";
-	public static final String VERSION = "2.1.4";
+	public static final String VERSION = "2.1.5";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static QynlClient instance;
@@ -54,6 +54,15 @@ public class QynlClient implements ClientModInitializer {
 			boolean worldChanged = client.level != lastWorld;
 			if (died || worldChanged) {
 				moduleManager.onWorldChange(client);
+			}
+			// Announce the running build once per world join — the definitive
+			// "am I actually running this jar" check. If the watermark says
+			// v2.1.5 and this message appears, the new jar is live.
+			if (worldChanged && client.level != null && client.player != null) {
+				client.player.displayClientMessage(
+						net.minecraft.network.chat.Component.literal(
+								"\u00a7aQynlClient \u00a7fv" + VERSION + " \u00a77\u2014 Right-Shift opens the ClickGUI"),
+						false);
 			}
 			if (client.level == null && lastWorld != null) {
 				moduleManager.onDisconnect(client);
