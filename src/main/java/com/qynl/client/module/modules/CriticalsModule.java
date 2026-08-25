@@ -76,7 +76,11 @@ public class CriticalsModule extends Module {
 			// Jump any time we're attacking a target on solid ground.
 			shouldJump = onGround && cooldownTicks <= 0;
 		} else { // Jump mode
-			shouldJump = onGround && cooldownTicks <= 0 && player.getAttackStrengthScale(0.0F) >= 0.9F;
+			// Jump on attack intent (no attack-strength gate): the swing that
+			// follows — AutoClicker or your own — must land while airborne.
+			// Gating on the cooldown at 0.9 made the jump come AFTER the click
+			// (AutoClicker swings at 0.6), so every hit landed on the ground.
+			shouldJump = onGround && cooldownTicks <= 0;
 		}
 
         if (shouldJump && !forcingJump) {

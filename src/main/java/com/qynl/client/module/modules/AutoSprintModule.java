@@ -63,21 +63,17 @@ public class AutoSprintModule extends Module {
             return;
         }
 
-        // Randomized start delay after movement begins (3–7 ticks).
+        // Near-instant start: 1 tick (50 ms) after movement begins.
         if (startDelayTicks == 0) {
-            startDelayTicks = 3 + RANDOM.nextInt(5);
+            startDelayTicks = 1;
             return;
         }
         if (--startDelayTicks > 0) {
             return;
         }
 
-        // Respect the post-attack sprint re-engage window.
-        if (tickCounter - lastAttackTick < 5) {
-            return;
-        }
-        // Occasionally miss the sprint start and retry next tick.
-        if (RANDOM.nextInt(100) < 10) {
+        // Short post-attack re-engage window (vanilla cancels sprint on hit).
+        if (tickCounter - lastAttackTick < 3) {
             return;
         }
 

@@ -52,15 +52,21 @@ public abstract class InputMixin {
             }
         }
 
-        // StrafeAssist — auto-strafe in combat.
+        // StrafeAssist — auto-strafe in combat. Full-speed strafing needs
+        // forward movement, so push a forward floor — unless the player is
+        // actively pressing backward (then the strafe keeps their direction).
         StrafeAssistModule strafe = (StrafeAssistModule) QynlClient.getInstance().getModuleManager().find("StrafeAssist");
         if (strafe != null && strafe.isEnabled()) {
             if (strafe.shouldStrafeLeft()) {
                 input.leftImpulse = 1.0F;
-                input.forwardImpulse = Math.max(0, input.forwardImpulse);
+                if (input.forwardImpulse >= 0.0F) {
+                    input.forwardImpulse = Math.max(0.6F, input.forwardImpulse);
+                }
             } else if (strafe.shouldStrafeRight()) {
                 input.leftImpulse = -1.0F;
-                input.forwardImpulse = Math.max(0, input.forwardImpulse);
+                if (input.forwardImpulse >= 0.0F) {
+                    input.forwardImpulse = Math.max(0.6F, input.forwardImpulse);
+                }
             }
         }
     }

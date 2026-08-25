@@ -99,12 +99,22 @@ public class AimAssistModule extends Module {
                 && mc.screen == null && !mc.player.isSpectator();
         Entity t = engaged ? findTarget(mc) : null;
 
-        // ── mouse override: the player's own input always wins ──
+        // ── mouse handling: assist never hard-stops while the player moves.
+        // Normal mouse control blends the assist to half strength (still
+        // helping, never fighting); only a deliberate big flick (>30 px)
+        // yields entirely for 2 ticks. This is what "helps while I move my
+        // mouse" means — the old code froze the assist for 4 ticks on any
+        // movement, which read as the aim doing nothing.
         double mx = mc.mouseHandler.xpos(), my = mc.mouseHandler.ypos();
         double move = Math.hypot(mx - lastMx, my - lastMy);
         lastMx = mx; lastMy = my;
-        if (move > 4.0) overrideTicks = 4;
-        else if (overrideTicks > 0) overrideTicks--;
+        double influence = 1.0;
+        if (move > 30.0) {
+            overrideTicks = 2;
+        } else if (move > 4.0) {
+            influence = 0.5;
+        }
+        if (overrideTicks > 0) overrideTicks--;
 
         if (t != target) {
             target = t;
@@ -120,7 +130,7 @@ public class AimAssistModule extends Module {
 
         // ── compute the smooth step ──
         float cy = mc.player.getYRot(), cp = mc.player.getXRot();
-        float[] step = stepTowards(mc, cy, cp);
+        float[] step = stepTowards(mc, cy, cp, influence);
         if (step == null) { SilentAim.clear(); return; }
 
         String mode = getStringSetting("mode");
@@ -162,7 +172,7 @@ public class AimAssistModule extends Module {
         return pos;
     }
 
-    private float[] stepTowards(Minecraft mc, float cy, float cp) {
+    private float[] stepTowards(Minecraft mc, float cy, float cp, double influence) {
         if (target == null || mc.player == null) return null;
         Vec3 eye = mc.player.getEyePosition();
         Vec3 aim = aimPoint(target);
@@ -195,6 +205,11 @@ public class AimAssistModule extends Module {
         if (absP < 6.0) {
             stepP = Mth.clamp(pitchD * 0.20 + Math.signum(pitchD) * 0.05, -absP, absP);
         }
+
+        // Mouse-influence blend: while the player moves the mouse the assist
+        // keeps pulling at reduced strength instead of freezing.
+        stepY *= influence;
+        stepP *= influence;
 
         // GCD snap — real mouse-pixel steps at the player's sensitivity.
         double sens = mc.options.sensitivity().get();

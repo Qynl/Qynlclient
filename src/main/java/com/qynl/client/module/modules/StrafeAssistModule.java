@@ -39,8 +39,11 @@ public class StrafeAssistModule extends Module {
         }
         var player = client.player;
 
-        // Only strafe while combat is happening (enemy nearby + attack held)
-        boolean inCombat = client.options.keyAttack.isDown() && hasNearbyEnemy(client);
+        // Strafe while an enemy is near and the player is engaged — either
+        // holding attack or actively moving (so it works while chasing with
+        // AimAssist too, not only while clicking).
+        boolean inCombat = hasNearbyEnemy(client)
+                && (client.options.keyAttack.isDown() || isMoving(client));
         if (!inCombat || player.isDeadOrDying()) {
             if (strafing) reset(client);
             return;
@@ -97,6 +100,12 @@ public class StrafeAssistModule extends Module {
 
     public boolean shouldStrafeRight() {
         return isEnabled() && strafing && !strafeLeft;
+    }
+
+    private static boolean isMoving(Minecraft client) {
+        var input = client.player.input;
+        if (input == null) return false;
+        return input.forwardImpulse > 0.0F || input.leftImpulse != 0.0F;
     }
 
     private boolean hasNearbyEnemy(Minecraft client) {
