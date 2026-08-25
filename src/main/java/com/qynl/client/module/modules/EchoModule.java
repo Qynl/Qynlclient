@@ -50,8 +50,7 @@ public class EchoModule extends Module {
 
         if (sound == SoundEvents.PLAYER_ATTACK_SWEEP || sound == SoundEvents.PLAYER_ATTACK_KNOCKBACK
                 || sound == SoundEvents.PLAYER_HURT || sound == SoundEvents.PLAYER_DEATH
-                || sound == SoundEvents.ARROW_SHOOT || sound == SoundEvents.CROSSBOW_SHOOT
-                || sound == SoundEvents.BOW_SHOOT) {
+                || sound == SoundEvents.ARROW_SHOOT || sound == SoundEvents.CROSSBOW_SHOOT) {
             color = 0xFFFF5555; // Player activity — red
         } else if (sound == SoundEvents.ENDER_PEARL_THROW || sound == SoundEvents.CHORUS_FRUIT_TELEPORT
                 || sound == SoundEvents.ENDERMAN_TELEPORT) {
@@ -62,7 +61,8 @@ public class EchoModule extends Module {
                 || sound == SoundEvents.BLAZE_SHOOT) {
             color = 0xFFFFAA00; // Mobs — gold
         } else if (sound == SoundEvents.CHEST_OPEN || sound == SoundEvents.CHEST_CLOSE
-                || sound == SoundEvents.DOOR_OPEN || sound == SoundEvents.DOOR_CLOSE
+                || sound == SoundEvents.WOODEN_DOOR_OPEN || sound == SoundEvents.WOODEN_DOOR_CLOSE
+                || sound == SoundEvents.IRON_DOOR_OPEN || sound == SoundEvents.IRON_DOOR_CLOSE
                 || sound == SoundEvents.FENCE_GATE_OPEN || sound == SoundEvents.FENCE_GATE_CLOSE
                 || sound == SoundEvents.WOODEN_TRAPDOOR_OPEN || sound == SoundEvents.WOODEN_TRAPDOOR_CLOSE
                 || sound == SoundEvents.IRON_TRAPDOOR_OPEN || sound == SoundEvents.IRON_TRAPDOOR_CLOSE

@@ -4,7 +4,6 @@ import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.projectile.*;
 import net.minecraft.world.phys.AABB;
@@ -168,9 +167,8 @@ public class AegisModule extends Module {
         List<ProjectileDanger> dangers = new ArrayList<>();
         AABB scanBox = client.player.getBoundingBox().inflate(getDoubleSetting("dodgeDist") + 2.0);
 
-        for (var entity : client.level.getEntities(null, scanBox,
-                e -> e instanceof Projectile && e.isAlive())) {
-            if (!(entity instanceof Projectile proj)) continue;
+        for (Projectile proj : client.level.getEntitiesOfClass(Projectile.class, scanBox,
+                e -> e.isAlive())) {
             if (proj.getOwner() == client.player) continue; // don't dodge own projectiles
 
             Vec3 pos = proj.position();

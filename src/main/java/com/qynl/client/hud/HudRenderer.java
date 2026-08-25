@@ -3,6 +3,7 @@ package com.qynl.client.hud;
 import com.qynl.client.QynlClient;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
+import com.qynl.client.module.Setting;
 import com.qynl.client.module.modules.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,9 +20,10 @@ import java.util.List;
  */
 public class HudRenderer {
     // ── palette ──
-    private static final int BG       = 0x80000000;
+    public static final int BG       = 0x80000000;
+    public static final int PANEL    = 0xC0121212;
     private static final int HOVER    = 0x20FFFFFF;
-    private static final int ACCENT   = 0xFF55FF55;
+    public static final int ACCENT   = 0xFF55FF55;
     private static final int WHITE    = 0xFFD0D0D0;
     private static final int GRAY     = 0xFF7A7A7A;
     private static final int RED      = 0xFFFF5555;
