@@ -70,9 +70,13 @@ public class TracersModule extends Module {
             float g = ((color >> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
 
-            consumer.addVertex(matrix, 0, 0, 0).setColor(r, g, b, 1.0f);
+            // 1.21.1's RenderType.lines() uses POSITION_COLOR_NORMAL — a normal
+            // element is mandatory on every vertex, or the buffer build throws
+            // "Missing elements in vertex: Normal" (a hard crash). Lines are
+            // unlit, so any normal value works.
+            consumer.addVertex(matrix, 0, 0, 0).setColor(r, g, b, 1.0f).setNormal(0.0F, 0.0F, 0.0F);
             consumer.addVertex(matrix, (float) renderPos.x, (float) renderPos.y, (float) renderPos.z)
-                    .setColor(r, g, b, 1.0f);
+                    .setColor(r, g, b, 1.0f).setNormal(0.0F, 0.0F, 0.0F);
         }
     }
 }
