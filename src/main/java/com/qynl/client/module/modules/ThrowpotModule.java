@@ -21,6 +21,8 @@ import org.lwjgl.glfw.GLFW;
  */
 public class ThrowpotModule extends Module {
     private boolean used = false;
+    /** Ticks the use key is held after triggering (food/drinkables). */
+    private int useHoldTicks = 0;
 
     public ThrowpotModule() {
         super("Throwpot", "Press the bind to throw/drink/eat your best healing item instantly.",
@@ -32,6 +34,7 @@ public class ThrowpotModule extends Module {
     @Override
     public void onEnable() {
         used = false;
+        useHoldTicks = 0;
     }
 
     @Override
@@ -44,11 +47,18 @@ public class ThrowpotModule extends Module {
         if (player.isDeadOrDying() || player.isSpectator() || player.isCreative()) {
             used = false;
             return;
-        }
+        }		// Release the use key a couple of seconds after triggering so it is
+		// never left logically held (which would hijack the player's right-click).
+		if (useHoldTicks > 0) {
+			if (--useHoldTicks <= 0) {
+				client.options.keyUse.setDown(false);
+			}
+			return;
+		}
 
-        if (used) return;
+		if (used) return;
 
-        float healthPct = player.getHealth() / player.getMaxHealth() * 100f;
+		float healthPct = player.getHealth() / player.getMaxHealth() * 100f;
         if (healthPct > getDoubleSetting("healthPct")) return;
 
         Inventory inv = player.getInventory();
@@ -94,14 +104,14 @@ public class ThrowpotModule extends Module {
         if (isThrowable) {
             client.gameMode.useItem(player, InteractionHand.MAIN_HAND);
             // For throwable potions, this throws immediately
-            inv.selected = prevSlot;
-        } else {
-            // For food/drinkable, hold use to consume
-            client.options.keyUse.setDown(true);
-        }
+            inv.selected = prevSlot;		} else {
+			// For food/drinkable, hold use to consume — released after ~1.6 s.
+			client.options.keyUse.setDown(true);
+			useHoldTicks = 32;
+		}
 
-        used = true;
-    }
+		used = true;
+	}
 
     private float healingScore(ItemStack stack) {
         PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
@@ -120,14 +130,13 @@ public class ThrowpotModule extends Module {
             }
         }
         return score;
-    }
-
-    @Override
-    public void onDisable() {
-        used = false;
-        Minecraft client = Minecraft.getInstance();
-        if (client.options != null) {
-            client.options.keyUse.setDown(false);
-        }
-    }
+    }	@Override
+	public void onDisable() {
+		used = false;
+		useHoldTicks = 0;
+		Minecraft client = Minecraft.getInstance();
+		if (client.options != null) {
+			client.options.keyUse.setDown(false);
+		}
+	}
 }

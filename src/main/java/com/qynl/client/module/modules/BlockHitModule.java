@@ -57,15 +57,16 @@ public class BlockHitModule extends Module {
         if (client.player.isDeadOrDying()) {
             reset();
             return;
-        }
-
-        // Must hold a sword or axe
-        ItemStack held = client.player.getMainHandItem();
-        boolean hasWeapon = held.getItem() instanceof SwordItem || held.getItem() instanceof AxeItem;
-        if (!hasWeapon) {
-            reset();
-            return;
-        }
+        }		// Must hold a sword/axe (1.21.1: blocking needs a shield — sword/axe in
+		// the main hand plus a shield in either hand is the real melee kit).
+		ItemStack held = client.player.getMainHandItem();
+		boolean hasWeapon = (held.getItem() instanceof SwordItem || held.getItem() instanceof AxeItem)
+				|| held.getItem() == net.minecraft.world.item.Items.SHIELD
+				|| client.player.getOffhandItem().getItem() == net.minecraft.world.item.Items.SHIELD;
+		if (!hasWeapon) {
+			reset();
+			return;
+		}
 
         if (cooldownTicks > 0) {
             cooldownTicks--;

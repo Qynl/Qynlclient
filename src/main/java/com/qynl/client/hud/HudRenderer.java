@@ -6,11 +6,9 @@ import com.qynl.client.module.ModuleManager;
 import com.qynl.client.module.Setting;
 import com.qynl.client.module.modules.StreamerModeModule;
 import com.qynl.client.module.modules.TextGuiModule;
-import com.qynl.client.util.PingTracker;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.qynl.client.util.PingTracker;	import net.minecraft.client.Minecraft;
+	import net.minecraft.client.gui.GuiGraphics;
+	import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -210,11 +208,4 @@ public class HudRenderer {
             }
         }
         prevClick = now;
-    }
-
-    // ── helpers ─────────────────────────────────────────────────
-
-    private static Component lit(String s) {
-        return Component.literal(s);
-    }
-}
+    }}

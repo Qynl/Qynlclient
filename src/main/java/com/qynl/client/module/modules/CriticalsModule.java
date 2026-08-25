@@ -66,22 +66,18 @@ public class CriticalsModule extends Module {
 
         boolean onGround = player.onGround();
         String mode = getStringSetting("mode");
-        double chance = getDoubleSetting("chance") / 100.0;
+        double chance = getDoubleSetting("chance") / 100.0;		boolean shouldJump = false;
 
-        // "Knockback" mode: don't initiate jump, only apply during knockback
-        if ("Knockback".equals(mode)) {
-            return; // Let natural knockback create crits; we don't force anything
-        }
-
-        // "Always" mode: jump any time we're attacking a target on solid ground
-        // "Jump" mode: jump before attacks with cooldown and chance
-        boolean shouldJump = false;
-
-        if ("Always".equals(mode)) {
-            shouldJump = onGround;
-        } else { // Jump mode
-            shouldJump = onGround && cooldownTicks <= 0 && player.getAttackStrengthScale(0.0F) >= 0.9F;
-        }
+		if ("Knockback".equals(mode)) {
+			// Only jump while being combo'd (hurt window active) — the knockback
+			// arc plus this jump chains crits while you're losing the trade.
+			shouldJump = onGround && player.hurtTime > 0 && cooldownTicks <= 0;
+		} else if ("Always".equals(mode)) {
+			// Jump any time we're attacking a target on solid ground.
+			shouldJump = onGround && cooldownTicks <= 0;
+		} else { // Jump mode
+			shouldJump = onGround && cooldownTicks <= 0 && player.getAttackStrengthScale(0.0F) >= 0.9F;
+		}
 
         if (shouldJump && !forcingJump) {
             if ("Always".equals(mode) || RANDOM.nextDouble() < chance) {

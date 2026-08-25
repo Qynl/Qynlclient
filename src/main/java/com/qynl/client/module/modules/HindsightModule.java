@@ -39,11 +39,9 @@ public class HindsightModule extends Module {
     public void onTick(Minecraft client) {
         if (client.player == null || client.level == null || client.gameMode == null) return;
         if (!client.options.keyAttack.isDown()) return;
-        if (client.player.isDeadOrDying()) return;
-
-        // Defer to Qynl/AimAssist if they're on (they handle attacking)
-        var modules = QynlClient.getInstance().getModuleManager();
-        if (modules.isEnabled("AimAssist")) return;
+        if (client.player.isDeadOrDying()) return;		// Defer to Qynl/AimAssist if they're on (they handle attacking)
+		var modules = QynlClient.getInstance().getModuleManager();
+		if (modules.isEnabled("Qynl") || modules.isEnabled("AimAssist")) return;
 
         double maxDist = getDoubleSetting("maxDist");
         boolean targetPlayers = "Players+Monsters".equals(getStringSetting("target"));

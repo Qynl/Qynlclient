@@ -273,13 +273,13 @@ public class AimAssistModule extends Module {
             if (sc < bestScore) { bestScore = sc; best = e; }
         }
         return best;
-    }
-
-    private static boolean valid(Entity e, String mode) {
-        return switch (mode) {
-            case "Hostile" -> e instanceof Enemy || e instanceof Mob;
-            case "Players" -> e instanceof Player;
-            default        -> (e instanceof Enemy || e instanceof Mob || e instanceof Player);
-        };
-    }
+    }	private static boolean valid(Entity e, String mode) {
+		return switch (mode) {
+			// Hostile = the Enemy marker (zombies, skeletons, spiders, ...) —
+			// never passive mobs like cows/pigs.
+			case "Hostile" -> e instanceof Enemy;
+			case "Players" -> e instanceof Player;
+			default        -> e instanceof Enemy || e instanceof Mob || e instanceof Player;
+		};
+	}
 }

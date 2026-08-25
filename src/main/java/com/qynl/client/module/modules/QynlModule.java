@@ -108,12 +108,10 @@ public class QynlModule extends Module {
         addSetting(Setting.options("wallCheck",   "Wall check",   "On",    "On",  "Off"));
         addSetting(Setting.options("dodge",       "Collapse",     "On",    "On",  "Off"));
         addSetting(Setting.range("dodgeRange",    "Dodge range",   3.5,   2.0,  5.0, 0.5, "b"));
-        addSetting(Setting.options("showOwn",     "Own position", "On",    "On",  "Off"));
-        addSetting(Setting.options("showEnemies", "Server boxes", "On",    "On",  "Off"));
-        addSetting(Setting.options("ghostBox",    "Ghost box",    "On",    "On",  "Off"));
-        addSetting(Setting.options("pathLine",    "Path line",    "On",    "On",  "Off"));
-        addSetting(Setting.options("throughWalls","Through walls","Off",   "Off", "On"));
-    }
+        addSetting(Setting.options("showOwn",     "Own position", "On",    "On",  "Off"));		addSetting(Setting.options("showEnemies", "Server boxes", "On",    "On",  "Off"));
+		addSetting(Setting.options("ghostBox",    "Ghost box",    "On",    "On",  "Off"));
+		addSetting(Setting.options("pathLine",    "Path line",    "On",    "On",  "Off"));
+	}
 
     public static QynlModule getInstance() { return instance; }
     public static boolean isActive() { return instance != null && instance.isEnabled(); }
@@ -235,13 +233,16 @@ public class QynlModule extends Module {
         if (!doClick || target == null) {
             wasInReach = targetWillHit;
             return;
-        }
-        boolean hit = targetWillHit;
-        boolean risingEdge = hit && !wasInReach;
-        wasInReach = hit;
-        if (!risingEdge) return;
-        if (AutoClickerModule.isActive()) return;
-        if (!client.options.keyAttack.isDown()) return;
+        }		boolean hit = targetWillHit;
+		boolean risingEdge = hit && !wasInReach;
+		wasInReach = hit;
+		if (!risingEdge) return;
+		if (AutoClickerModule.isActive()) return;
+		if (!client.options.keyAttack.isDown()) return;
+		// 1.9+ combat cooldown: only swing at full charge so the quantum
+		// timing actually lands full-damage hits (the human swing interval
+		// below already sits near the cooldown, this makes it exact).
+		if (client.player.getAttackStrengthScale(0.0F) < 0.8F) return;
 
         double[] aimPoint = targetA != null ? targetA : targetC;
         if ("On".equals(getStringSetting("wallCheck"))

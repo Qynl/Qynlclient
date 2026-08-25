@@ -11,11 +11,12 @@ import java.util.Set;
 public final class Friends {
     private static final Set<String> names = new LinkedHashSet<>();
 
-    private Friends() {}
-
-    public static boolean isFriend(String name) {
-        return names.contains(name.toLowerCase());
-    }
+    private Friends() {}	public static boolean isFriend(String name) {
+		if (name == null || name.isBlank()) {
+			return false;
+		}
+		return names.contains(name.toLowerCase());
+	}
 
     public static Set<String> getFriends() {
         return Collections.unmodifiableSet(names);

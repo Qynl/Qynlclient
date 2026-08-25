@@ -1,8 +1,7 @@
-package com.qynl.client.module;
-
-import com.qynl.client.QynlClient;
-import com.qynl.client.QynlClientConfig;
-import com.qynl.client.module.modules.AegisModule;
+package com.qynl.client.module;	import com.qynl.client.QynlClient;
+	import com.qynl.client.QynlClientConfig;
+	import com.qynl.client.module.modules.AegisModule;
+	import com.qynl.client.module.modules.DirectorModule;
 import com.qynl.client.module.modules.AimAssistModule;
 import com.qynl.client.module.modules.AutoClickerModule;
 import com.qynl.client.module.modules.AutoSprintModule;
@@ -10,9 +9,7 @@ import com.qynl.client.module.modules.BlinkModule;
 import com.qynl.client.module.modules.BlockHitModule;
 import com.qynl.client.module.modules.ChestStealerModule;
 import com.qynl.client.module.modules.ClutchModule;
-import com.qynl.client.module.modules.CriticalsModule;
-import com.qynl.client.module.modules.DirectorModule;
-import com.qynl.client.module.modules.EchoModule;
+import com.qynl.client.module.modules.CriticalsModule;import com.qynl.client.module.modules.EchoModule;
 import com.qynl.client.module.modules.FriendsModule;
 import com.qynl.client.module.modules.FullbrightModule;
 import com.qynl.client.module.modules.HindsightModule;
@@ -158,10 +155,19 @@ public class ModuleManager {
 			return;
 		}
 		for (Module module : modules) {
-			config.setModuleState(module.getName(), module.isEnabled());
+			// While the combat Director runs, managed modules are in its
+			// dynamic (tactic-driven) state — persist the user's real loadout
+			// instead, so a save during a fight never corrupts the config.
+			Boolean dirState = DirectorModule.userState(module.getName());
+			boolean state = dirState != null ? dirState.booleanValue() : module.isEnabled();
+			config.setModuleState(module.getName(), state);
 			config.setModuleKey(module.getName(), module.getKeyCode());
+			Map<String, String> dirSettings = DirectorModule.userSettings(module.getName());
 			for (Setting<?> setting : module.getSettings()) {
-				config.setModuleSetting(module.getName(), setting.getKey(), setting.valueAsString());
+				String value = dirSettings != null && dirSettings.containsKey(setting.getKey())
+						? dirSettings.get(setting.getKey())
+						: setting.valueAsString();
+				config.setModuleSetting(module.getName(), setting.getKey(), value);
 			}
 		}
 		config.save();

@@ -1,9 +1,8 @@
-package com.qynl.client.mixin;
-
-import com.qynl.client.QynlClient;
-import com.qynl.client.module.modules.AegisModule;
-import com.qynl.client.module.modules.QynlModule;
-import com.qynl.client.module.modules.StrafeAssistModule;
+package com.qynl.client.mixin;	import com.qynl.client.QynlClient;
+	import com.qynl.client.module.modules.AegisModule;
+	import com.qynl.client.module.modules.QynlModule;
+	import com.qynl.client.module.modules.StrafeAssistModule;
+	import com.qynl.client.module.modules.WTapModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.Input;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,11 +23,16 @@ public abstract class InputMixin {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) {
             return;
-        }
+        }		// WTap — release forward for a tick after each hit (sprint reset).
+		// Applied to the input, never to the W KeyMapping, so the player's
+		// real keyboard state is untouched and forward resumes naturally.
+		if (WTapModule.isTapping()) {
+			input.forwardImpulse = 0;
+		}
 
-        // Qynl — Quantum Collapse dodge strafe (only while the dodge hold is
-        // active; the player must already be moving, enforced by QynlModule).
-        float dodge = QynlModule.dodgeStrafe();
+		// Qynl — Quantum Collapse dodge strafe (only while the dodge hold is
+		// active; the player must already be moving, enforced by QynlModule).
+		float dodge = QynlModule.dodgeStrafe();
         if (dodge != 0.0F) {
             // positive dodge = strafe right → negative leftImpulse
             input.leftImpulse = -dodge;

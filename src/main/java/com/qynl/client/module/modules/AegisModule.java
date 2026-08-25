@@ -111,24 +111,8 @@ public class AegisModule extends Module {
         dodgeTimer = (int) Math.round(getDoubleSetting("dodgeDist") / 0.3); // ticks based on move speed
         if (dodgeTimer < 2) dodgeTimer = 2;
         if (dodgeTimer > 12) dodgeTimer = 12;
-    }
-
-    /** Called by InputMixin to apply dodge direction. */
-    public boolean shouldDodgeLeft() {
-        if (!isEnabled() || !dodging) return false;
-        // Compute strafe relative to player's facing
-        Minecraft client = Minecraft.getInstance();
-        if (client.player == null) return false;
-        float yawRad = (float) Math.toRadians(client.player.getYRot());
-        double forwardX = -Math.sin(yawRad);
-        double forwardZ = Math.cos(yawRad);
-        double strafeX = forwardZ;
-        double strafeZ = -forwardX;
-        double dotStrafe = dodgeX * strafeX + dodgeZ * strafeZ;
-        return dotStrafe < 0; // dodge is to the left of facing
-    }
-
-    public boolean isDodging() {
+    }	/** Called by InputMixin to apply dodge direction. */
+	public boolean isDodging() {
         return isEnabled() && dodging;
     }
 

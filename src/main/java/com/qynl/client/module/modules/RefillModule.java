@@ -48,19 +48,23 @@ public class RefillModule extends Module {
         }
         // Manual mode: press the toggle key to refill once
         // (handled by onEnable calling refill once in manual mode)
-    }
-
-    @Override
-    public void onEnable() {
-        Minecraft client = Minecraft.getInstance();
-        if ("Manual".equals(getStringSetting("mode"))) {
-            refillHotbar(client, (int) getDoubleSetting("threshold"));
-        }
-    }
-
-    private void refillHotbar(Minecraft client, int threshold) {
-        var player = client.player;
-        Inventory inv = player.getInventory();
+    }	@Override
+	public void onEnable() {
+		Minecraft client = Minecraft.getInstance();
+		// onEnable can fire during client init (config restore) before the
+		// player/world exists — never touch inventory in that window.
+		if (client.player == null || client.level == null) {
+			return;
+		}
+		if ("Manual".equals(getStringSetting("mode"))) {
+			refillHotbar(client, (int) getDoubleSetting("threshold"));
+		}
+	}	private void refillHotbar(Minecraft client, int threshold) {
+		var player = client.player;
+		if (player == null || client.gameMode == null) {
+			return;
+		}
+		Inventory inv = player.getInventory();
 
         // Check slots 0-8 (hotbar): if empty or stack is low, try to refill
         for (int hotbarSlot = 0; hotbarSlot < 9; hotbarSlot++) {
