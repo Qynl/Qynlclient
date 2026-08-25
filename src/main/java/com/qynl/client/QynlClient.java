@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class QynlClient implements ClientModInitializer {
 	public static final String MOD_ID = "qynlclient";
-	public static final String VERSION = "2.1.0";
+	public static final String VERSION = "2.1.2";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static QynlClient instance;
@@ -78,7 +78,6 @@ public class QynlClient implements ClientModInitializer {
 					return;
 				}
 				moduleManager.tick(client);
-				hudRenderer.handleClick(client);
 			}
 		});
 

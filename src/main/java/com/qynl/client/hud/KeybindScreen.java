@@ -39,7 +39,7 @@ public class KeybindScreen extends Screen {
 		int y = START_Y;
 
 		StringWidget hint = new StringWidget(
-				Component.literal("Click a module, then press the key. Esc / right-click / Backspace = no key. F-keys, numbers, T and F are kept for the game."),
+				Component.literal("Click a module, then press the key. Esc / right-click / Backspace = no key."),
 				this.font);
 		hint.setX(centerX - 150);
 		hint.setY(28);

@@ -20,7 +20,8 @@ public class InGameHudMixin {
 
 		Minecraft client = Minecraft.getInstance();
 		if (client.player != null && client.level != null && client.screen == null) {
-			QynlClient.getInstance().getHudRenderer().render(guiGraphics, client);
+			QynlClient.getInstance().getHudRenderer().render(guiGraphics, client,
+					deltaTracker.getGameTimeDeltaPartialTick(false));
 		}
 	}
 }

@@ -65,13 +65,16 @@ public class AimAssistModule extends Module {
               "Humanized aim — cubic ease-out glide, convergence wobble, GCD snap, rotation cap, predictive lead.",
               Category.COMBAT);
         bindKey(GLFW.GLFW_KEY_O);
+        addSetting(Setting.options("trigger",  "Trigger",   "OnAttack", "OnAttack", "Always"));
         addSetting(Setting.options("mode",     "Mode",      "Rotations", "Rotations", "LockView", "Silent"));
         addSetting(Setting.range ("strength",  "Strength",  100.0,  25, 200, 5, "%"));
         addSetting(Setting.options("priority", "Priority",  "Crosshair", "Crosshair", "Distance", "Health", "Angle"));
         addSetting(Setting.options("aimPoint", "Aim point", "Body", "Head", "Body", "Feet"));
         addSetting(Setting.range ("fov",       "FOV",       40.0,   8,  90, 2, "\u00b0"));
         addSetting(Setting.range ("range",     "Range",      8.0,   3,  16, 0.5, "b"));
-        addSetting(Setting.options("target",   "Target",    "Hostile", "Hostile", "Players", "All"));
+        // Default "Players" — the client is built for friends-server PvP, and
+        // "Hostile" (Enemy marker) would find nothing but zombies there.
+        addSetting(Setting.options("target",   "Target",    "Players", "Players", "Hostile", "All"));
         addSetting(Setting.range ("reaction",  "Reaction",  150.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
         addSetting(Setting.options("autoFire", "Auto-fire",  "Off", "Off", "On"));
@@ -95,8 +98,11 @@ public class AimAssistModule extends Module {
         pullCfg();
         if (mc.player == null || mc.level == null) return;
 
-        boolean engaged = mc.options.keyAttack.isDown() && mc.screen == null
-                && !mc.player.isSpectator();
+        // Trigger: "Always" aims whenever a target is in FOV/range (1.8.9
+        // behavior); "OnAttack" only while the attack key is held.
+        boolean always = "Always".equals(getStringSetting("trigger"));
+        boolean engaged = (always || mc.options.keyAttack.isDown())
+                && mc.screen == null && !mc.player.isSpectator();
         Entity t = engaged ? findTarget(mc) : null;
 
         // ── update internal state ──

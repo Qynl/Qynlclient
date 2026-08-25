@@ -59,6 +59,12 @@ public abstract class Module {
 			keyMapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(keyCode));
 			keyLabelResolved = false; // lazy-resolve on next getKeyLabel()
 		}
+		// 1.21.1's KeyMapping.setKey() only writes the key field — the static
+		// key→mapping lookup (MAP) is NOT rebuilt, so the old key keeps firing
+		// the module after an unbind/rebind until the next game restart.
+		// Rebuild it and clear any stale pressed state so changes apply now.
+		keyMapping.setDown(false);
+		KeyMapping.resetMapping();
 	}
 
 	public int getKeyCode() {

@@ -23,6 +23,7 @@ public class ModuleDetailScreen extends Screen {
 	private static final int PANEL_W = 320;
 	private static final int ROW_H = 20;
 	private static final int GAP = 4;
+	private static final int PANEL_BG = 0xC0121212;
 
 	private final Module module;
 	private boolean waitingForKey = false;
@@ -158,7 +159,7 @@ public class ModuleDetailScreen extends Screen {
 				centerX, 28, 0xFF9CA3AF);
 
 		// Panel background
-		guiGraphics.fill(panelLeft - 8, 40, centerX + PANEL_W / 2 + 8, this.height - 24, HudRenderer.PANEL);
+		guiGraphics.fill(panelLeft - 8, 40, centerX + PANEL_W / 2 + 8, this.height - 24, PANEL_BG);
 
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 	}
