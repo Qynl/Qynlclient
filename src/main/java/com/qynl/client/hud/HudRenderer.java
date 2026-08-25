@@ -1,11 +1,5 @@
 package com.qynl.client.hud;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.qynl.client.QynlClient;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
@@ -15,7 +9,6 @@ import com.qynl.client.module.modules.TextGuiModule;
 import com.qynl.client.util.PingTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.GameRenderer;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,22 +27,11 @@ import java.util.Map;
  * whether the info widget is drawn.</p>
  */
 public class HudRenderer {
-    public static final int ACCENT = 0xFF55FF55;
-
-    // ── text ──
-    private static final int TEXT = 0xFFECECEC;
-    private static final int DIM  = 0xFF9CA3AF;
-
-    // ── glass palette ──
-    private static final int GLASS_TOP    = 0x99141414; // lighter top edge
-    private static final int GLASS_BOTTOM = 0x99070707; // deeper bottom
-    private static final int BORDER       = 0x4DFFFFFF; // 30% white ring
-    private static final int BORDER_DIM   = 0x1FFFFFFF; // faint bottom edge
+    public static final int ACCENT = Glass.ACCENT;
 
     private static final int PAD_X = 8;
     private static final int PAD_Y = 4;
     private static final int ROW_H = 10;
-    private static final int RADIUS = 6;
 
     /** Module name → when it last became enabled (ms), for the slide-in. */
     private final Map<String, Long> enabledSince = new HashMap<>();
@@ -81,8 +63,8 @@ public class HudRenderer {
         int pw = tw + PAD_X * 2, ph = 10 + PAD_Y * 2;
         float x = 2, y = 2;
 
-        glassPanel(g, x, y, pw, ph, RADIUS);
-        g.drawString(mc.font, name, (int) (x + PAD_X), (int) (y + PAD_Y), TEXT, true);
+        Glass.panel(g, x, y, pw, ph, Glass.RADIUS);
+        g.drawString(mc.font, name, (int) (x + PAD_X), (int) (y + PAD_Y), Glass.TEXT, true);
         g.drawString(mc.font, ver, (int) (x + PAD_X + mc.font.width(name)),
                 (int) (y + PAD_Y), ACCENT, true);
     }
@@ -113,7 +95,7 @@ public class HudRenderer {
         float x = right ? w - 2 - pw : 2;
         float y = 22;
 
-        glassPanel(g, x, y, pw, ph, RADIUS);
+        Glass.panel(g, x, y, pw, ph, Glass.RADIUS);
 
         int ry = (int) (y + PAD_Y + 1);
         for (Module m : list) {
@@ -134,13 +116,13 @@ public class HudRenderer {
                 int nameX = (int) (x + pw - PAD_X - 1 - mc.font.width(name) - mc.font.width(mode)) + (int) offset;
                 g.drawString(mc.font, name, nameX, ry, color, true);
                 if (!mode.isEmpty()) {
-                    g.drawString(mc.font, mode, nameX + mc.font.width(name), ry, DIM, true);
+                    g.drawString(mc.font, mode, nameX + mc.font.width(name), ry, Glass.DIM, true);
                 }
             } else {
                 int baseX = (int) (x + PAD_X + 1);
                 g.drawString(mc.font, name, baseX - (int) offset, ry, color, true);
                 if (!mode.isEmpty()) {
-                    g.drawString(mc.font, mode, baseX + mc.font.width(name) - (int) offset, ry, DIM, true);
+                    g.drawString(mc.font, mode, baseX + mc.font.width(name) - (int) offset, ry, Glass.DIM, true);
                 }
             }
             ry += ROW_H;
@@ -171,8 +153,8 @@ public class HudRenderer {
         float x = right ? w - 2 - pw : 2;
         float y = 22 + listH + 4;
 
-        glassPanel(g, x, y, pw, ph, RADIUS);
-        g.drawString(mc.font, line, (int) (x + PAD_X), (int) (y + PAD_Y), DIM, true);
+        Glass.panel(g, x, y, pw, ph, Glass.RADIUS);
+        g.drawString(mc.font, line, (int) (x + PAD_X), (int) (y + PAD_Y), Glass.DIM, true);
     }
 
     private static int enabledCount(Minecraft mc) {
@@ -213,74 +195,5 @@ public class HudRenderer {
         } catch (Throwable ignored) {
         }
         return -1;
-    }
-
-    // ── glass rendering ─────────────────────────────────────────
-
-    /** Translucent rounded panel: light border ring + inset gradient fill. */
-    private static void glassPanel(GuiGraphics g, float x, float y, float w, float h, float r) {
-        if (w <= 2 || h <= 2) return;
-        // Border ring drawn as a slightly larger rounded rect underneath.
-        fillRound(g, x, y, w, h, r, BORDER, BORDER_DIM);
-        // Glass body inset by 1px on every side.
-        fillRound(g, x + 1, y + 1, w - 2, h - 2, Math.max(0.0F, r - 1), GLASS_TOP, GLASS_BOTTOM);
-    }
-
-    /**
-     * Rounded rectangle via a triangle fan through the position-color
-     * shader — vanilla's GUI shader with blending, same as HUD fills.
-     * The color interpolates vertically from {@code topColor} to
-     * {@code bottomColor} for the frosted-glass gradient.
-     */
-    private static void fillRound(GuiGraphics g, float x, float y, float w, float h, float r,
-                                  int topColor, int bottomColor) {
-        if (w <= 0 || h <= 0) return;
-        r = Math.min(r, Math.min(w, h) / 2.0F);
-        float cx = x + w / 2.0F, cy = y + h / 2.0F;
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-
-        BufferBuilder bb = Tesselator.getInstance().begin(
-                VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
-
-        // Fan center — average color so the gradient reads soft.
-        bb.addVertex(cx, cy, 0).setColor(lerpColor(topColor, bottomColor, 0.5F));
-
-        // Perimeter in clockwise order: 4 corner arcs of π/2 each.
-        float[][] corners = {
-                {x + w - r, y + r},       // top-right
-                {x + w - r, y + h - r},   // bottom-right
-                {x + r, y + h - r},       // bottom-left
-                {x + r, y + r}            // top-left
-        };
-        float[] starts = {(float) (Math.PI * 1.5), 0.0F, (float) (Math.PI / 2.0), (float) Math.PI};
-        final int SEG = 8;
-        for (int c = 0; c < 4; c++) {
-            float ccx = corners[c][0], ccy = corners[c][1];
-            double a0 = starts[c];
-            for (int s = 0; s <= SEG; s++) {
-                double a = a0 + (Math.PI / 2.0) * s / SEG;
-                float px = ccx + (float) Math.cos(a) * r;
-                float py = ccy + (float) Math.sin(a) * r;
-                int col = lerpColor(topColor, bottomColor,
-                        Math.max(0.0F, Math.min(1.0F, (py - y) / h)));
-                bb.addVertex(px, py, 0).setColor(col);
-            }
-        }
-
-        BufferUploader.drawWithShader(bb.buildOrThrow());
-        RenderSystem.disableBlend();
-    }
-
-    /** ARGB color lerp (packed ints). */
-    private static int lerpColor(int a, int b, float t) {
-        int ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255, aa = (a >>> 24) & 255;
-        int br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255, ba = (b >>> 24) & 255;
-        return ((Math.round(aa + (ba - aa) * t) & 255) << 24)
-                | ((Math.round(ar + (br - ar) * t) & 255) << 16)
-                | ((Math.round(ag + (bg - ag) * t) & 255) << 8)
-                | (Math.round(ab + (bb - ab) * t) & 255);
     }
 }

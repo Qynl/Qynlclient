@@ -2,180 +2,217 @@ package com.qynl.client.hud;
 
 import com.qynl.client.QynlClient;
 import com.qynl.client.module.Module;
-import com.qynl.client.module.ModuleManager;
 import com.qynl.client.module.Setting;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * ModuleDetailScreen — the bigger per-module panel.
- *
- * <p>Opened by right-clicking a module row in the ClickGUI. Shows the
- * module name, its description, the on/off state, the keybind (with
- * set/clear), and every setting of that module. Click a setting to
- * cycle its value; click "Set key" then press a key to rebind.</p>
+ * Glassmorphism per-module panel — toggle, keybind (set/clear) and every
+ * setting of the module, each as a glass row.
  */
 public class ModuleDetailScreen extends Screen {
-	private static final int PANEL_W = 320;
-	private static final int ROW_H = 20;
-	private static final int GAP = 4;
-	private static final int PANEL_BG = 0xC0121212;
+    private static final int PANEL_W = 340;
+    private static final int ROW_H = 20;
+    private static final int GAP = 4;
 
-	private final Module module;
-	private boolean waitingForKey = false;
+    private final Module module;
+    private boolean waitingForKey = false;
 
-	public ModuleDetailScreen(Module module) {
-		super(Component.literal("Module — " + module.getName()));
-		this.module = module;
-	}
+    /** Rows: either a label+value pair or a button (toggle / keybind / clear / back). */
+    private final List<Object[]> rows = new ArrayList<>(); // {type, setting|module, extra}
 
-	@Override
-	protected void init() {
-		int centerX = this.width / 2;
-		int y = 48;
-		int panelLeft = centerX - PANEL_W / 2;
+    public ModuleDetailScreen(Module module) {
+        super(Component.literal("Module \u2014 " + module.getName()));
+        this.module = module;
+    }
 
-		// Toggle button
-		this.addRenderableWidget(Button.builder(componentForState(), b -> {
-					module.toggle();
-					QynlClient.getInstance().getModuleManager().saveToConfig();
-					refresh();
-				})
-				.bounds(panelLeft, y, PANEL_W, ROW_H + 6).build());
-		y += ROW_H + 6 + GAP;
+    @Override
+    protected void init() {
+        rebuildRows();
+    }
 
-		// Keybind row
-		this.addRenderableWidget(Button.builder(
-						waitingForKey ? Component.literal("Press a key… (Esc = none)")
-								: Component.literal("Keybind: " + bindLabel()),
-						b -> waitingForKey = true)
-				.bounds(panelLeft, y, PANEL_W / 2 - 4, ROW_H).build());
-		this.addRenderableWidget(Button.builder(Component.literal("Clear"),
-						b -> {
-							module.setKeyCode(-1);
-							waitingForKey = false;
-							QynlClient.getInstance().getModuleManager().saveToConfig();
-							refresh();
-						})
-				.bounds(panelLeft + PANEL_W / 2 + 4, y, PANEL_W / 2 - 4, ROW_H).build());
-		y += ROW_H + GAP + 6;
+    private void rebuildRows() {
+        rows.clear();
+        rows.add(new Object[]{"toggle"});
+        rows.add(new Object[]{"keybind"});
+        if (!module.hasSettings()) {
+            rows.add(new Object[]{"nosettings"});
+        } else {
+            for (Setting<?> setting : module.getSettings()) {
+                rows.add(new Object[]{"setting", setting});
+            }
+        }
+        rows.add(new Object[]{"back"});
+    }
 
-		// Settings rows
-		for (Setting<?> setting : module.getSettings()) {
-			final Setting<?> s = setting;
-			this.addRenderableWidget(Button.builder(
-							Component.literal(s.getLabel() + ": " + s.displayString()),
-							b -> {
-								s.cycle();
-								QynlClient.getInstance().getModuleManager().saveToConfig();
-								refresh();
-							})
-					.bounds(panelLeft, y, PANEL_W, ROW_H).build());
-			y += ROW_H + GAP;
-		}
-		if (!module.hasSettings()) {
-			this.addRenderableWidget(Button.builder(Component.literal("No settings for this module"),
-							b -> {})
-					.bounds(panelLeft, y, PANEL_W, ROW_H).build());
-			y += ROW_H + GAP;
-		}
+    private int panelX() {
+        return this.width / 2 - PANEL_W / 2;
+    }
 
-		y += 6;
-		this.addRenderableWidget(Button.builder(Component.literal("Back"), b -> goBack())
-				.bounds(centerX - 60, y, 120, ROW_H).build());
-	}
+    private int panelY() {
+        return 56;
+    }
 
-	/** Returns to the ClickGUI module list instead of closing the game screen. */
-	private void goBack() {
-		waitingForKey = false;
-		if (this.minecraft != null) {
-			this.minecraft.setScreen(new ClickGuiScreen());
-		} else {
-			super.onClose();
-		}
-	}
+    private int panelH() {
+        return rows.size() * (ROW_H + GAP) + 14;
+    }
 
-	private Component componentForState() {
-		String state = module.isEnabled() ? "ON" : "OFF";
-		return Component.literal("[" + (module.isEnabled() ? "ON" : "OFF") + "]  "
-				+ module.getName());
-	}
+    @Override
+    public void render(GuiGraphics g, int mx, int my, float pt) {
+        g.fill(0, 0, this.width, this.height, 0x66000000);
 
-	private String bindLabel() {
-		String label = module.getKeyLabel();
-		return (label == null || label.isEmpty() || "None".equals(label)) ? "None" : label;
-	}
+        // Header: module name + description.
+        g.drawCenteredString(this.font, module.getName(), this.width / 2, 12,
+                module.isEnabled() ? Glass.ON : Glass.TEXT);
+        g.drawCenteredString(this.font, module.getDescription(), this.width / 2, 26, Glass.DIM);
 
-	private void refresh() {
-		this.clearWidgets();
-		this.init();
-	}
+        int x = panelX(), y = panelY();
+        Glass.panel(g, x, y, PANEL_W, panelH(), 8.0F);
+        int ry = y + 8;
 
-	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (waitingForKey) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE
-					|| keyCode == GLFW.GLFW_KEY_BACKSPACE
-					|| keyCode == GLFW.GLFW_KEY_DELETE) {
-				module.setKeyCode(-1);
-			} else if (keyCode > 0 && !isGameCriticalKey(keyCode)) {
-				module.setKeyCode(keyCode);
-			}
-			waitingForKey = false;
-			QynlClient.getInstance().getModuleManager().saveToConfig();
-			refresh();
-			return true;
-		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
-	}
+        for (int i = 0; i < rows.size(); i++) {
+            Object[] row = rows.get(i);
+            String type = (String) row[0];
+            boolean hover = Glass.in(mx, my, x + 2, ry, PANEL_W - 4, ROW_H - 2);
+            if (hover && !"nosettings".equals(type)) {
+                Glass.fillRound(g, x + 4, ry + 1, PANEL_W - 8, ROW_H - 2, 5.0F, Glass.HOVER, 0x1AFFFFFF);
+            }
+            switch (type) {
+                case "toggle" -> {
+                    String label = module.isEnabled()
+                            ? "\u00a7a[ON]  " + module.getName()
+                            : "\u00a77[OFF] " + module.getName();
+                    g.drawString(this.font, label, x + 14, ry + 6, Glass.TEXT, true);
+                }
+                case "keybind" -> {
+                    if (waitingForKey) {
+                        g.drawString(this.font, "Press a key\u2026  (Esc = none)", x + 14, ry + 6, Glass.ACCENT, true);
+                    } else {
+                        String key = module.getKeyLabel();
+                        boolean bound = key != null && !key.isEmpty() && !"None".equals(key);
+                        g.drawString(this.font, "Keybind: " + (bound ? "[" + key + "]" : "none"),
+                                x + 14, ry + 6, bound ? Glass.TEXT : Glass.OFF, true);
+                        g.drawString(this.font, "Clear",
+                                x + PANEL_W - 14 - this.font.width("Clear"), ry + 6, Glass.DIM, true);
+                    }
+                }
+                case "setting" -> {
+                    Setting<?> s = (Setting<?>) row[1];
+                    String label = s.getLabel() + ":";
+                    String value = s.displayString();
+                    g.drawString(this.font, label, x + 14, ry + 6, Glass.TEXT, true);
+                    g.drawString(this.font, value,
+                            x + PANEL_W - 14 - this.font.width(value), ry + 6, Glass.ACCENT, true);
+                }
+                case "nosettings" -> g.drawString(this.font, "No settings for this module",
+                        x + 14, ry + 6, Glass.OFF, true);
+                case "back" -> {
+                    boolean bh = Glass.in(mx, my, x + PANEL_W / 2 - 60, ry, 120, ROW_H);
+                    Glass.pill(g, x + PANEL_W / 2 - 60, ry, 120, ROW_H, false, bh);
+                    g.drawCenteredString(this.font, "Back", x + PANEL_W / 2, ry + 6,
+                            bh ? Glass.TEXT : Glass.DIM);
+                }
+            }
+            ry += ROW_H + GAP;
+        }
+    }
 
-	/** Keep a handful of keys the game needs reserved; everything else is free. */
-	private boolean isGameCriticalKey(int keyCode) {
-		return keyCode == GLFW.GLFW_KEY_ENTER
-				|| keyCode == GLFW.GLFW_KEY_KP_ENTER
-				|| keyCode == GLFW.GLFW_KEY_SLASH
-				|| keyCode == GLFW.GLFW_KEY_TAB
-				|| keyCode == GLFW.GLFW_KEY_F1
-				|| keyCode == GLFW.GLFW_KEY_F2;
-	}
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        int x = panelX(), y = panelY() + 8;
+        for (Object[] row : rows) {
+            String type = (String) row[0];
+            if (!"nosettings".equals(type) && Glass.in((float) mx, (float) my, x + 2, y, PANEL_W - 4, ROW_H - 2)) {
+                switch (type) {
+                    case "toggle" -> {
+                        if (button == 0) {
+                            module.toggle();
+                            QynlClient.getInstance().getModuleManager().saveToConfig();
+                        }
+                        return true;
+                    }
+                    case "keybind" -> {
+                        if (button == 0) {
+                            // Right side = Clear, left side = set.
+                            float clearX = x + PANEL_W - 14 - this.font.width("Clear");
+                            if (mx >= clearX - 6 && mx <= x + PANEL_W - 6) {
+                                module.setKeyCode(-1);
+                                QynlClient.getInstance().getModuleManager().saveToConfig();
+                            } else {
+                                waitingForKey = true;
+                            }
+                        } else if (button == 1) {
+                            module.setKeyCode(-1);
+                            QynlClient.getInstance().getModuleManager().saveToConfig();
+                        }
+                        return true;
+                    }
+                    case "setting" -> {
+                        if (button == 0) {
+                            ((Setting<?>) row[1]).cycle();
+                            QynlClient.getInstance().getModuleManager().saveToConfig();
+                        }
+                        return true;
+                    }
+                    case "back" -> {
+                        if (button == 0) {
+                            goBack();
+                        }
+                        return true;
+                    }
+                }
+            }
+            y += ROW_H + GAP;
+        }
+        if (button == 1) {
+            goBack();
+            return true;
+        }
+        return super.mouseClicked(mx, my, button);
+    }
 
-	@Override
-	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-		this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+    private void goBack() {
+        waitingForKey = false;
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(new ClickGuiScreen());
+        } else {
+            super.onClose();
+        }
+    }
 
-		int centerX = this.width / 2;
-		int panelLeft = centerX - PANEL_W / 2;
+    @Override
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (waitingForKey) {
+            if (key == GLFW.GLFW_KEY_ESCAPE
+                    || key == GLFW.GLFW_KEY_BACKSPACE
+                    || key == GLFW.GLFW_KEY_DELETE) {
+                module.setKeyCode(-1);
+            } else if (key > 0 && !isGameCriticalKey(key)) {
+                module.setKeyCode(key);
+            }
+            waitingForKey = false;
+            QynlClient.getInstance().getModuleManager().saveToConfig();
+            return true;
+        }
+        return super.keyPressed(key, scanCode, modifiers);
+    }
 
-		// Header
-		guiGraphics.drawCenteredString(this.font,
-				Component.literal(module.getName()).withStyle(ChatFormatting.BOLD),
-				centerX, 14, module.isEnabled() ? HudRenderer.ACCENT : 0xFFFFFFFF);
-		guiGraphics.drawCenteredString(this.font,
-				Component.literal(module.getDescription()).withStyle(ChatFormatting.ITALIC, ChatFormatting.GRAY),
-				centerX, 28, 0xFF9CA3AF);
+    private boolean isGameCriticalKey(int key) {
+        return key == GLFW.GLFW_KEY_ENTER
+                || key == GLFW.GLFW_KEY_KP_ENTER
+                || key == GLFW.GLFW_KEY_SLASH
+                || key == GLFW.GLFW_KEY_TAB
+                || key == GLFW.GLFW_KEY_F1
+                || key == GLFW.GLFW_KEY_F2;
+    }
 
-		// Panel background
-		guiGraphics.fill(panelLeft - 8, 40, centerX + PANEL_W / 2 + 8, this.height - 24, PANEL_BG);
-
-		super.render(guiGraphics, mouseX, mouseY, partialTick);
-	}
-
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (button == 1) {
-			// Right-click anywhere = go back to the module list
-			goBack();
-			return true;
-		}
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
-
-	@Override
-	public boolean isPauseScreen() {
-		return false;
-	}
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
 }

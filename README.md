@@ -13,7 +13,7 @@ All modules are deliberately tuned to mimic a real player: aim corrections snap 
 
 | Version | Minecraft | Mod ID | Download |
 |---------|-----------|--------|----------|
-| **1.21.1** | 1.21.1 | `qynlclient` | `qynlclient-2.1.6.jar` (single jar, no sources jar) |
+| **1.21.1** | 1.21.1 | `qynlclient` | `qynlclient-2.1.7.jar` (single jar, no sources jar) |
 | **1.8.9** | 1.8.9 | `qynlclient189` | `qynlclient-1.8.9-*.jar` |
 
 The 1.8.9 jar ships with **ViaFabric (ViaVersion) embedded** — you can join 1.9–1.21.x servers from your 1.8.9 client with no extra mods.

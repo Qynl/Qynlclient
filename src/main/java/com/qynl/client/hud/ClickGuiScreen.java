@@ -5,7 +5,6 @@ import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -13,137 +12,238 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Vape-Lite style ClickGUI — dark, clean, minimal.
- *
- * <p>Category tabs across the top. Module list in the center.
- * Left-click = toggle. Right-click = settings panel.</p>
+ * Vape glassmorphism ClickGUI — translucent rounded panels, category pills,
+ * a scrollable module list with green/grey state colors, glass action
+ * buttons. Left-click a module to toggle, right-click for its settings,
+ * scroll to browse, Esc or Right-Shift to close.
  */
 public class ClickGuiScreen extends Screen {
-    private static final int ROW_H = 18;
-    private static final int COL_W = 240;
-    private static final int TABS_Y = 36;
+    private static final int ROW_H = 20;
+    private static final int PANEL_W = 260;
+    private static final int TAB_W = 56;
+    private static final int TAB_H = 18;
+    private static final int MIN_ROWS_VISIBLE = 4;
 
     private Category selectedCategory = Category.COMBAT;
-    private final List<Module> rows = new ArrayList<>();
-    private final List<Integer> rowYs = new ArrayList<>();
+    private int scroll = 0;
 
-    // ── palette ──
-    private static final int BG       = 0xC8101010;
-    private static final int ACCENT   = 0xFF55FF55;
-    private static final int WHITE    = 0xFFD0D0D0;
-    private static final int GRAY     = 0xFF7A7A7A;
-    private static final int TAB_BG   = 0xC01A1A1A;
-    private static final int TAB_SEL  = 0xC0222B22;
-    private static final int ON_COLOR = ACCENT;
-    private static final int OFF_COLOR = 0xFF555555;
+    public ClickGuiScreen() {
+        super(Component.literal("Qynl"));
+    }
 
-    public ClickGuiScreen() { super(Component.literal("Qynl")); }
+    // ── layout geometry ─────────────────────────────────────────
 
-    @Override protected void init() { rebuild(); }
+    private int tabsX() {
+        return this.width / 2 - (Category.values().length * TAB_W + (Category.values().length - 1) * 6) / 2;
+    }
 
-    private void rebuild() {
-        rows.clear(); rowYs.clear(); this.clearWidgets();
+    private int panelX() {
+        return this.width / 2 - PANEL_W / 2;
+    }
 
-        int cx = this.width / 2, y = TABS_Y + 16;
-        int lx = cx - COL_W / 2;
+    private int panelY() {
+        return 66;
+    }
 
-        // ── category tabs ──
-        int tabX = cx - (Category.values().length * 58) / 2;
-        for (Category cat : Category.values()) {
+    private List<Module> categoryModules() {
+        return QynlClient.getInstance().getModuleManager().getModules().stream()
+                .filter(m -> m.getCategory() == selectedCategory)
+                .toList();
+    }
+
+    /** Rows that fit above the footer at the current window height. */
+    private int maxVisibleRows() {
+        int available = this.height - panelY() - 46;
+        return Math.max(MIN_ROWS_VISIBLE, available / ROW_H);
+    }
+
+    private int visibleRows(List<Module> list) {
+        return Math.min(list.size(), maxVisibleRows());
+    }
+
+    // ── render ──────────────────────────────────────────────────
+
+    @Override
+    public void render(GuiGraphics g, int mx, int my, float pt) {
+        // Dimmed backdrop so the world is still faintly visible (glass feel).
+        g.fill(0, 0, this.width, this.height, 0x66000000);
+
+        // Two-tone title.
+        int titleX = this.width / 2 - (this.font.width("Qynl") + this.font.width("  v" + QynlClient.VERSION)) / 2;
+        g.drawString(this.font, "Qynl", titleX, 10, Glass.TEXT, true);
+        g.drawString(this.font, "  v" + QynlClient.VERSION, titleX + this.font.width("Qynl"), 10, Glass.ACCENT, true);
+        g.drawCenteredString(this.font, "\u00a77L-click toggle \u00b7 R-click settings \u00b7 Esc close",
+                this.width / 2, 26, Glass.DIM);
+
+        renderTabs(g, mx, my);
+        renderModuleList(g, mx, my);
+        renderFooter(g, mx, my);
+    }
+
+    private void renderTabs(GuiGraphics g, int mx, int my) {
+        Category[] cats = Category.values();
+        int x = tabsX();
+        for (Category cat : cats) {
             boolean sel = cat == selectedCategory;
-            int c = sel ? ACCENT : GRAY;
-            Button b = Button.builder(Component.literal(cat.getLabel()), btn -> {
-                selectedCategory = cat; rebuild();
-            }).bounds(tabX, TABS_Y, 54, 14).build();
-            this.addRenderableWidget(b);
-            tabX += 58;
+            boolean hover = Glass.in(mx, my, x, 42, TAB_W, TAB_H);
+            Glass.pill(g, x, 42, TAB_W, TAB_H, sel, hover);
+            g.drawCenteredString(this.font, cat.getLabel(), x + TAB_W / 2, 46,
+                    sel ? Glass.ON : (hover ? Glass.TEXT : Glass.DIM));
+            x += TAB_W + 6;
         }
+    }
 
-        // ── modules in selected category ──
-        ModuleManager mm = QynlClient.getInstance().getModuleManager();
-        List<Module> cats = mm.getModules().stream()
-                .filter(m -> m.getCategory() == selectedCategory).toList();
-        if (cats.isEmpty()) {
-            this.addRenderableWidget(Button.builder(Component.literal("(none)"), b -> {})
-                    .bounds(cx - 40, y, 80, ROW_H).build());
-        }
-        for (Module m : cats) {
-            rows.add(m);
-            rowYs.add(y);
-            String label = m.isEnabled() ? "[ON]  " + m.getName() : "[OFF] " + m.getName();
+    private void renderModuleList(GuiGraphics g, int mx, int my) {
+        List<Module> list = categoryModules();
+        int rows = visibleRows(list);
+        int ph = rows * ROW_H + 14;
+        int x = panelX(), y = panelY();
+
+        Glass.panel(g, x, y, PANEL_W, ph, 8.0F);
+
+        int ry = y + 8 - scroll * ROW_H;
+        for (int i = 0; i < list.size(); i++) {
+            Module m = list.get(i);
+            if (ry + ROW_H < y || ry > y + ph) {
+                ry += ROW_H;
+                continue;
+            }
+            boolean hover = Glass.in(mx, my, x + 2, ry, PANEL_W - 4, ROW_H - 2);
+            if (hover) {
+                Glass.fillRound(g, x + 4, ry + 1, PANEL_W - 8, ROW_H - 2, 5.0F, Glass.HOVER, 0x1AFFFFFF);
+            }
+            int color = m.isEnabled() ? Glass.ON : Glass.DIM;
+            g.drawString(this.font, m.getName(), x + 12, ry + 6, color, true);
+
+            // Mode suffix right after the name (dim).
+            String mode = modeSuffix(m);
+            if (!mode.isEmpty()) {
+                g.drawString(this.font, mode, x + 12 + this.font.width(m.getName()), ry + 6, Glass.DIM, false);
+            }
+
+            // Keybind + state dot on the right.
             String key = m.getKeyLabel();
-            if (key != null && !key.isEmpty() && !"None".equals(key))
-                label = label + "  [" + key + "]";
+            boolean bound = key != null && !key.isEmpty() && !"None".equals(key);
+            String right = (bound ? "[" + key + "] " : "") + (m.isEnabled() ? "ON" : "OFF");
+            g.drawString(this.font, right,
+                    x + PANEL_W - 12 - this.font.width(right), ry + 6,
+                    m.isEnabled() ? Glass.ON : Glass.OFF, true);
 
-            int color = m.isEnabled() ? ACCENT : GRAY;
-            final String fl = label;
-            Button b = Button.builder(Component.literal(fl), btn -> { /* handled in mouseClicked */ })
-                    .bounds(lx, y, COL_W, ROW_H - 2).build();
-            this.addRenderableWidget(b);
+            ry += ROW_H;
+        }
+
+        if (list.isEmpty()) {
+            g.drawCenteredString(this.font, "(none)", this.width / 2, y + ph / 2 - 4, Glass.DIM);
+        }
+
+        // Scroll hint when the list is clipped.
+        if (list.size() > maxVisibleRows()) {
+            String hint = (scroll > 0 ? "\u2191 " : "") + (scroll < list.size() - maxVisibleRows() ? "\u2193" : "");
+            g.drawCenteredString(this.font, hint, this.width / 2, y + ph - 11, Glass.DIM);
+        }
+    }
+
+    private void renderFooter(GuiGraphics g, int mx, int my) {
+        int y = panelY() + visibleRows(categoryModules()) * ROW_H + 30;
+        int totalW = 3 * 96 + 2 * 8;
+        int x = this.width / 2 - totalW / 2;
+
+        drawAction(g, x, y, 96, "Keybinds\u2026", Glass.in(mx, my, x, y, 96, 18));
+        drawAction(g, x + 104, y, 96, "Settings\u2026", Glass.in(mx, my, x + 104, y, 96, 18));
+        drawAction(g, x + 208, y, 96, "Close", Glass.in(mx, my, x + 208, y, 96, 18));
+    }
+
+    private void drawAction(GuiGraphics g, float x, float y, float w, String label, boolean hover) {
+        Glass.pill(g, x, y, w, 18, false, hover);
+        g.drawCenteredString(this.font, label, (int) (x + w / 2), (int) (y + 5),
+                hover ? Glass.TEXT : Glass.DIM);
+    }
+
+    private static String modeSuffix(Module m) {
+        com.qynl.client.module.Setting<?> mode = m.getSetting("mode");
+        if (mode == null) return "";
+        String v = String.valueOf(mode.getValue());
+        if (v.isEmpty() || "Default".equals(v)) return "";
+        return " \u00b7 " + v;
+    }
+
+    // ── input ───────────────────────────────────────────────────
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int btn) {
+        // Category tabs.
+        Category[] cats = Category.values();
+        int x = tabsX();
+        for (Category cat : cats) {
+            if (Glass.in((float) mx, (float) my, x, 42, TAB_W, TAB_H)) {
+                if (cat != selectedCategory) {
+                    selectedCategory = cat;
+                    scroll = 0;
+                }
+                return true;
+            }
+            x += TAB_W + 6;
+        }
+
+        List<Module> list = categoryModules();
+        int y = panelY() + 8 - scroll * ROW_H;
+        for (int i = 0; i < list.size(); i++) {
+            if (Glass.in((float) mx, (float) my, panelX() + 2, y, PANEL_W - 4, ROW_H - 2)) {
+                Module m = list.get(i);
+                if (btn == 0) {
+                    m.toggle();
+                    QynlClient.getInstance().getModuleManager().saveToConfig();
+                } else if (btn == 1 && this.minecraft != null) {
+                    this.minecraft.setScreen(new ModuleDetailScreen(m));
+                }
+                return true;
+            }
             y += ROW_H;
         }
 
-        // ── bottom buttons ──
-        y += 4;
-        this.addRenderableWidget(Button.builder(Component.literal("Keybinds\u2026"),
-                b -> { if (this.minecraft != null) this.minecraft.setScreen(new KeybindScreen()); })
-                .bounds(cx - 122, y, 76, 18).build());
-        this.addRenderableWidget(Button.builder(Component.literal("Settings\u2026"),
-                b -> { if (this.minecraft != null) this.minecraft.setScreen(new ModuleSettingsScreen()); })
-                .bounds(cx - 38, y, 76, 18).build());
-        this.addRenderableWidget(Button.builder(Component.literal("Close"), b -> onClose())
-                .bounds(cx + 46, y, 76, 18).build());
-    }
-
-    @Override public void render(GuiGraphics g, int mx, int my, float pt) {
-        // full dark background
-        g.fill(0, 0, this.width, this.height, BG);
-        // title
-        String title = "Qynl  v" + QynlClient.VERSION;
-        g.drawCenteredString(this.font, title, this.width / 2, 8, ACCENT);
-        g.drawCenteredString(this.font,
-                "\u00a77L-click toggle  \u00b7  R-click settings  \u00b7  R-click outside close",
-                this.width / 2, 22, 0xFF555555);
-
-        // draw category tab backgrounds
-        int tabX = this.width / 2 - (Category.values().length * 58) / 2;
-        for (Category cat : Category.values()) {
-            g.fill(tabX, TABS_Y, tabX + 54, TABS_Y + 14, cat == selectedCategory ? TAB_SEL : TAB_BG);
-            if (cat == selectedCategory) g.fill(tabX, TABS_Y + 13, tabX + 54, TABS_Y + 14, ACCENT);
-            g.drawCenteredString(this.font, cat.getLabel(), tabX + 27, TABS_Y + 3,
-                    cat == selectedCategory ? ACCENT : GRAY);
-            tabX += 58;
+        // Footer actions.
+        int fy = panelY() + visibleRows(list) * ROW_H + 30;
+        if (Glass.in((float) mx, (float) my, this.width / 2 - 148, fy, 96, 18) && this.minecraft != null) {
+            this.minecraft.setScreen(new KeybindScreen());
+            return true;
         }
-
-        super.render(g, mx, my, pt);
-    }
-
-    @Override public boolean mouseClicked(double mx, double my, int btn) {
-        int cx = this.width / 2, halfW = COL_W / 2;
+        if (Glass.in((float) mx, (float) my, this.width / 2 - 44, fy, 96, 18) && this.minecraft != null) {
+            this.minecraft.setScreen(new ModuleSettingsScreen());
+            return true;
+        }
+        if (Glass.in((float) mx, (float) my, this.width / 2 + 60, fy, 96, 18)) {
+            onClose();
+            return true;
+        }
 
         if (btn == 1) {
-            // right-click module row → detail
-            for (int i = 0; i < rows.size(); i++) {
-                if (mx >= cx - halfW && mx <= cx + halfW && my >= rowYs.get(i) && my <= rowYs.get(i) + ROW_H - 2) {
-                    if (this.minecraft != null) this.minecraft.setScreen(new ModuleDetailScreen(rows.get(i)));
-                    return true;
-                }
-            }
-            onClose(); return true;
-        }
-        if (btn == 0) {
-            for (int i = 0; i < rows.size(); i++) {
-                if (mx >= cx - halfW && mx <= cx + halfW && my >= rowYs.get(i) && my <= rowYs.get(i) + ROW_H - 2) {
-                    rows.get(i).toggle();
-                    QynlClient.getInstance().getModuleManager().saveToConfig();
-                    rebuild(); return true;
-                }
-            }
+            onClose();
+            return true;
         }
         return super.mouseClicked(mx, my, btn);
-    }	@Override public void onClose() {
-		super.onClose();
-	}
+    }
 
-    @Override public boolean isPauseScreen() { return false; }
+    @Override
+    public boolean mouseScrolled(double mx, double my, double dx, double dy) {
+        List<Module> list = categoryModules();
+        if (list.size() > maxVisibleRows()) {
+            scroll = Math.max(0, Math.min(list.size() - maxVisibleRows(), scroll + (dy > 0 ? -1 : 1)));
+        }
+        return true;
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT) {
+            onClose();
+            return true;
+        }
+        return super.keyPressed(key, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
 }
