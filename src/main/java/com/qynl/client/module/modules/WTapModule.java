@@ -33,8 +33,8 @@ public class WTapModule extends Module {
         instance = this;
         bindKey(GLFW.GLFW_KEY_UNKNOWN);
         addSetting(Setting.range("tapTicks", "Tap duration", 2.0, 1, 4, 1, "t"));
-        addSetting(Setting.range("chance", "Chance", 85.0, 0, 100, 5, "%"));
-        addSetting(Setting.range("cooldownMs", "Cooldown", 400.0, 200, 800, 50, "ms"));
+        addSetting(Setting.range("chance", "Chance", 100.0, 0, 100, 5, "%"));
+        addSetting(Setting.range("cooldownMs", "Cooldown", 250.0, 150, 800, 50, "ms"));
     }
 
     public static WTapModule getInstance() { return instance; }
@@ -83,9 +83,14 @@ public class WTapModule extends Module {
             return;
         }
 
-        // A real W-tap only makes sense while sprinting and moving forward —
-        // never tap while standing still, walking or mid-air.
-        if (!player.isSprinting() || player.input.forwardImpulse <= 0.0F || !player.onGround()) {
+        // In 1.9+ EVERY attack cancels sprint in vanilla — so requiring
+        // {@code isSprinting()} here made WTap fire once and then never again
+        // during sustained combat (the sprint never re-engages fast enough
+        // while clicking at high CPS). The tap's job is the stop-start that
+        // resets the sprint state around each hit, so only movement and
+        // ground matter. Sprinting players get the classic combo boost;
+        // AutoSprint re-sprints right after the tap.
+        if (player.input.forwardImpulse <= 0.0F || !player.onGround()) {
             return;
         }
         // Humans don't W-tap on every single hit.

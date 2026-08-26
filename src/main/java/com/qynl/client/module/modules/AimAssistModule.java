@@ -13,9 +13,9 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
@@ -85,6 +85,10 @@ public class AimAssistModule extends Module {
     private int reactionBase;
     private boolean predictive;
 
+    /** Triggerbot beat accumulator — clicks land on the natural non-integer
+     *  CPS cadence instead of a rigid every-N-ticks. */
+    private double triggerAcc = 0.0;
+
     public AimAssistModule() {
         super("AimAssist",
               "Buttery-smooth humanized aim — deterministic glide, human settle, GCD snap, mouse override.",
@@ -108,11 +112,15 @@ public class AimAssistModule extends Module {
         addSetting(Setting.options("teammates", "Skip teammates", "On", "On", "Off"));
         addSetting(Setting.range ("reaction",  "Reaction",   60.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
-        addSetting(Setting.options("autoFire", "Auto-fire",  "Off", "Off", "On"));
+        // Triggerbot: auto-clicks whenever the aim locks a target that is in
+        // range — ~12 CPS with humanized timing, works in every mode. The
+        // AutoClicker takes over when it is on, so they never double-fire.
+        addSetting(Setting.options("triggerbot", "Triggerbot", "On", "On", "Off"));
+        addSetting(Setting.range ("triggerCps",  "Trigger CPS", 12.0, 5, 20, 1));
     }
 
     @Override public void onEnable()  { pullCfg(); }
-    @Override public void onDisable() { SilentAim.clear(); target = null; }
+    @Override public void onDisable() { SilentAim.clear(); target = null; triggerAcc = 0.0; }
 
     private void pullCfg() {
         strength   = getDoubleSetting("strength") / 100.0;
@@ -185,6 +193,11 @@ public class AimAssistModule extends Module {
         float[] step = stepTowards(mc, cy, cp, influenceSmooth, silent);
         if (step == null) { SilentAim.clear(); return; }
 
+        // Triggerbot: the aim has a locked target in range — click for it.
+        if ("On".equals(getStringSetting("triggerbot"))) {
+            tickTriggerbot(mc);
+        }
+
         String mode = getStringSetting("mode");
         boolean vl = "On".equals(getStringSetting("vertLock"));
 
@@ -196,7 +209,6 @@ public class AimAssistModule extends Module {
                 // itself never moves a single pixel.
                 float[] human = humanizePacket(step);
                 SilentAim.set(human[0], vl ? cp : human[1]);
-                if ("On".equals(getStringSetting("autoFire"))) silentFire(mc);
             }
             case "LockView" -> {
                 mc.player.setYRot(step[0]);
@@ -361,17 +373,32 @@ public class AimAssistModule extends Module {
         return 0.35 + 0.65 * (1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t));
     }
 
-    // ── silent attack ───────────────────────────────────────────
+    // ── triggerbot ───────────────────────────────────────────────
 
-    private void silentFire(Minecraft mc) {
-        if (mc.gameMode == null || target == null) return;
+    /**
+     * Clicks for the locked target at the configured CPS (~12 by default)
+     * with humanized beat jitter. The 1.9 attack cooldown is ignored — same
+     * legacy behaviour as the AutoClicker's "Legacy clicks" (friends server,
+     * no anti-cheat). Never double-fires with the AutoClicker.
+     */
+    private void tickTriggerbot(Minecraft mc) {
+        if (mc.gameMode == null || target == null || mc.player == null) return;
         AutoClickerModule ac = (AutoClickerModule) QynlClient.getInstance().getModuleManager().find("AutoClicker");
         if (ac != null && ac.isEnabled()) return;
-        if (mc.hitResult instanceof EntityHitResult) return;
-        if (mc.player.getAttackStrengthScale(0) >= 0.9F && mc.player.canInteractWithEntity(target, 1.0)) {
-            mc.gameMode.attack(mc.player, target);
-            mc.player.resetAttackStrengthTicker();
-        }
+        if (mc.screen != null || mc.player.isSpectator() || !mc.player.isAlive()) return;
+        if (mc.player.isUsingItem()) return;
+        // Only when the locked target is inside the module's range.
+        double range = getDoubleSetting("range");
+        if (mc.player.distanceToSqr(target) > range * range) return;
+
+        double cps = getDoubleSetting("triggerCps");
+        double jitter = 0.9 + r.nextDouble() * 0.2; // ±10 % beat wander
+        triggerAcc += cps / 20.0 * jitter;
+        if (triggerAcc < 1.0) return;
+        triggerAcc -= 1.0;
+
+        mc.player.swing(InteractionHand.MAIN_HAND);
+        mc.gameMode.attack(mc.player, target);
     }
 
     // ── target selection ────────────────────────────────────────
