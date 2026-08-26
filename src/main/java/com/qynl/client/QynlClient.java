@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class QynlClient implements ClientModInitializer {
 	public static final String MOD_ID = "qynlclient";
-	public static final String VERSION = "2.1.28";
+	public static final String VERSION = "2.1.29";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static QynlClient instance;
@@ -60,8 +60,8 @@ public class QynlClient implements ClientModInitializer {
 			// v2.1.5 and this message appears, the new jar is live.
 			if (worldChanged && client.level != null && client.player != null) {
 				client.player.displayClientMessage(
-						net.minecraft.network.chat.Component.literal(
-								"\u00a7aQynlClient \u00a7fv" + VERSION + " \u00a77\u2014 Right-Shift opens the ClickGUI"),
+					net.minecraft.network.chat.Component.literal(
+							"\u00a7aQynlClient \u00a7fv" + VERSION + " \u00a77\u2014 Right-Shift toggles the ClickGUI"),
 						false);
 			}
 			if (client.level == null && lastWorld != null) {
@@ -82,12 +82,21 @@ public class QynlClient implements ClientModInitializer {
 			lastTickTime = now;
 
 			if (client.player != null && client.level != null) {
-				// Only open the GUI when nothing is open: pressing Right-Shift to
-				// close the ClickGUI also feeds this KeyMapping, and consuming it
-				// right after the screen closed would instantly REOPEN the GUI —
-				// making it impossible to close with the same key. Esc closes.
+				// Right-Shift TOGGLES the ClickGUI: opens when nothing is open,
+				// closes it when it is the open screen. Closing happens here in
+				// the tick hook, never in the screen's key handler — a press
+				// fed to both would close then instantly reopen the GUI (the
+				// "impossible to close" bug). A stuck-open GUI is catastrophic:
+				// vanilla skips ALL in-game attack/use input while any screen is
+				// open, so the player's left AND right click both go dead.
 				if (clickGuiKey != null && clickGuiKey.consumeClick()) {
-					if (client.screen == null) {
+					// Close any of the client's own screens (ClickGUI, module
+					// detail, keybind/settings editors) and open the GUI when
+					// nothing is open.
+					if (client.screen != null
+							&& client.screen.getClass().getName().startsWith("com.qynl.client.hud.")) {
+						client.setScreen(null);
+					} else if (client.screen == null) {
 						openGui();
 					}
 					return;
