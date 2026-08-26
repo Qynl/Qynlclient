@@ -6,6 +6,7 @@ import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
 import com.qynl.client.util.SilentAim;
+import com.qynl.client.util.TeamHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -389,10 +390,13 @@ public class AimAssistModule extends Module {
             if (e == mc.player) continue;
             if (!valid(e, tMode)) continue;
             if (e instanceof LivingEntity le && (!le.isAlive() || le.isInvisibleTo(mc.player))) continue;
-            // Teammates = players in the Friends list. On by default; turn it
-            // Off to aim at everyone (FFA / duels).
+            // Teammates = players in the Friends list OR on the same
+            // BedWars team (scoreboard team color / tab name color). On by
+            // default; turn it Off to aim at everyone (FFA / duels).
             if ("On".equals(getStringSetting("teammates"))
-                    && e instanceof Player p && Friends.isFriend(p.getName().getString())) continue;
+                    && e instanceof Player p
+                    && (Friends.isFriend(p.getName().getString())
+                        || TeamHelper.sameTeam(mc, mc.player, p))) continue;
 
             Vec3 d = e.getBoundingBox().getCenter().subtract(eye);
             double dist = d.length();

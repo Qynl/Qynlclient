@@ -5,6 +5,7 @@ import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
 import com.qynl.client.util.PingTracker;
 import com.qynl.client.util.SilentAim;
+import com.qynl.client.util.TeamHelper;
 import com.qynl.client.util.WorldDraw;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
@@ -445,6 +446,8 @@ public class QynlModule extends Module {
         if (living == client.player || !living.isAlive()) return false;
         if (!(living instanceof Monster) && !(living instanceof Player)) return false;
         if (FriendsModule.isFriend(FriendsModule.entityName(living))) return false;
+        // Never attack BedWars teammates (same scoreboard team / tab color).
+        if (living instanceof Player p && TeamHelper.sameTeam(client, client.player, p)) return false;
         double dx = living.getX() - client.player.getX();
         double dy = living.getY() - client.player.getY();
         double dz = living.getZ() - client.player.getZ();

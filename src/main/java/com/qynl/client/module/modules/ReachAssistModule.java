@@ -6,6 +6,7 @@ import com.qynl.client.module.Module;
 import com.qynl.client.module.ModuleManager;
 import com.qynl.client.module.Setting;
 import com.qynl.client.util.PingTracker;
+import com.qynl.client.util.TeamHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.util.Mth;
@@ -239,6 +240,7 @@ public class ReachAssistModule extends Module {
             if (living == client.player || !living.isAlive()) continue;
             if (!(living instanceof Monster || living instanceof Player)) continue;
             if (FriendsModule.isFriend(FriendsModule.entityName(living))) continue;
+            if (living instanceof Player && TeamHelper.sameTeam(client, client.player, (Player) living)) continue;
 
             double dx = living.getX() - client.player.getX();
             double dy = living.getY() - client.player.getY();
