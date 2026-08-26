@@ -1,6 +1,7 @@
 package com.qynl.client.mixin;	import com.qynl.client.QynlClient;
 	import com.qynl.client.module.modules.AegisModule;
 	import com.qynl.client.module.modules.QynlModule;
+	import com.qynl.client.module.modules.ScaffoldWalkModule;
 	import com.qynl.client.module.modules.StrafeAssistModule;
 	import com.qynl.client.module.modules.WTapModule;
 import net.minecraft.client.Minecraft;
@@ -81,6 +82,14 @@ public abstract class InputMixin {
 		// silently dead when StrafeAssist was also on.
 		if (WTapModule.isTapping()) {
 			input.forwardImpulse = 0;
+		}
+
+		// ScaffoldWalk — ninja auto-sneak while bridging. Applied AFTER the
+		// real keyboard was read, so the bridge sneak can never be cancelled
+		// by Input.tick mid-tick; when the module stops forcing, the player's
+		// own shift key is untouched.
+		if (ScaffoldWalkModule.sneakForced()) {
+			input.shiftKeyDown = true;
 		}
     }
 }

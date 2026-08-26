@@ -31,9 +31,14 @@ import org.lwjgl.glfw.GLFW;
  */
 public class ScaffoldWalkModule extends Module {
     private int cooldown = 0;
-    private boolean forcedSneak = false;
+    /** Forced-sneak state shared with the input override (InputMixin) — the
+     *  module only decides, the mixin applies it after {@code Input.tick} so
+     *  the real keyboard can never cancel it mid-tick. */
+    private static boolean sneakForced = false;
     /** Committed placement direction (hysteresis), NaN while idle. */
     private double dirAngle = Double.NaN;
+
+    public static boolean sneakForced() { return sneakForced; }
     /** Legit camera look state — look down to place, return after. */
     private boolean lookEngaged = false;
     private float restoreYaw = 0.0F, restorePitch = 0.0F;
@@ -77,20 +82,10 @@ public class ScaffoldWalkModule extends Module {
         boolean bridging = support != null && mc.level.getBlockState(target).canBeReplaced();
 
         // Ninja auto-sneak: only while actually bridging over a gap, never on
-        // solid ground. Never force-release the player's own sneak key.
-        if (ninja) {
-            boolean want = bridging && moving;
-            if (want) {
-                player.setShiftKeyDown(true);
-                forcedSneak = true;
-            } else if (forcedSneak && !mc.options.keyShift.isDown()) {
-                player.setShiftKeyDown(false);
-                forcedSneak = false;
-            }
-        } else if (forcedSneak) {
-            player.setShiftKeyDown(false);
-            forcedSneak = false;
-        }
+        // solid ground. Applied through the input override (InputMixin) so the
+        // player's own shift key is never touched and the sneak can't be
+        // cancelled by Input.tick reading the keyboard.
+        sneakForced = ninja && bridging && moving;
 
         // Legit Vape-Lite look: while bridging, the camera glides toward the
         // block being placed; when the bridge ends it returns to the view the
@@ -106,21 +101,13 @@ public class ScaffoldWalkModule extends Module {
             return;
         }
 
-        Direction dir = Direction.fromDelta(
-                target.getX() - support.getX(),
-                target.getY() - support.getY(),
-                target.getZ() - support.getZ());
-        if (dir == null) return;
-
         Inventory inventory = player.getInventory();
         int slot = findBlockSlot(inventory);
         if (slot < 0) return;
         if (inventory.selected != slot) inventory.selected = slot;
 
-        BlockHitResult hit = new BlockHitResult(
-                Vec3.atCenterOf(support)
-                        .add(dir.getStepX() * 0.5, dir.getStepY() * 0.5, dir.getStepZ() * 0.5),
-                dir, support, false);
+        BlockHitResult hit = buildPlacement(target, support);
+        if (hit == null) return;
         if (player.getEyePosition().distanceTo(hit.getLocation()) > 5.0) return;
 
         mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, hit);
@@ -222,6 +209,36 @@ public class ScaffoldWalkModule extends Module {
         }
     }
 
+    /** Builds the click that places a block at {@code target}.
+     *
+     *  <p>Priority: click the top of the block directly below the target,
+     *  then any face-adjacent solid neighbour (click the face pointing
+     *  toward the target). If the target sits diagonally over a gap — the
+     *  classic 45° ninja-bridge step — no single face can reach it, so the
+     *  placement is sent as a "click from above" (face DOWN on the air block
+     *  above the target). The vanilla server accepts this: it only validates
+     *  that the clicked position is within reach and that the placed
+     *  position is replaceable, which both hold here.</p>
+     */
+    private BlockHitResult buildPlacement(BlockPos target, BlockPos support) {
+        if (support != null) {
+            Direction dir = Direction.fromDelta(
+                    target.getX() - support.getX(),
+                    target.getY() - support.getY(),
+                    target.getZ() - support.getZ());
+            if (dir != null) {
+                Vec3 loc = Vec3.atCenterOf(support)
+                        .add(dir.getStepX() * 0.5, dir.getStepY() * 0.5, dir.getStepZ() * 0.5);
+                return new BlockHitResult(loc, dir, support, false);
+            }
+        }
+        // Diagonal over a gap — fake "click from above" (Direction.fromDelta
+        // returns null for diagonal offsets, which used to silently kill
+        // every Ninja-mode placement).
+        BlockPos above = target.above();
+        return new BlockHitResult(Vec3.atCenterOf(above), Direction.DOWN, above, false);
+    }
+
     /** Finds a solid block to place the target block against. */
     private BlockPos findSupport(Minecraft mc, BlockPos target) {
         if (isSolid(mc, target.below())) {
@@ -267,10 +284,7 @@ public class ScaffoldWalkModule extends Module {
     }
 
     private void releaseSneak(Minecraft mc) {
-        if (forcedSneak && mc.player != null) {
-            mc.player.setShiftKeyDown(false);
-        }
-        forcedSneak = false;
+        sneakForced = false;
     }
 
     @Override

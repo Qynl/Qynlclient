@@ -112,10 +112,13 @@ public class ReachAssistModule extends Module {
             case "Subtle":     minBonus = 0.05; maxBonus = 0.15; break; // 3.05–3.15 (anti-cheat safe)
             // Friends-server use: no anti-cheat, so the reach is meant to be
             // clearly felt — the old +0.08–0.22 blocks (~20 cm) was
-            // imperceptible and read as "reach doesn't work". The vanilla
-            // server's own interact tolerance allows up to ~6 blocks.
-            case "Aggressive": minBonus = 0.80; maxBonus = 1.30; break; // 3.80–4.30 (1.8-client feel)
-            default:           minBonus = 0.35; maxBonus = 0.65; break; // 3.35–3.65 (clearly felt)
+            // imperceptible and read as "reach doesn't work". Vanilla servers
+            // validate attacks as entityInteractionRange + 1.0 (≈4.0 blocks
+            // box distance), so these stay inside what even a vanilla server
+            // accepts: Normal works everywhere, Aggressive on LAN/singleplayer
+            // (where the host client carries the same bonus).
+            case "Aggressive": minBonus = 0.90; maxBonus = 1.25; break; // 3.90–4.25 (1.8-client feel)
+            default:           minBonus = 0.45; maxBonus = 0.80; break; // 3.45–3.80 (clearly felt)
         }
         currentBonus = Mth.clamp(currentBonus, minBonus, maxBonus);
         targetBonus = Mth.clamp(targetBonus, minBonus, maxBonus);
