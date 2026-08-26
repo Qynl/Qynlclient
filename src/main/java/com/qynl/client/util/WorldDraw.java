@@ -102,7 +102,26 @@ public final class WorldDraw {
                              double x1, double y1, double z1,
                              double x2, double y2, double z2,
                              float r, float g, float b, float a) {
-        consumer.addVertex(matrix, (float) x1, (float) y1, (float) z1).setColor(r, g, b, a);
-        consumer.addVertex(matrix, (float) x2, (float) y2, (float) z2).setColor(r, g, b, a);
+        // 1.21.1's RenderType.lines() is POSITION_COLOR_NORMAL — the normal
+        // element is mandatory on EVERY vertex or the buffer build throws
+        // "Missing elements in vertex: Normal". When that happens inside the
+        // crash-isolated overlay pass the exception is swallowed, but the
+        // lines buffer is left corrupt; the NEXT frame vanilla flushes the
+        // same buffer outside our try/catch and the game crashes with a
+        // render-thread error that has no obvious source (Qynl/Director ESP
+        // were exactly that — boxes and lines every frame with no normal).
+        // Lines are unlit, but we set the segment direction like vanilla
+        // does — zero for degenerate zero-length segments.
+        float dx = (float) (x2 - x1);
+        float dy = (float) (y2 - y1);
+        float dz = (float) (z2 - z1);
+        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float nx = len > 1e-6F ? dx / len : 0.0F;
+        float ny = len > 1e-6F ? dy / len : 0.0F;
+        float nz = len > 1e-6F ? dz / len : 0.0F;
+        consumer.addVertex(matrix, (float) x1, (float) y1, (float) z1)
+                .setColor(r, g, b, a).setNormal(nx, ny, nz);
+        consumer.addVertex(matrix, (float) x2, (float) y2, (float) z2)
+                .setColor(r, g, b, a).setNormal(nx, ny, nz);
     }
 }

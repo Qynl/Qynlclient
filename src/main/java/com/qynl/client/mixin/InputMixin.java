@@ -19,6 +19,16 @@ public abstract class InputMixin {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void qynlclient$applyInputOverrides(boolean slowDown, float slowDownFactor, CallbackInfo ci) {
+        // Runs every tick with no isolation — an exception in any override
+        // would kill the client tick. Each override is a module feature, so
+        // one broken module must never freeze the player.
+        try {
+            applyOverrides();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void applyOverrides() {
         Input input = (Input) (Object) this;
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) {

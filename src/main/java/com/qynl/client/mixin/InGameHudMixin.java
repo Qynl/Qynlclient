@@ -15,13 +15,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class InGameHudMixin {
 	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V", at = @At("TAIL"))
 	private void qynlclient$renderHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-		// StreamerMode check — if active, render NOTHING on the HUD
-		if (StreamerModeModule.shouldHide("any")) return;
+		// The HUD runs every frame on the render thread with no isolation — an
+		// exception here would crash the game. No HUD widget may ever take the
+		// frame down; a broken widget skips one frame instead.
+		try {
+			// StreamerMode check — if active, render NOTHING on the HUD
+			if (StreamerModeModule.shouldHide("any")) return;
 
-		Minecraft client = Minecraft.getInstance();
-		if (client.player != null && client.level != null && client.screen == null) {
-			QynlClient.getInstance().getHudRenderer().render(guiGraphics, client,
-					deltaTracker.getGameTimeDeltaPartialTick(false));
+			Minecraft client = Minecraft.getInstance();
+			if (client.player != null && client.level != null && client.screen == null) {
+				QynlClient.getInstance().getHudRenderer().render(guiGraphics, client,
+						deltaTracker.getGameTimeDeltaPartialTick(false));
+			}
+		} catch (Throwable ignored) {
 		}
 	}
 }
