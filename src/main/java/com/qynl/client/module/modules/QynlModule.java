@@ -142,6 +142,7 @@ public class QynlModule extends Module {
         }
 
         tickCounter++;
+        try {
         sampleOwn(client);
         for (Entity entity : client.level.entitiesForRendering()) {
             if (isCandidate(client, entity)) {
@@ -238,7 +239,11 @@ public class QynlModule extends Module {
 		wasInReach = hit;
 		if (!risingEdge) return;
 		if (AutoClickerModule.isActive()) return;
-		if (!client.options.keyAttack.isDown()) return;
+		// GLFW ground truth for the held button (can never desync from the
+		// KeyMapping) — same hardening as the AutoClicker.
+		boolean lmbHeld = client.getWindow() != null && GLFW.glfwGetMouseButton(
+				client.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		if (!client.options.keyAttack.isDown() && !lmbHeld) return;
 		// 1.9+ combat cooldown: only swing at full charge so the quantum
 		// timing actually lands full-damage hits (the human swing interval
 		// below already sits near the cooldown, this makes it exact).
@@ -260,6 +265,10 @@ public class QynlModule extends Module {
 
         lastSwingTick.put(target.getId(), tickCounter);
         swing(client, target);
+        } catch (Throwable ignored) {
+            // The quantum engine must never take the tick chain down; the
+            // dodge queue is drained on the next lifecycle hook anyway.
+        }
     }
 
     // ── rendering ────────────────────────────────────────────────

@@ -40,25 +40,37 @@ public abstract class BlinkMixin {
         }
 
         // 1. Qynl Quantum Collapse — one-shot dodge hold.
-        if (QynlModule.shouldHoldPacket()) {
-            QynlModule.buffer(packet);
-            ci.cancel();
-            return;
+        // Each hold engine is isolated: an exception inside one module's hook
+        // must never propagate out of Connection.send, or the whole network
+        // path dies and it looks exactly like a crash/kick.
+        try {
+            if (QynlModule.shouldHoldPacket()) {
+                QynlModule.buffer(packet);
+                ci.cancel();
+                return;
+            }
+        } catch (Throwable ignored) {
         }
 
         // 2. Reach Silent Pack-Choke — 1-2 tick combat holds.
-        if (ReachAssistModule.shouldHoldPacket()) {
-            ReachAssistModule.buffer(packet);
-            ci.cancel();
-            return;
+        try {
+            if (ReachAssistModule.shouldHoldPacket()) {
+                ReachAssistModule.buffer(packet);
+                ci.cancel();
+                return;
+            }
+        } catch (Throwable ignored) {
         }
 
         // 3. Blink — movement-packet burst hold.
         if (!(packet instanceof ServerboundMovePlayerPacket movePacket)) return;
 
-        if (BlinkModule.shouldHold()) {
-            BlinkModule.buffer(movePacket);
-            ci.cancel();
+        try {
+            if (BlinkModule.shouldHold()) {
+                BlinkModule.buffer(movePacket);
+                ci.cancel();
+            }
+        } catch (Throwable ignored) {
         }
     }
 }

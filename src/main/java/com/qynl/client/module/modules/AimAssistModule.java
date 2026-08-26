@@ -69,6 +69,15 @@ public class AimAssistModule extends Module {
     private long tickCounter = 0;
     private static final double WANDER_SPEED = 0.085;
 
+    /** Per-target aim scatter: the crosshair rests slightly off dead-center
+     *  (a real player never holds the exact pixel), re-rolled per target. */
+    private double aimOffsetYaw = 0.0, aimOffsetPitch = 0.0;
+
+    /** Smoothed glide velocities — the step speed lerps toward its distance
+     *  target instead of jumping, so the crosshair accelerates into the turn
+     *  and bleeds off into the settle (no constant-speed snap). */
+    private double yawVel = 0.0, pitchVel = 0.0;
+
     // runtime cfg
     private double strength;
     private double aimHeight;
@@ -149,6 +158,14 @@ public class AimAssistModule extends Module {
         if (t != target) {
             target = t;
             reactionTicks = t != null ? reactionBase + r.nextInt(3) : 0;
+            // Fresh engagement: scatter the aim slightly inside the hitbox so
+            // the crosshair never locks dead-center (too perfect reads
+            // robotic), and zero the glide velocity so the new target starts
+            // from a standstill instead of inheriting the old speed.
+            aimOffsetYaw   = (r.nextDouble() - 0.5) * 0.8;  // ±0.4°
+            aimOffsetPitch = (r.nextDouble() - 0.5) * 0.4;  // ±0.2°
+            yawVel = 0.0;
+            pitchVel = 0.0;
         } else if (target != null && reactionTicks > 0) {
             reactionTicks--;
         }
@@ -216,20 +233,19 @@ public class AimAssistModule extends Module {
         double dist = delta.length();
         if (dist < 0.01) return null;
 
-        double yawTo   = Math.toDegrees(Math.atan2(-delta.x, delta.z));
-        double pitchTo = Math.toDegrees(Math.asin(-delta.y / dist));
+        double yawTo   = Math.toDegrees(Math.atan2(-delta.x, delta.z)) + aimOffsetYaw;
+        double pitchTo = Math.toDegrees(Math.asin(-delta.y / dist)) + aimOffsetPitch;
         double yawD    = Mth.wrapDegrees(yawTo - cy);
         double pitchD  = Mth.clamp(pitchTo - cp, -90, 90);
         double absY = Math.abs(yawD), absP = Math.abs(pitchD);
 
-        // Deterministic cubic ease-out: the step is a fixed fraction of the
-        // remaining error, so the glide decelerates smoothly and stops dead.
-        // No per-tick randomness anywhere in the step — that was the glitch.
-        // Both modes are strong: the camera mode uses 9–18 °/tick so the
-        // visible glide locks on in a few ticks (like a real flick), and
-        // Silent gets an even harder lock — 12–28 °/tick — because nothing
-        // is visible. The anti-flag part is not the speed but the precision:
-        // GCD pixel steps + wander + overshoot are applied to both.
+        // Velocity-smoothed glide: the step speed LERPS toward the distance
+        // curve every tick (0.4/tick) instead of snapping to it. The
+        // crosshair accelerates out of the turn, holds a peak and bleeds off
+        // into the settle — that removes the "constant speed + sudden brake"
+        // look that made the approach read as a snap and felt "not smooth at
+        // all". Both modes are strong: the camera mode tops out at 9–18
+        // °/tick, Silent at 12–28 °/tick (nothing is visible there).
         double maxSpeed = silent
                 ? (12.0 + strength * 8.0)
                 : (9.0 + strength * 9.0);
@@ -241,10 +257,12 @@ public class AimAssistModule extends Module {
         double wander = 0.93 + 0.14 * Math.sin(tickCounter * WANDER_SPEED);
         maxSpeed *= wander;
 
-        double yawSpeed   = maxSpeed * easeCurve(absY, 30.0);
-        double pitchSpeed = maxSpeed * 0.75 * easeCurve(absP, 20.0);
-        double stepY = Mth.clamp(yawD, -yawSpeed, yawSpeed);
-        double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
+        double tY = maxSpeed * easeCurve(absY, 30.0);
+        double tP = maxSpeed * 0.75 * easeCurve(absP, 20.0);
+        yawVel += (tY - yawVel) * 0.4;
+        pitchVel += (tP - pitchVel) * 0.4;
+        double stepY = Mth.clamp(yawD, -yawVel, yawVel);
+        double stepP = Mth.clamp(pitchD, -pitchVel, pitchVel);
 
         // Human settle near the target: ~55 % of the remaining error plus a
         // tiny overshoot that SCALES with the error (≤0.12 × error, capped at
@@ -255,6 +273,7 @@ public class AimAssistModule extends Module {
         // the GCD quantization of tiny deltas, produced a permanent
         // micro-tremor on target — that was the "not smooth at all".)
         if (absY < 6.0) {
+            yawVel *= 0.7; // bleed the approach speed off in the settle zone
             if (absY < 0.18) {
                 stepY = 0.0;
             } else {
@@ -263,6 +282,7 @@ public class AimAssistModule extends Module {
             }
         }
         if (absP < 5.0) {
+            pitchVel *= 0.7;
             if (absP < 0.18) {
                 stepP = 0.0;
             } else {

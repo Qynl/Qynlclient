@@ -1,5 +1,6 @@
 package com.qynl.client.module.modules;
 
+import com.qynl.client.QynlClient;
 import com.qynl.client.module.Category;
 import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
@@ -31,6 +32,11 @@ import org.lwjgl.glfw.GLFW;
 public class ScaffoldWalkModule extends Module {
     private int cooldown = 0;
     private boolean forcedSneak = false;
+    /** Committed placement direction (hysteresis), NaN while idle. */
+    private double dirAngle = Double.NaN;
+    /** Legit camera look state — look down to place, return after. */
+    private boolean lookEngaged = false;
+    private float restoreYaw = 0.0F, restorePitch = 0.0F;
 
     public ScaffoldWalkModule() {
         super("ScaffoldWalk",
@@ -55,7 +61,7 @@ public class ScaffoldWalkModule extends Module {
         }
 
         boolean ninja = "Ninja".equals(getStringSetting("mode"));
-        Vec3 move = moveDir(player);
+        Vec3 move = placementDir(player);
         BlockPos feet = player.getBlockPosBelowThatAffectsMyMovement();
         boolean moving = move.lengthSqr() > 1e-4;
 
@@ -84,16 +90,14 @@ public class ScaffoldWalkModule extends Module {
             forcedSneak = false;
         }
 
-        if (!bridging) return;
-
-        // Legit look: while bridging (target not straight under the feet) the
-        // camera glides toward the block being placed — never snaps, never
-        // yanks sideways while strafing in a fight.
+        // Legit Vape-Lite look: while bridging, the camera glides toward the
+        // block being placed; when the bridge ends it returns to the view the
+        // player had before (unless AimAssist owns the camera).
         boolean underFeet = Math.abs(target.getX() - feet.getX())
                 + Math.abs(target.getZ() - feet.getZ()) == 0;
-        if (!underFeet) {
-            smoothLook(player, target);
-        }
+        smoothLook(player, target, bridging && !underFeet && moving);
+
+        if (!bridging) return;
 
         if (cooldown > 0) {
             cooldown--;
@@ -123,38 +127,77 @@ public class ScaffoldWalkModule extends Module {
         // real bridge player (Vape Lite never swings for scaffold).
     }
 
-    /** Movement direction from keyboard input, relative to the player's yaw. */
-    private Vec3 moveDir(LocalPlayer player) {
+    /** Movement direction from keyboard input, relative to the player's yaw,
+     *  with direction hysteresis: once committed to a direction we keep it
+     *  until the input clearly turns (>35°). The aim-assisted yaw wobbles a
+     *  few degrees around a target and without this the placed line zigzags
+     *  between adjacent diagonals — the old "places random blocks". */
+    private Vec3 placementDir(LocalPlayer player) {
         float forward = player.input.forwardImpulse;
         float left = player.input.leftImpulse;
-        if (forward == 0.0F && left == 0.0F) return Vec3.ZERO;
+        if (forward == 0.0F && left == 0.0F) {
+            dirAngle = Double.NaN;
+            return Vec3.ZERO;
+        }
         double yaw = Math.toRadians(player.getYRot());
         double sin = Math.sin(yaw), cos = Math.cos(yaw);
         double mx = -sin * forward - cos * left;
         double mz =  cos * forward - sin * left;
-        return new Vec3(mx, 0, mz).normalize();
+        double len = Math.sqrt(mx * mx + mz * mz);
+        if (len < 1e-4) return Vec3.ZERO;
+        double raw = Math.toDegrees(Math.atan2(mx, mz));
+        if (Double.isNaN(dirAngle) || Math.abs(Mth.wrapDegrees(raw - dirAngle)) > 35.0) {
+            dirAngle = raw;
+        }
+        // Quantize to the nearest 45° compass direction — straight, stable lines.
+        double snapped = Math.round(dirAngle / 45.0) * 45.0;
+        double r = Math.toRadians(snapped);
+        return new Vec3(Math.sin(r), 0, Math.cos(r));
     }
 
-    /** Smoothly steers the camera toward the block being placed. */
-    private void smoothLook(LocalPlayer player, BlockPos targetPos) {
-        Vec3 eye = player.getEyePosition();
-        Vec3 d = Vec3.atCenterOf(targetPos).subtract(eye);
-        double dist = d.length();
-        if (dist < 0.01) return;
-        float yawTo = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
-        float pitchTo = (float) Math.toDegrees(Math.asin(-d.y / dist));
-
-        // Only steer the yaw when the place direction is roughly ahead —
-        // never pull the camera sideways while strafing in a fight.
-        float dy = Mth.wrapDegrees(yawTo - player.getYRot());
-        if (Math.abs(dy) < 40.0F) {
-            player.setYRot(player.getYRot() + dy * 0.3F);
-            player.yHeadRot = player.getYRot();
+    /** Smoothly steers the camera toward the block being placed while
+     *  bridging, and returns it to the pre-bridge view when the bridge ends
+     *  (legit look-down, place, look-up). Never snaps, never pulls sideways
+     *  more than a small amount; AimAssist takes precedence when enabled. */
+    private void smoothLook(LocalPlayer player, BlockPos targetPos, boolean active) {
+        if (active) {
+            if (!lookEngaged) {
+                lookEngaged = true;
+                restoreYaw = player.getYRot();
+                restorePitch = player.getXRot();
+            }
+            Vec3 eye = player.getEyePosition();
+            Vec3 d = Vec3.atCenterOf(targetPos).subtract(eye);
+            double dist = d.length();
+            if (dist > 0.01) {
+                float yawTo = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+                float pitchTo = (float) Math.toDegrees(Math.asin(-d.y / dist));
+                float dy = Mth.wrapDegrees(yawTo - player.getYRot());
+                if (Math.abs(dy) < 30.0F) {
+                    player.setYRot(player.getYRot() + Mth.clamp(dy, -8.0F, 8.0F));
+                }
+                float dp = Mth.clamp(pitchTo - player.getXRot(), -90.0F, 0.0F);
+                if (dp < 0.0F) {
+                    player.setXRot(player.getXRot() + Math.max(dp, -8.0F));
+                }
+                player.yHeadRot = player.getYRot();
+                player.yHeadRotO = player.getYRot();
+            }
+            return;
         }
-        // Pitch glides gently DOWN toward the block (never forced up).
-        float dp = pitchTo - player.getXRot();
-        if (dp < 0.0F) {
-            player.setXRot(player.getXRot() + Math.max(dp, -4.0F));
+        if (!lookEngaged) return;
+        // AimAssist owns the camera — never fight it on the way back.
+        if (QynlClient.getInstance().getModuleManager().isEnabled("AimAssist")) {
+            lookEngaged = false;
+            return;
+        }
+        float dy = Mth.wrapDegrees(restoreYaw - player.getYRot());
+        float dp = restorePitch - player.getXRot();
+        player.setYRot(player.getYRot() + Mth.clamp(dy, -10.0F, 10.0F));
+        player.setXRot(player.getXRot() + Mth.clamp(dp, -10.0F, 10.0F));
+        player.yHeadRot = player.getYRot();
+        if (Math.abs(dy) < 0.5F && Math.abs(dp) < 0.5F) {
+            lookEngaged = false;
         }
     }
 
@@ -213,17 +256,23 @@ public class ScaffoldWalkModule extends Module {
     public void onDisable() {
         releaseSneak(Minecraft.getInstance());
         cooldown = 0;
+        dirAngle = Double.NaN;
+        lookEngaged = false;
     }
 
     @Override
     public void onWorldChange(Minecraft mc) {
         releaseSneak(mc);
         cooldown = 0;
+        dirAngle = Double.NaN;
+        lookEngaged = false;
     }
 
     @Override
     public void onDisconnect(Minecraft mc) {
         releaseSneak(mc);
         cooldown = 0;
+        dirAngle = Double.NaN;
+        lookEngaged = false;
     }
 }

@@ -73,7 +73,12 @@ public class AutoClickerModule extends Module {
             resetState(client);
             return;
         }
-        if (client.screen != null || !client.options.keyAttack.isDown()) {
+        // Ground truth for "is the left button held": GLFW's raw mouse state
+        // can never desync from a stale KeyMapping, and if this flickers even
+        // one tick the clicker restarts its start delay and never fires —
+        // which is exactly what "autoclicker doesn't work" looked like.
+        boolean lmbHeld = isLeftMouseHeld(client);
+        if (client.screen != null || (!client.options.keyAttack.isDown() && !lmbHeld)) {
             resetState(client);
             return;
         }
@@ -88,10 +93,10 @@ public class AutoClickerModule extends Module {
         }
 
         // Humans don't start clicking the instant they press the button —
-        // wait a short random beat on the first press (100–300 ms).
+        // wait a short random beat on the first press (50–150 ms).
         if (!wasHeld) {
             wasHeld = true;
-            startDelayTicks = 2 + random.nextInt(5);
+            startDelayTicks = 1 + random.nextInt(3);
             clickTicks = 0;
             return;
         }
@@ -189,9 +194,13 @@ public class AutoClickerModule extends Module {
         }
     }
 
-    /** Performs one click: entity attack if aiming at one, else block-break. */
+    /** Performs one click: entity attack if aiming at one, else block-break,
+     *  else a plain swing so the clicker is visibly alive even off-target. */
     private void click(Minecraft client) {
-        if (client.hitResult == null) return;
+        if (client.hitResult == null || client.hitResult.getType() == HitResult.Type.MISS) {
+            swingOnly(client);
+            return;
+        }
         if (client.hitResult.getType() == HitResult.Type.ENTITY) {
             Entity target = ((EntityHitResult) client.hitResult).getEntity();
             client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
@@ -205,6 +214,22 @@ public class AutoClickerModule extends Module {
             } else {
                 client.gameMode.startDestroyBlock(pos, side);
             }
+        }
+    }
+
+    private void swingOnly(Minecraft client) {
+        if (client.player != null) {
+            client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        }
+    }
+
+    /** True while mouse button 1 (left) is physically pressed. */
+    private static boolean isLeftMouseHeld(Minecraft client) {
+        try {
+            long window = client.getWindow() != null ? client.getWindow().getWindow() : 0L;
+            return window != 0L && GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 

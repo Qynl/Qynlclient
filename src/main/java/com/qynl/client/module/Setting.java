@@ -60,11 +60,15 @@ public final class Setting<T> {
 
 	public T getValue() {
 		return value;
-	}
+	}    public double asDouble() {
+        return ((Number) value).doubleValue();
+    }
 
-	public double asDouble() {
-		return ((Number) value).doubleValue();
-	}
+    public boolean isNumeric() { return numeric; }
+    public double getMin()     { return min; }
+    public double getMax()     { return max; }
+    public double getStep()    { return step; }
+    public String getUnit()    { return unit; }
 
 	/** Raw string form used when saving to the config. */
 	public String valueAsString() {
@@ -96,6 +100,30 @@ public final class Setting<T> {
 			}
 			value = (T) Double.valueOf(v);
 		}
+	}
+
+	/** Step the number down (wrapping back to the max). */
+	public void cycleDown() {
+		if (options != null && !options.isEmpty()) {
+			int i = options.indexOf(value);
+			value = options.get((i - 1 + options.size()) % options.size());
+		} else if (numeric) {
+			double v = ((Number) value).doubleValue() - step;
+			if (v < min) {
+				v = max;
+			}
+			value = (T) Double.valueOf(v);
+		}
+	}
+
+	/** Sets a numeric value from a slider position, snapped to the step. */
+	@SuppressWarnings("unchecked")
+	public void setValue(double v) {
+		if (!numeric) {
+			return;
+		}
+		double snapped = Math.round((v - min) / step) * step + min;
+		value = (T) Double.valueOf(Math.max(min, Math.min(max, snapped)));
 	}
 
 	@SuppressWarnings("unchecked")
