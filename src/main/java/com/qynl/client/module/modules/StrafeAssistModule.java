@@ -110,7 +110,7 @@ public class StrafeAssistModule extends Module {
 
     private boolean hasNearbyEnemy(Minecraft client) {
         var player = client.player;
-        var box = player.getBoundingBox().inflate(8.0);
+        var box = player.getBoundingBox().inflate(10.0);
         return client.level.getEntities(player, box,
                 e -> (e instanceof Monster || e instanceof Player)
                         && e.isAlive() && e != player).size() > 0;

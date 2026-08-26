@@ -23,14 +23,7 @@ public abstract class InputMixin {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) {
             return;
-        }		// WTap — release forward for a tick after each hit (sprint reset).
-		// Applied to the input, never to the W KeyMapping, so the player's
-		// real keyboard state is untouched and forward resumes naturally.
-		if (WTapModule.isTapping()) {
-			input.forwardImpulse = 0;
-		}
-
-		// Qynl — Quantum Collapse dodge strafe (only while the dodge hold is
+        }		// Qynl — Quantum Collapse dodge strafe (only while the dodge hold is
 		// active; the player must already be moving, enforced by QynlModule).
 		float dodge = QynlModule.dodgeStrafe();
         if (dodge != 0.0F) {
@@ -60,14 +53,24 @@ public abstract class InputMixin {
             if (strafe.shouldStrafeLeft()) {
                 input.leftImpulse = 1.0F;
                 if (input.forwardImpulse >= 0.0F) {
-                    input.forwardImpulse = Math.max(0.6F, input.forwardImpulse);
+                    input.forwardImpulse = Math.max(0.8F, input.forwardImpulse);
                 }
             } else if (strafe.shouldStrafeRight()) {
                 input.leftImpulse = -1.0F;
                 if (input.forwardImpulse >= 0.0F) {
-                    input.forwardImpulse = Math.max(0.6F, input.forwardImpulse);
+                    input.forwardImpulse = Math.max(0.8F, input.forwardImpulse);
                 }
             }
         }
+
+		// WTap — release forward for a tick after each hit (sprint reset).
+		// Applied to the input, never to the W KeyMapping, so the player's
+		// real keyboard state is untouched and forward resumes naturally.
+		// Runs LAST so no other override (e.g. the strafe forward floor)
+		// can re-push forward during the tap — that interaction made WTap
+		// silently dead when StrafeAssist was also on.
+		if (WTapModule.isTapping()) {
+			input.forwardImpulse = 0;
+		}
     }
 }

@@ -13,7 +13,8 @@
 		"BlinkMixin",
 		"KeepAliveMixin",
 		"SoundPacketMixin",
-		"WorldRenderMixin"
+		"WorldRenderMixin",
+		"AttackMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

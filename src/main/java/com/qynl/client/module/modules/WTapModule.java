@@ -5,6 +5,7 @@ import com.qynl.client.module.Module;
 import com.qynl.client.module.Setting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -22,6 +23,9 @@ public class WTapModule extends Module {
     private static WTapModule instance;
     private static final RandomSource RANDOM = RandomSource.create();
     private int tapTicks = 0;
+    private int lastAttackCooldown = 0;
+    private Entity lastAttacked;
+    private long lastAttackMs = -1000;
 
     public WTapModule() {
         super("WTap", "Taps W after each hit to reset sprint — extra knockback on the enemy.",
@@ -40,63 +44,68 @@ public class WTapModule extends Module {
         return instance != null && instance.isEnabled() && instance.tapTicks > 0;
     }
 
+    /**
+     * Fired by the AttackMixin for EVERY {@code MultiPlayerGameMode.attack}
+     * call — manual clicks, AutoClicker (Legacy included, which never builds
+     * the 1.9 swing cooldown) and AimAssist's silent fire all go through it.
+     * The old {@code attackStrengthScale >= 0.9} gate never fired when Legacy
+     * clicks were on, which is why WTap felt dead.
+     */
+    public static void onPlayerAttack(Entity target) {
+        if (instance != null) {
+            instance.lastAttacked = target;
+            instance.lastAttackMs = System.currentTimeMillis();
+        }
+    }
+
     @Override
     public void onTick(Minecraft client) {
         if (client.player == null || client.level == null) {
             tapTicks = 0;
             return;
         }
-        var player = client.player;		if (tapTicks > 0) {
-			tapTicks--;
-			return;
-		}
-		if (lastAttackCooldown > 0) {
-			lastAttackCooldown--;
-		}
+        var player = client.player;
+        if (tapTicks > 0) {
+            tapTicks--;
+            return;
+        }
+        if (lastAttackCooldown > 0) {
+            lastAttackCooldown--;
+        }
 
-		// Detect our own hit: rising edge of attack on a target, full charge.
-		boolean nowAttacking = client.options.keyAttack.isDown()
-				&& client.hitResult != null
-				&& client.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.ENTITY
-				&& player.getAttackStrengthScale(0.0F) >= 0.9F;
-		if (!nowAttacking) {
-			tappedRecently = false;
-			return;
-		}
-		if (tappedRecently) {
-			return; // already handled this attack hold
-		}
-		tappedRecently = true;
-		if (lastAttackCooldown > 0) {
-			return;
-		}
+        boolean justAttacked = lastAttacked != null
+                && (System.currentTimeMillis() - lastAttackMs) < 150L;
+        if (!justAttacked) {
+            return;
+        }
+        lastAttacked = null;
+        if (lastAttackCooldown > 0) {
+            return;
+        }
 
-		// A real W-tap only makes sense while sprinting and moving forward —
-		// never tap while standing still, walking or mid-air.
-		if (!player.isSprinting() || player.input.forwardImpulse <= 0.0F || !player.onGround()) {
-			return;
-		}
-		// Humans don't W-tap on every single hit.
-		if (RANDOM.nextDouble() * 100.0 >= getDoubleSetting("chance")) {
-			return;
-		}
+        // A real W-tap only makes sense while sprinting and moving forward —
+        // never tap while standing still, walking or mid-air.
+        if (!player.isSprinting() || player.input.forwardImpulse <= 0.0F || !player.onGround()) {
+            return;
+        }
+        // Humans don't W-tap on every single hit.
+        if (RANDOM.nextDouble() * 100.0 >= getDoubleSetting("chance")) {
+            return;
+        }
 
-		int delay = (int) getDoubleSetting("tapTicks");
-		if (delay > 1 && RANDOM.nextBoolean()) delay--; // humanize ±1 tick
-		tapTicks = delay;
-		lastAttackCooldown = (int) Math.round(getDoubleSetting("cooldownMs") / 50.0)
-				+ RANDOM.nextInt(3) - 1;
-		// Sprint stops with the tap; it resumes naturally when forward is held.
-		player.setSprinting(false);
-	}
-
-	private boolean tappedRecently = false;
-	private int lastAttackCooldown = 0;
+        int delay = (int) getDoubleSetting("tapTicks");
+        if (delay > 1 && RANDOM.nextBoolean()) delay--; // humanize ±1 tick
+        tapTicks = delay;
+        lastAttackCooldown = (int) Math.round(getDoubleSetting("cooldownMs") / 50.0)
+                + RANDOM.nextInt(3) - 1;
+        // Sprint stops with the tap; it resumes naturally when forward is held.
+        player.setSprinting(false);
+    }
 
     @Override
     public void onDisable() {
         tapTicks = 0;
-        tappedRecently = false;
         lastAttackCooldown = 0;
+        lastAttacked = null;
     }
 }

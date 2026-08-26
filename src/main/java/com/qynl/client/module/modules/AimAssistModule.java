@@ -247,18 +247,28 @@ public class AimAssistModule extends Module {
         double stepP = Mth.clamp(pitchD, -pitchSpeed, pitchSpeed);
 
         // Human settle near the target: ~55 % of the remaining error plus a
-        // tiny constant nudge, allowing a subtle ≤0.25° overshoot that is
-        // corrected on the next tick. A perfectly monotonic approach is a bot
-        // signature — one tiny bounce reads human, and the error still
-        // shrinks every tick (0.55 < 1), so it can never oscillate. The higher
-        // fraction keeps the last degrees from crawling.
+        // tiny overshoot that SCALES with the error (≤0.12 × error, capped at
+        // 0.08°) — a hand-like bounce that shrinks as you converge, so it can
+        // never flip direction around the dead zone. Below the hard dead zone
+        // the step goes to exactly zero: the crosshair stops dead instead of
+        // hunting. (The old constant nudge flipped sign past zero and, with
+        // the GCD quantization of tiny deltas, produced a permanent
+        // micro-tremor on target — that was the "not smooth at all".)
         if (absY < 6.0) {
-            stepY = Mth.clamp(yawD * 0.55 + Math.signum(yawD) * 0.08,
-                    -(absY + 0.25), absY + 0.25);
+            if (absY < 0.18) {
+                stepY = 0.0;
+            } else {
+                stepY = yawD * 0.55 + Math.signum(yawD) * Math.min(0.08, absY * 0.12);
+                stepY = Mth.clamp(stepY, -(absY + 0.25), absY + 0.25);
+            }
         }
         if (absP < 5.0) {
-            stepP = Mth.clamp(pitchD * 0.50 + Math.signum(pitchD) * 0.06,
-                    -(absP + 0.2), absP + 0.2);
+            if (absP < 0.18) {
+                stepP = 0.0;
+            } else {
+                stepP = pitchD * 0.50 + Math.signum(pitchD) * Math.min(0.06, absP * 0.12);
+                stepP = Mth.clamp(stepP, -(absP + 0.2), absP + 0.2);
+            }
         }
 
         // Mouse-influence blend: while the player moves the mouse the assist
@@ -266,17 +276,13 @@ public class AimAssistModule extends Module {
         stepY *= influence;
         stepP *= influence;
 
-        // GCD snap — quantize to real mouse pixels at the player's
-        // sensitivity. The rotation stream then matches genuine mouse input
-        // exactly (pixel-quantized steps, never raw floats), which is the
-        // single strongest "this is a human" signal for rotation checks.
-        double sens = mc.options.sensitivity().get();
-        double f = sens * 0.6 + 0.2;
-        double gcd = (f * f * f) * 8.0 * 0.15;
-        if (gcd > 1e-6) {
-            stepY = Math.round(stepY / gcd) * gcd;
-            stepP = Math.round(stepP / gcd) * gcd;
-        }
+        // No GCD pixel-quantization on the CAMERA path: rounding every tiny
+        // step to 0/±gcd makes the visible glide stutter (alternating zero and
+        // full-pixel moves) and real mouse deltas are NOT uniform anyway — a
+        // fixed quantization reads MORE robotic, not less. The camera path
+        // stays raw-smooth; the Silent packet path re-snaps every delta in
+        // humanizePacket(), which is where pixel-quantization matters for
+        // anti-cheat.
 
         // Physical rotation cap — strong but never a teleport. Silent is
         // capped higher since the motion is invisible (flick range); the
