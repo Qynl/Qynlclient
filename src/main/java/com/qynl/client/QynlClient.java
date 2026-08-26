@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class QynlClient implements ClientModInitializer {
 	public static final String MOD_ID = "qynlclient";
-	public static final String VERSION = "2.1.27";
+	public static final String VERSION = "2.1.28";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static QynlClient instance;
@@ -82,8 +82,14 @@ public class QynlClient implements ClientModInitializer {
 			lastTickTime = now;
 
 			if (client.player != null && client.level != null) {
+				// Only open the GUI when nothing is open: pressing Right-Shift to
+				// close the ClickGUI also feeds this KeyMapping, and consuming it
+				// right after the screen closed would instantly REOPEN the GUI —
+				// making it impossible to close with the same key. Esc closes.
 				if (clickGuiKey != null && clickGuiKey.consumeClick()) {
-					openGui();
+					if (client.screen == null) {
+						openGui();
+					}
 					return;
 				}
 				moduleManager.tick(client);

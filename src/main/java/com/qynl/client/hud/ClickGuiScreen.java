@@ -250,8 +250,10 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
-        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE
-                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT) {
+        // Esc closes. Right-Shift deliberately does NOT close here: the same
+        // press also feeds the ClickGUI KeyMapping, and closing on it made the
+        // tick hook instantly reopen the GUI (impossible to close).
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
             onClose();
             return true;
         }

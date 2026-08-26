@@ -6,16 +6,23 @@ package com.qynl.client.mixin;	import com.qynl.client.QynlClient;
 	import com.qynl.client.module.modules.WTapModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.Input;
+import net.minecraft.client.player.KeyboardInput;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Applies input overrides AFTER vanilla {@link Input#tick} has read the
- * keyboard.
+ * Applies input overrides AFTER vanilla {@link KeyboardInput#tick} has read
+ * the keyboard.
+ *
+ * <p>Must target {@code KeyboardInput}, NOT the base {@code Input} class:
+ * {@code KeyboardInput} overrides {@code tick()}, so an injection into
+ * {@code Input.tick()} lands in the empty base method that is never called
+ * at runtime — which made every override here (WTap, StrafeAssist, Aegis
+ * dodge, scaffold sneak) silently dead code.</p>
  */
-@Mixin(Input.class)
+@Mixin(KeyboardInput.class)
 public abstract class InputMixin {
 
     @Inject(method = "tick", at = @At("TAIL"))

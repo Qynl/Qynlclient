@@ -377,9 +377,13 @@ public class AimAssistModule extends Module {
 
     /**
      * Clicks for the locked target at the configured CPS (~12 by default)
-     * with humanized beat jitter. The 1.9 attack cooldown is ignored — same
-     * legacy behaviour as the AutoClicker's "Legacy clicks" (friends server,
-     * no anti-cheat). Never double-fires with the AutoClicker.
+     * with humanized beat jitter — but only while the player is actually
+     * holding the left mouse button, like a real triggerbot: you hold, it
+     * fires at full speed the moment a target is locked. (It never clicks by
+     * itself — the old "Always" behaviour attacked constantly with a target
+     * in range and made normal clicks feel dead.) The 1.9 attack cooldown is
+     * ignored — same legacy behaviour as the AutoClicker's "Legacy clicks"
+     * (friends server, no anti-cheat). Never double-fires with the AutoClicker.
      */
     private void tickTriggerbot(Minecraft mc) {
         if (mc.gameMode == null || target == null || mc.player == null) return;
@@ -387,6 +391,9 @@ public class AimAssistModule extends Module {
         if (ac != null && ac.isEnabled()) return;
         if (mc.screen != null || mc.player.isSpectator() || !mc.player.isAlive()) return;
         if (mc.player.isUsingItem()) return;
+        // Only while the user holds the left button — GLFW ground truth so a
+        // stale KeyMapping can never stall the trigger.
+        if (!mc.options.keyAttack.isDown() && !isLeftMouseHeld(mc)) return;
         // Only when the locked target is inside the module's range.
         double range = getDoubleSetting("range");
         if (mc.player.distanceToSqr(target) > range * range) return;
@@ -399,6 +406,16 @@ public class AimAssistModule extends Module {
 
         mc.player.swing(InteractionHand.MAIN_HAND);
         mc.gameMode.attack(mc.player, target);
+    }
+
+    private static boolean isLeftMouseHeld(Minecraft mc) {
+        try {
+            long window = mc.getWindow() != null ? mc.getWindow().getWindow() : 0L;
+            return window != 0L && org.lwjgl.glfw.GLFW.glfwGetMouseButton(
+                    window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     // ── target selection ────────────────────────────────────────
