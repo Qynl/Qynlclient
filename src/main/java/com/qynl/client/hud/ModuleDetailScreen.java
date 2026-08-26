@@ -25,6 +25,9 @@ public class ModuleDetailScreen extends Screen {
     private int scroll = 0;
     /** Setting currently being dragged on its slider (null when not dragging). */
     private Setting<?> draggingSetting = null;
+    /** Text setting being typed into (null when not editing). */
+    private Setting<?> editingSetting = null;
+    private String editBuffer = "";
 
     /** Rows: either a label+value pair or a button (toggle / keybind / clear / back). */
     private final List<Object[]> rows = new ArrayList<>(); // {type, setting|module, extra}
@@ -117,11 +120,18 @@ public class ModuleDetailScreen extends Screen {
                 case "setting" -> {
                     Setting<?> s = (Setting<?>) row[1];
                     String label = s.getLabel() + ":";
-                    String value = s.displayString();
-                    g.drawString(this.font, label, x + 14, ry + 6, Glass.TEXT, true);
-                    g.drawString(this.font, value,
-                            x + PANEL_W - 14 - this.font.width(value), ry + 6, Glass.ACCENT, true);
-                    if (s.isNumeric()) {
+                    if (editingSetting == s) {
+                        // Free-text editing: "> value_" with a blinking caret.
+                        boolean caret = (System.currentTimeMillis() / 500) % 2 == 0;
+                        g.drawString(this.font, "\u203a " + editBuffer + (caret ? "_" : " "),
+                                x + 14, ry + 6, Glass.ACCENT, true);
+                    } else {
+                        String value = s.displayString();
+                        g.drawString(this.font, label, x + 14, ry + 6, Glass.TEXT, true);
+                        g.drawString(this.font, value,
+                                x + PANEL_W - 14 - this.font.width(value), ry + 6, Glass.ACCENT, true);
+                    }
+                    if (s.isNumeric() && editingSetting != s) {
                         int[] tr = sliderTrack(x, ry);
                         double frac = (s.asDouble() - s.getMin())
                                 / Math.max(1e-6, s.getMax() - s.getMin());
@@ -192,6 +202,12 @@ public class ModuleDetailScreen extends Screen {
                     }
                     case "setting" -> {
                         Setting<?> s = (Setting<?>) row[1];
+                        if (s.isText() && button == 0) {
+                            // Start free-text editing (e.g. the friend list).
+                            editingSetting = s;
+                            editBuffer = s.valueAsString();
+                            return true;
+                        }
                         if (button == 1) {
                             s.cycleDown();
                             QynlClient.getInstance().getModuleManager().saveToConfig();
@@ -302,6 +318,7 @@ public class ModuleDetailScreen extends Screen {
     private void goBack() {
         waitingForKey = false;
         draggingSetting = null;
+        editingSetting = null;
         if (this.minecraft != null) {
             this.minecraft.setScreen(new ClickGuiScreen());
         } else {
@@ -311,6 +328,22 @@ public class ModuleDetailScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (editingSetting != null) {
+            if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER
+                    || key == GLFW.GLFW_KEY_KP_ENTER) {
+                editingSetting.setFromString(editBuffer.trim());
+                QynlClient.getInstance().getModuleManager().saveToConfig();
+                editingSetting = null;
+            } else if (key == GLFW.GLFW_KEY_BACKSPACE && !editBuffer.isEmpty()) {
+                editBuffer = editBuffer.substring(0, editBuffer.length() - 1);
+            } else if (key >= 32 && key < 256) {
+                char c = (char) key;
+                if (Character.isLetterOrDigit(c) || c == ',' || c == ' ' || c == '-' || c == '_') {
+                    editBuffer += c;
+                }
+            }
+            return true;
+        }
         if (waitingForKey) {
             if (key == GLFW.GLFW_KEY_ESCAPE
                     || key == GLFW.GLFW_KEY_BACKSPACE

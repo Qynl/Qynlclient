@@ -43,7 +43,9 @@ public class ScaffoldWalkModule extends Module {
                 "Vape-Lite bridge: input-based placement, smooth camera look, Ninja 45° diagonal with auto-sneak.",
                 Category.UTILITY);
         bindKey(GLFW.GLFW_KEY_B);
-        addSetting(Setting.options("mode", "Mode", "Walk", "Walk", "Ninja"));
+        // Ninja is the default: the Vape-Lite bridge experience (45° diagonal
+        // with auto-sneak). Walk mode places without sneaking.
+        addSetting(Setting.options("mode", "Mode", "Ninja", "Walk", "Ninja"));
         addSetting(Setting.range("delay", "Place delay", 2.0, 1, 6, 1, "t"));
     }
 
@@ -136,6 +138,20 @@ public class ScaffoldWalkModule extends Module {
         float forward = player.input.forwardImpulse;
         float left = player.input.leftImpulse;
         if (forward == 0.0F && left == 0.0F) {
+            // No key input — fall back to the actual movement direction so
+            // momentum (knockback, walk-off inertia) keeps bridging instead
+            // of stalling the line mid-flight.
+            Vec3 vel = player.getDeltaMovement();
+            double spd = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+            if (spd > 0.05) {
+                double raw = Math.toDegrees(Math.atan2(vel.x, vel.z));
+                if (Double.isNaN(dirAngle) || Math.abs(Mth.wrapDegrees(raw - dirAngle)) > 35.0) {
+                    dirAngle = raw;
+                }
+                double snapped = Math.round(dirAngle / 45.0) * 45.0;
+                double r = Math.toRadians(snapped);
+                return new Vec3(Math.sin(r), 0, Math.cos(r));
+            }
             dirAngle = Double.NaN;
             return Vec3.ZERO;
         }
@@ -161,6 +177,11 @@ public class ScaffoldWalkModule extends Module {
      *  more than a small amount; AimAssist takes precedence when enabled. */
     private void smoothLook(LocalPlayer player, BlockPos targetPos, boolean active) {
         if (active) {
+            // AimAssist owns the camera — never fight it while bridging.
+            if (QynlClient.getInstance().getModuleManager().isEnabled("AimAssist")) {
+                lookEngaged = false;
+                return;
+            }
             if (!lookEngaged) {
                 lookEngaged = true;
                 restoreYaw = player.getYRot();

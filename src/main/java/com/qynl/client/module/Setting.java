@@ -65,6 +65,8 @@ public final class Setting<T> {
     }
 
     public boolean isNumeric() { return numeric; }
+    /** True for free-text settings (e.g. the friend-name list). */
+    public boolean isText() { return options == null && !numeric; }
     public double getMin()     { return min; }
     public double getMax()     { return max; }
     public double getStep()    { return step; }

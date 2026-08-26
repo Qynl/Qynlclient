@@ -102,6 +102,9 @@ public class AimAssistModule extends Module {
         addSetting(Setting.range ("range",     "Range",      8.0,   3,  16, 0.5, "b"));
         // Default "Players" — the client is built for friends-server PvP.
         addSetting(Setting.options("target",   "Target",    "Players", "Players", "Hostile", "All"));
+        // Teammates (players in the Friends list) are never targeted while
+        // this is On — mark your BedWars team in Friends → Names.
+        addSetting(Setting.options("teammates", "Skip teammates", "On", "On", "Off"));
         addSetting(Setting.range ("reaction",  "Reaction",   60.0, 50, 400, 25, "ms"));
         addSetting(Setting.options("vertLock", "Vert lock",  "Off", "Off", "On"));
         addSetting(Setting.options("autoFire", "Auto-fire",  "Off", "Off", "On"));
@@ -386,7 +389,10 @@ public class AimAssistModule extends Module {
             if (e == mc.player) continue;
             if (!valid(e, tMode)) continue;
             if (e instanceof LivingEntity le && (!le.isAlive() || le.isInvisibleTo(mc.player))) continue;
-            if (e instanceof Player p && Friends.isFriend(p.getName().getString())) continue;
+            // Teammates = players in the Friends list. On by default; turn it
+            // Off to aim at everyone (FFA / duels).
+            if ("On".equals(getStringSetting("teammates"))
+                    && e instanceof Player p && Friends.isFriend(p.getName().getString())) continue;
 
             Vec3 d = e.getBoundingBox().getCenter().subtract(eye);
             double dist = d.length();

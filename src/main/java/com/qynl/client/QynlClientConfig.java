@@ -22,10 +22,12 @@ public class QynlClientConfig {
 	 * Bump when defaults change in a way that makes old saved values stale
 	 * or harmful. v2 (2.1.7): keys + settings reset once — old builds saved
 	 * e.g. ChestStealer=T, AimAssist OnAttack/Hostile and AutoSprint off,
-	 * which resurrected exactly the bugs users kept hitting. Module states
-	 * (on/off) are kept.
+	 * which resurrected exactly the bugs users kept hitting. v3 (2.1.24):
+	 * ReachAssist bounds/choke defaults, ScaffoldWalk Ninja default and the
+	 * AimAssist teammate toggle all changed. Module states (on/off) are
+	 * always kept; keys + settings reset on a version bump.
 	 */
-	private static final int CONFIG_VERSION = 2;
+	private static final int CONFIG_VERSION = 3;
 
 	private final Map<String, Boolean> moduleStates = new LinkedHashMap<>();
 	private final Map<String, Integer> moduleKeys = new LinkedHashMap<>();
@@ -88,12 +90,17 @@ public class QynlClientConfig {
 			String json = Files.readString(path());
 			JsonObject root = JsonParser.parseString(json).getAsJsonObject();
 			int version = root.has("version") ? root.get("version").getAsInt() : 1;
+			// Module states are always kept — the user's on/off loadout survives
+			// a reset. Keys and settings only load when the config version
+			// matches; on a bump they are dropped so every module starts with
+			// the CURRENT defaults (no stale ReachAssist bounds, no stale
+			// Scaffold mode, no stale AimAssist toggle).
+			if (root.has("modules") && root.get("modules").isJsonObject()) {
+				JsonObject modules = root.get("modules").getAsJsonObject();
+				modules.entrySet().forEach(entry ->
+						cfg.moduleStates.put(entry.getKey(), entry.getValue().getAsBoolean()));
+			}
 			if (version >= CONFIG_VERSION) {
-				if (root.has("modules") && root.get("modules").isJsonObject()) {
-					JsonObject modules = root.get("modules").getAsJsonObject();
-					modules.entrySet().forEach(entry ->
-							cfg.moduleStates.put(entry.getKey(), entry.getValue().getAsBoolean()));
-				}
 				if (root.has("keys") && root.get("keys").isJsonObject()) {
 					JsonObject keys = root.get("keys").getAsJsonObject();
 					keys.entrySet().forEach(entry ->
@@ -111,11 +118,6 @@ public class QynlClientConfig {
 					});
 				}
 			}
-			// v1 configs: module states, keys and settings are all dropped so
-			// every module starts with the current defaults (AutoSprint on,
-			// AimAssist Always/Players, no stale keybindings like ChestStealer=T).
-			// This one-time reset clears every stale default that made the
-			// client feel dead.
 		} catch (Exception ignored) {
 			// First run or unreadable config: start fresh with defaults.
 		}

@@ -59,7 +59,11 @@ public class ReachAssistModule extends Module {
         bindKey(GLFW.GLFW_KEY_I);
         addSetting(Setting.options("mode",        "Mode",        "Normal", "Subtle", "Normal", "Aggressive"));
         addSetting(Setting.options("fluctuation", "Fluctuation", "Medium", "Low", "Medium", "High"));
-        addSetting(Setting.options("choke",       "Pack choke",  "On",     "Off", "On"));
+        // Pack choke is OFF by default: on LAN/friends servers the 1-2 tick
+        // packet hold just reads as rubberbanding and made Reach feel broken.
+        // It only pays off on laggy ghost servers with an anti-cheat — turn it
+        // on there explicitly.
+        addSetting(Setting.options("choke",       "Pack choke",  "Off",    "Off", "On"));
     }
 
     @Override
@@ -104,11 +108,13 @@ public class ReachAssistModule extends Module {
      */
     private void applyBounds() {
         switch (getStringSetting("mode")) {
-            case "Subtle":     minBonus = 0.02; maxBonus = 0.10; break; // 3.02–3.10 (Grim safe)
+            case "Subtle":     minBonus = 0.05; maxBonus = 0.15; break; // 3.05–3.15 (anti-cheat safe)
             // Friends-server use: no anti-cheat, so the reach is meant to be
-            // felt. Normal still stays in the ghost range most servers accept.
-            case "Aggressive": minBonus = 0.20; maxBonus = 0.45; break; // 3.20–3.45 (visible)
-            default:           minBonus = 0.08; maxBonus = 0.22; break; // 3.08–3.22 (felt, still ghost-safe)
+            // clearly felt — the old +0.08–0.22 blocks (~20 cm) was
+            // imperceptible and read as "reach doesn't work". The vanilla
+            // server's own interact tolerance allows up to ~6 blocks.
+            case "Aggressive": minBonus = 0.80; maxBonus = 1.30; break; // 3.80–4.30 (1.8-client feel)
+            default:           minBonus = 0.35; maxBonus = 0.65; break; // 3.35–3.65 (clearly felt)
         }
         currentBonus = Mth.clamp(currentBonus, minBonus, maxBonus);
         targetBonus = Mth.clamp(targetBonus, minBonus, maxBonus);
