@@ -104,14 +104,17 @@ public class QynlModule extends Module {
         addSetting(Setting.range("reach",         "Reach",        3.4,    2.0,  5.0, 0.1, "b"));
         addSetting(Setting.range("maxAngle",      "Max angle",    45.0,   30,   90,   5,  "\u00b0"));
         addSetting(Setting.range("chance",        "Chance",       85.0,    0,  100,   5,  "%"));
+        addSetting(Setting.range("autoCps",       "Auto CPS",     9.0,     4,   16,   1));
+        addSetting(Setting.options("requireClick","Require click","Off",  "Off", "On"));
+        addSetting(Setting.options("charge",      "Attack charge","Ignore","Ignore", "Respect"));
         addSetting(Setting.options("aim",         "Quantum aim",  "On",    "On",  "Off"));
         addSetting(Setting.range("aimOffset",     "Aim offset",   15.0,    5,   40,   5,  "\u00b0"));
         addSetting(Setting.options("wallCheck",   "Wall check",   "On",    "On",  "Off"));
         addSetting(Setting.options("dodge",       "Collapse",     "On",    "On",  "Off"));
         addSetting(Setting.range("dodgeRange",    "Dodge range",   3.5,   2.0,  5.0, 0.5, "b"));
-        addSetting(Setting.options("showOwn",     "Own position", "On",    "On",  "Off"));		addSetting(Setting.options("showEnemies", "Server boxes", "On",    "On",  "Off"));
-		addSetting(Setting.options("ghostBox",    "Ghost box",    "On",    "On",  "Off"));
-		addSetting(Setting.options("pathLine",    "Path line",    "On",    "On",  "Off"));
+        addSetting(Setting.options("showOwn",     "Own position", "Off",    "On",  "Off"));		addSetting(Setting.options("showEnemies", "Server boxes", "Off",    "On",  "Off"));
+		addSetting(Setting.options("ghostBox",    "Ghost box",    "Off",    "On",  "Off"));
+		addSetting(Setting.options("pathLine",    "Path line",    "Off",    "On",  "Off"));
 	}
 
     public static QynlModule getInstance() { return instance; }
@@ -235,20 +238,26 @@ public class QynlModule extends Module {
         if (!doClick || target == null) {
             wasInReach = targetWillHit;
             return;
-        }		boolean hit = targetWillHit;
-		boolean risingEdge = hit && !wasInReach;
-		wasInReach = hit;
-		if (!risingEdge) return;
-		if (AutoClickerModule.isActive()) return;
-		// GLFW ground truth for the held button (can never desync from the
-		// KeyMapping) — same hardening as the AutoClicker.
-		boolean lmbHeld = client.getWindow() != null && GLFW.glfwGetMouseButton(
-				client.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		if (!client.options.keyAttack.isDown() && !lmbHeld) return;
-		// 1.9+ combat cooldown: only swing at full charge so the quantum
-		// timing actually lands full-damage hits (the human swing interval
-		// below already sits near the cooldown, this makes it exact).
-		if (client.player.getAttackStrengthScale(0.0F) < 0.8F) return;
+        }
+        // The old engine fired ONCE on the rising edge of "in reach", then
+        // demanded a physical LMB hold and a near-full 1.9 attack charge —
+        // standing next to an enemy produced a single attack and read as
+        // dead code ("bringt nix"). The quantum clock now sustains fire:
+        // as long as the server-side reach test passes, attacks continue on
+        // a humanized ~Auto CPS cadence.
+        if ("On".equals(getStringSetting("requireClick"))) {
+            // GLFW ground truth for the held button (can never desync from
+            // the KeyMapping) — same hardening as the AutoClicker.
+            boolean lmbHeld = client.getWindow() != null && GLFW.glfwGetMouseButton(
+                    client.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+            if (!client.options.keyAttack.isDown() && !lmbHeld) return;
+        }
+        if (AutoClickerModule.isActive()) return;
+        if (!targetWillHit) {
+            wasInReach = false;
+            return;
+        }
+        wasInReach = true;
 
         double[] aimPoint = targetA != null ? targetA : targetC;
         if ("On".equals(getStringSetting("wallCheck"))
@@ -257,8 +266,12 @@ public class QynlModule extends Module {
             return;
         }
         Integer last = lastSwingTick.get(target.getId());
-        if (last != null && tickCounter - last < 6 + RANDOM.nextInt(5)) return;
+        if (last != null && tickCounter - last < cadenceTicks()) return;
         if ((RANDOM.nextDouble() * 100.0) >= getDoubleSetting("chance")) return;
+        // 1.9 charge is opt-in ("Respect") — legacy/friends servers expect
+        // spam-click pace, vanilla purists can enforce full charges.
+        if ("Respect".equals(getStringSetting("charge"))
+                && client.player.getAttackStrengthScale(0.0F) < 0.8F) return;
 
         if ("On".equals(getStringSetting("aim"))) {
             armQuantumAim(client, aimPoint);
@@ -266,6 +279,7 @@ public class QynlModule extends Module {
 
         lastSwingTick.put(target.getId(), tickCounter);
         swing(client, target);
+        com.qynl.client.util.FeatureFeed.report("Qynl");
         } catch (Throwable ignored) {
             // The quantum engine must never take the tick chain down; the
             // dodge queue is drained on the next lifecycle hook anyway.
@@ -565,6 +579,13 @@ public class QynlModule extends Module {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    /** Humanized auto-fire cadence in ticks from Auto CPS (±1 tick jitter). */
+    private int cadenceTicks() {
+        double cps = Math.max(1.0, getDoubleSetting("autoCps"));
+        int base = (int) Math.max(1, Math.round(20.0 / cps));
+        return Math.max(1, base + RANDOM.nextInt(3) - 1);
+    }
+
     /** Arms SilentAim toward the server-side hitbox if the offset is small. */
     private void armQuantumAim(Minecraft client, double[] point) {
         if (client.player == null) return;
@@ -671,6 +692,7 @@ public class QynlModule extends Module {
         dodgeDir = (dx * rightX + dz * rightZ) >= 0.0 ? 1 : -1;
         dodgeTicks = client.player.isSprinting() ? 1 : 1 + RANDOM.nextInt(2);
         dodgeTicksTotal = dodgeTicks;
+        com.qynl.client.util.FeatureFeed.report("Collapse");
     }
 
     // ── cleanup / lifecycle ───────────────────────────────────────

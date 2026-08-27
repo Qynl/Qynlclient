@@ -103,6 +103,7 @@ public class WTapModule extends Module {
         tapTicks = delay;
         lastAttackCooldown = (int) Math.round(getDoubleSetting("cooldownMs") / 50.0)
                 + RANDOM.nextInt(3) - 1;
+        com.qynl.client.util.FeatureFeed.report("WTap");
         // Sprint stops with the tap; it resumes naturally when forward is held.
         player.setSprinting(false);
     }

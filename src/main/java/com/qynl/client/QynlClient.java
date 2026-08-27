@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class QynlClient implements ClientModInitializer {
 	public static final String MOD_ID = "qynlclient";
-	public static final String VERSION = "2.1.29";
+	public static final String VERSION = "2.1.30";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static QynlClient instance;
@@ -61,7 +61,8 @@ public class QynlClient implements ClientModInitializer {
 			if (worldChanged && client.level != null && client.player != null) {
 				client.player.displayClientMessage(
 					net.minecraft.network.chat.Component.literal(
-							"\u00a7aQynlClient \u00a7fv" + VERSION + " \u00a77\u2014 Right-Shift toggles the ClickGUI"),
+							"\u00a7aQynlClient \u00a7fv" + VERSION
+								+ " \u00a77\u2014 Right-Shift toggles the GUI \u00a78| \u00a77Combat features flash top-center when they fire"),
 						false);
 			}
 			if (client.level == null && lastWorld != null) {

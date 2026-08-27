@@ -117,6 +117,10 @@ public class AimAssistModule extends Module {
         // AutoClicker takes over when it is on, so they never double-fire.
         addSetting(Setting.options("triggerbot", "Triggerbot", "On", "On", "Off"));
         addSetting(Setting.range ("triggerCps",  "Trigger CPS", 12.0, 5, 20, 1));
+        // Off = fires automatically whenever a target is locked (the real
+        // triggerbot behaviour the module was requested for). On = legacy
+        // mode where you must hold the left button yourself.
+        addSetting(Setting.options("holdMouse", "Hold mouse",   "Off", "Off", "On"));
     }
 
     @Override public void onEnable()  { pullCfg(); }
@@ -182,7 +186,20 @@ public class AimAssistModule extends Module {
             reactionTicks--;
         }
 
-        if (target == null || reactionTicks > 0 || overrideTicks > 0) {
+        if (target == null) {
+            SilentAim.clear();
+            return;
+        }
+
+        // Triggerbot: a target exists — click for it INDEPENDENTLY of the
+        // camera glide state. The old placement after the lock gates meant
+        // the reaction window or a mouse-override pause also paused every
+        // click, which read as "triggerbot does nothing".
+        if ("On".equals(getStringSetting("triggerbot"))) {
+            tickTriggerbot(mc);
+        }
+
+        if (reactionTicks > 0 || overrideTicks > 0) {
             SilentAim.clear();
             return;
         }
@@ -192,11 +209,6 @@ public class AimAssistModule extends Module {
         boolean silent = "Silent".equals(getStringSetting("mode"));
         float[] step = stepTowards(mc, cy, cp, influenceSmooth, silent);
         if (step == null) { SilentAim.clear(); return; }
-
-        // Triggerbot: the aim has a locked target in range — click for it.
-        if ("On".equals(getStringSetting("triggerbot"))) {
-            tickTriggerbot(mc);
-        }
 
         String mode = getStringSetting("mode");
         boolean vl = "On".equals(getStringSetting("vertLock"));
@@ -377,13 +389,13 @@ public class AimAssistModule extends Module {
 
     /**
      * Clicks for the locked target at the configured CPS (~12 by default)
-     * with humanized beat jitter — but only while the player is actually
-     * holding the left mouse button, like a real triggerbot: you hold, it
-     * fires at full speed the moment a target is locked. (It never clicks by
-     * itself — the old "Always" behaviour attacked constantly with a target
-     * in range and made normal clicks feel dead.) The 1.9 attack cooldown is
-     * ignored — same legacy behaviour as the AutoClicker's "Legacy clicks"
-     * (friends server, no anti-cheat). Never double-fires with the AutoClicker.
+     * with humanized beat jitter. By default it fires automatically as soon
+     * as a valid target is locked — the module was built to auto-click
+     * while an enemy is in range. "Hold mouse On" restores the manual
+     * variant where your left button arms the fire. The 1.9 attack cooldown
+     * is ignored — same legacy behaviour as the AutoClicker's "Legacy
+     * clicks" (friends server, no anti-cheat). Never double-fires with the
+     * AutoClicker.
      */
     private void tickTriggerbot(Minecraft mc) {
         if (mc.gameMode == null || target == null || mc.player == null) return;
@@ -391,9 +403,10 @@ public class AimAssistModule extends Module {
         if (ac != null && ac.isEnabled()) return;
         if (mc.screen != null || mc.player.isSpectator() || !mc.player.isAlive()) return;
         if (mc.player.isUsingItem()) return;
-        // Only while the user holds the left button — GLFW ground truth so a
-        // stale KeyMapping can never stall the trigger.
-        if (!mc.options.keyAttack.isDown() && !isLeftMouseHeld(mc)) return;
+        // Hold-mouse mode: only while the user holds the button — GLFW ground
+        // truth so a stale KeyMapping can never stall the trigger.
+        if ("On".equals(getStringSetting("holdMouse"))
+                && !mc.options.keyAttack.isDown() && !isLeftMouseHeld(mc)) return;
         // Only when the locked target is inside the module's range.
         double range = getDoubleSetting("range");
         if (mc.player.distanceToSqr(target) > range * range) return;
@@ -406,6 +419,7 @@ public class AimAssistModule extends Module {
 
         mc.player.swing(InteractionHand.MAIN_HAND);
         mc.gameMode.attack(mc.player, target);
+        com.qynl.client.util.FeatureFeed.report("Trigger");
     }
 
     private static boolean isLeftMouseHeld(Minecraft mc) {

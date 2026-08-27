@@ -112,6 +112,7 @@ public class ScaffoldWalkModule extends Module {
 
         mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, hit);
         cooldown = (int) getDoubleSetting("delay");
+        com.qynl.client.util.FeatureFeed.report("Scaffold");
         // No swing animation — the block just appears at your feet, like a
         // real bridge player (Vape Lite never swings for scaffold).
     }
@@ -215,13 +216,20 @@ public class ScaffoldWalkModule extends Module {
      *  then any face-adjacent solid neighbour (click the face pointing
      *  toward the target). If the target sits diagonally over a gap — the
      *  classic 45° ninja-bridge step — no single face can reach it, so the
-     *  placement is sent as a "click from above" (face DOWN on the air block
-     *  above the target). The vanilla server accepts this: it only validates
-     *  that the clicked position is within reach and that the placed
-     *  position is replaceable, which both hold here.</p>
+     *  placement is sent as a "click the target itself" packet.</p>
+     *
+     *  <p><b>Why clicking the target (and not the air above it) is critical:</b>
+     *  vanilla's {@code BlockItem.place} uses {@code replaceClicked}: when
+     *  the clicked block is replaceable (air), the item is placed AT the
+     *  clicked position — otherwise it is placed at clicked+face. The old
+     *  "face DOWN on {@code target.above()}" fallback therefore placed into
+     *  {@code target.above()} itself — one block too high — which is exactly
+     *  why Ninja mode built floating blocks instead of the floor line.
+     *  Clicking the target position (air) places it exactly there.</p>
      */
     private BlockHitResult buildPlacement(BlockPos target, BlockPos support) {
-        if (support != null) {
+        if (support != null && !Minecraft.getInstance().level.getBlockState(target).isAir()) {
+            // Rare: target not plain air (e.g. grass) → click the support face.
             Direction dir = Direction.fromDelta(
                     target.getX() - support.getX(),
                     target.getY() - support.getY(),
@@ -232,11 +240,9 @@ public class ScaffoldWalkModule extends Module {
                 return new BlockHitResult(loc, dir, support, false);
             }
         }
-        // Diagonal over a gap — fake "click from above" (Direction.fromDelta
-        // returns null for diagonal offsets, which used to silently kill
-        // every Ninja-mode placement).
-        BlockPos above = target.above();
-        return new BlockHitResult(Vec3.atCenterOf(above), Direction.DOWN, above, false);
+        // Diagonal over a gap (or replaceable target generally): click the
+        // target position itself — replaceClicked puts the block right there.
+        return new BlockHitResult(Vec3.atCenterOf(target), Direction.DOWN, target, false);
     }
 
     /** Finds a solid block to place the target block against. */

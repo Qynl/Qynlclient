@@ -88,6 +88,7 @@ public class StrafeAssistModule extends Module {
         // Start new strafe
         strafeLeft = RANDOM.nextBoolean();
         strafing = true;
+        com.qynl.client.util.FeatureFeed.report(strafeLeft ? "Strafe L" : "Strafe R");
         int baseInterval = (int) Math.round(getDoubleSetting("intervalMs") / 50.0);
         // Random strafe duration with ±30% variation
         strafeTicks = baseInterval + (int) ((RANDOM.nextDouble() - 0.5) * 0.6 * baseInterval);

@@ -46,6 +46,7 @@ public class HudRenderer {
         int w = mc.getWindow().getGuiScaledWidth();
 
         renderWatermark(g, mc);
+        renderFeatureFeed(g, mc, w);
         if (TextGuiModule.isActive()) {
             renderArrayList(g, mc, w);
             if (TextGuiModule.infoEnabled()) {
@@ -67,6 +68,34 @@ public class HudRenderer {
         g.drawString(mc.font, name, (int) (x + PAD_X), (int) (y + PAD_Y), Glass.TEXT, true);
         g.drawString(mc.font, ver, (int) (x + PAD_X + mc.font.width(name)),
                 (int) (y + PAD_Y), ACCENT, true);
+    }
+
+    // ── feature feed chips (proof-of-life for combat features) ──
+
+    /**
+     * Shows a small centered glass strip with the combat features that fired
+     * within the last ~1.4 s ("WTap", "Trigger", "Strafe L", "Collapse",
+     * ...). If a feature works you SEE it fire; if it never appears, the
+     * feature is genuinely not firing — instant diagnosis instead of
+     * "it feels dead".
+     */
+    private void renderFeatureFeed(GuiGraphics g, Minecraft mc, int w) {
+        var chips = com.qynl.client.util.FeatureFeed.live();
+        if (chips.isEmpty()) return;
+
+        StringBuilder sb = new StringBuilder();
+        for (com.qynl.client.util.FeatureFeed.Chip c : chips) {
+            if (sb.length() > 0) sb.append("  \u00b7  ");
+            sb.append(c.label);
+        }
+        String text = sb.toString();
+
+        int tw = mc.font.width(text);
+        float x = w / 2.0F - tw / 2.0F;
+        float y = 2;
+
+        Glass.panel(g, x, y, tw + PAD_X * 2, 10 + PAD_Y * 2, Glass.RADIUS);
+        g.drawString(mc.font, text, (int) (x + PAD_X), (int) (y + PAD_Y), ACCENT, true);
     }
 
     // ── arraylist glass panel ───────────────────────────────────
