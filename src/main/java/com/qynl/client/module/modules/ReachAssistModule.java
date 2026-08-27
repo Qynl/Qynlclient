@@ -120,6 +120,18 @@ public class ReachAssistModule extends Module {
             case "Aggressive": minBonus = 0.90; maxBonus = 1.25; break; // 3.90–4.25 (1.8-client feel)
             default:           minBonus = 0.45; maxBonus = 0.80; break; // 3.45–3.80 (clearly felt)
         }
+        // Ping-aware headroom: vanilla servers rewind target positions by
+        // the attacker's latency when resolving hits, so part of your ping
+        // legitimately converts into effective reach. Normal gains up to
+        // +0.35 blocks around 175 ms, Aggressive up to +0.5; Subtle (AC
+        // mode) stays fixed.
+        if (!"Subtle".equals(getStringSetting("mode"))) {
+            int ping = com.qynl.client.util.PingTracker.hasPing()
+                    ? com.qynl.client.util.PingTracker.getPingMs() : 0;
+            double extra = Math.min(ping / 350.0, 1.0)
+                    * ("Aggressive".equals(getStringSetting("mode")) ? 0.50 : 0.35);
+            maxBonus += extra;
+        }
         currentBonus = Mth.clamp(currentBonus, minBonus, maxBonus);
         targetBonus = Mth.clamp(targetBonus, minBonus, maxBonus);
     }

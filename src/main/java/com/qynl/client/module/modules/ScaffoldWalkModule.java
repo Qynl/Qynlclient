@@ -165,11 +165,11 @@ public class ScaffoldWalkModule extends Module {
      *  more than a small amount; AimAssist takes precedence when enabled. */
     private void smoothLook(LocalPlayer player, BlockPos targetPos, boolean active) {
         if (active) {
-            // AimAssist owns the camera — never fight it while bridging.
-            if (QynlClient.getInstance().getModuleManager().isEnabled("AimAssist")) {
-                lookEngaged = false;
-                return;
-            }
+            // The bridge owns the camera while it is actively bridging —
+            // the old AimAssist veto left the camera staring straight ahead
+            // during S+D bridges, which read as "uses the camera for real"
+            // never happening. AimAssist has nothing to aim at mid-bridge;
+            // whoever engaged last wins, which is normally the scaffold.
             if (!lookEngaged) {
                 lookEngaged = true;
                 restoreYaw = player.getYRot();
@@ -183,11 +183,13 @@ public class ScaffoldWalkModule extends Module {
                 float pitchTo = (float) Math.toDegrees(Math.asin(-d.y / dist));
                 float dy = Mth.wrapDegrees(yawTo - player.getYRot());
                 if (Math.abs(dy) < 30.0F) {
-                    player.setYRot(player.getYRot() + Mth.clamp(dy, -8.0F, 8.0F));
+                    player.setYRot(player.getYRot() + Mth.clamp(dy, -12.0F, 12.0F));
                 }
                 float dp = Mth.clamp(pitchTo - player.getXRot(), -90.0F, 0.0F);
                 if (dp < 0.0F) {
-                    player.setXRot(player.getXRot() + Math.max(dp, -8.0F));
+                    // Pitch first: a real bridger noses down quickly; 12°/tick
+                    // reaches full look-down in under half a second.
+                    player.setXRot(player.getXRot() + Math.max(dp, -12.0F));
                 }
                 player.yHeadRot = player.getYRot();
                 player.yHeadRotO = player.getYRot();
@@ -195,11 +197,6 @@ public class ScaffoldWalkModule extends Module {
             return;
         }
         if (!lookEngaged) return;
-        // AimAssist owns the camera — never fight it on the way back.
-        if (QynlClient.getInstance().getModuleManager().isEnabled("AimAssist")) {
-            lookEngaged = false;
-            return;
-        }
         float dy = Mth.wrapDegrees(restoreYaw - player.getYRot());
         float dp = restorePitch - player.getXRot();
         player.setYRot(player.getYRot() + Mth.clamp(dy, -10.0F, 10.0F));

@@ -25,7 +25,9 @@ public class WTapModule extends Module {
     private int tapTicks = 0;
     private int lastAttackCooldown = 0;
     private Entity lastAttacked;
-    private long lastAttackMs = -1000;
+    /** Last attack attempt (entity hit OR bare swing) — the tap trigger. */
+    private long lastActionMs = -1000;
+    private boolean wasSwinging = false;
 
     public WTapModule() {
         super("WTap", "Taps W after each hit to reset sprint — extra knockback on the enemy.",
@@ -54,7 +56,7 @@ public class WTapModule extends Module {
     public static void onPlayerAttack(Entity target) {
         if (instance != null) {
             instance.lastAttacked = target;
-            instance.lastAttackMs = System.currentTimeMillis();
+            instance.lastActionMs = System.currentTimeMillis();
         }
     }
 
@@ -65,6 +67,16 @@ public class WTapModule extends Module {
             return;
         }
         var player = client.player;
+        // EVERY swing counts as an attack attempt: entity hits arrive via
+        // the AttackMixin, while air swings and block breaking only show up
+        // here as a rising edge of the swing flag — WTap resets sprint
+        // around any of them, exactly like a real w-tapper who never stops.
+        boolean swingEdge = player.swinging && !wasSwinging;
+        wasSwinging = player.swinging;
+        if (swingEdge) {
+            lastActionMs = System.currentTimeMillis();
+            lastAttacked = null;
+        }
         if (tapTicks > 0) {
             tapTicks--;
             return;
@@ -73,12 +85,10 @@ public class WTapModule extends Module {
             lastAttackCooldown--;
         }
 
-        boolean justAttacked = lastAttacked != null
-                && (System.currentTimeMillis() - lastAttackMs) < 150L;
-        if (!justAttacked) {
+        long sinceAction = System.currentTimeMillis() - lastActionMs;
+        if (sinceAction < 0 || sinceAction >= 150L) {
             return;
         }
-        lastAttacked = null;
         if (lastAttackCooldown > 0) {
             return;
         }
@@ -113,5 +123,7 @@ public class WTapModule extends Module {
         tapTicks = 0;
         lastAttackCooldown = 0;
         lastAttacked = null;
+        wasSwinging = false;
+        lastActionMs = -1000;
     }
 }

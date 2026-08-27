@@ -39,15 +39,11 @@ public class StrafeAssistModule extends Module {
         }
         var player = client.player;
 
-        // Strafe while an enemy is near and the player is engaged — either
-        // holding attack or actively moving (so it works while chasing with
-        // AimAssist too, not only while clicking).
-        boolean inCombat = hasNearbyEnemy(client)
-                && (client.options.keyAttack.isDown() || isMoving(client));
-        if (!inCombat || player.isDeadOrDying()) {
-            if (strafing) reset(client);
-            return;
-        }
+        // Strafe whenever enabled — no combat or movement preconditions.
+        // The user wants constant strafing once toggled: the interval pacing
+        // provides the rhythm, and pausing only for death keeps it simple
+        // and predictable. Holding any direction still wins (the input
+        // override respects the player's own backpedal).
 
         if (strafing) {
             if (strafeTicks > 0) {
@@ -101,20 +97,6 @@ public class StrafeAssistModule extends Module {
 
     public boolean shouldStrafeRight() {
         return isEnabled() && strafing && !strafeLeft;
-    }
-
-    private static boolean isMoving(Minecraft client) {
-        var input = client.player.input;
-        if (input == null) return false;
-        return input.forwardImpulse > 0.0F || input.leftImpulse != 0.0F;
-    }
-
-    private boolean hasNearbyEnemy(Minecraft client) {
-        var player = client.player;
-        var box = player.getBoundingBox().inflate(10.0);
-        return client.level.getEntities(player, box,
-                e -> (e instanceof Monster || e instanceof Player)
-                        && e.isAlive() && e != player).size() > 0;
     }
 
     private void reset(Minecraft client) {

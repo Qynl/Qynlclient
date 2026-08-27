@@ -161,14 +161,14 @@ public class AimAssistModule extends Module {
         // ticks. The blend is smoothed (lerped) so crossing a threshold never
         // steps the glide speed — that stepping was the visible stutter.
         double influence = 1.0;
-        if (move > 30.0) {
-            overrideTicks = 2;
-        } else if (move > 12.0) {
-            influence = 0.75;
-        } else if (move > 4.0) {
-            influence = 0.9;
+        if (move > 60.0) {
+            overrideTicks = 1;
+        } else if (move > 18.0) {
+            influence = 0.8;
+        } else if (move > 6.0) {
+            influence = 0.92;
         }
-        influenceSmooth += (influence - influenceSmooth) * 0.4;
+        influenceSmooth += (influence - influenceSmooth) * 0.5;
         if (overrideTicks > 0) overrideTicks--;
 
         if (t != target) {
@@ -229,12 +229,15 @@ public class AimAssistModule extends Module {
                 mc.player.yHeadRotO = step[0];
             }
             default -> { // Rotations
+                // NEVER touch yRotO/xRotO: Minecraft renders rotation as an
+                // interpolation between the old and new tick value, and
+                // equalizing them each tick flattened that interpolation
+                // into raw 20 Hz camera steps — a big part of why the glide
+                // looked "null smooth" even though the math was fine.
                 mc.player.setYRot(step[0]);
                 mc.player.setXRot(vl ? cp : step[1]);
                 mc.player.yHeadRot  = step[0];
                 mc.player.yHeadRotO = step[0];
-                mc.player.yRotO     = step[0];
-                mc.player.xRotO     = vl ? cp : step[1];
             }
         }
     }
@@ -287,8 +290,8 @@ public class AimAssistModule extends Module {
 
         double tY = maxSpeed * easeCurve(absY, 30.0);
         double tP = maxSpeed * 0.75 * easeCurve(absP, 20.0);
-        yawVel += (tY - yawVel) * 0.4;
-        pitchVel += (tP - pitchVel) * 0.4;
+        yawVel += (tY - yawVel) * 0.5;
+        pitchVel += (tP - pitchVel) * 0.5;
         double stepY = Mth.clamp(yawD, -yawVel, yawVel);
         double stepP = Mth.clamp(pitchD, -pitchVel, pitchVel);
 

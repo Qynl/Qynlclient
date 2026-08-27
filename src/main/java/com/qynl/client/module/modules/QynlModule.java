@@ -110,7 +110,10 @@ public class QynlModule extends Module {
         addSetting(Setting.options("aim",         "Quantum aim",  "On",    "On",  "Off"));
         addSetting(Setting.range("aimOffset",     "Aim offset",   15.0,    5,   40,   5,  "\u00b0"));
         addSetting(Setting.options("wallCheck",   "Wall check",   "On",    "On",  "Off"));
-        addSetting(Setting.options("dodge",       "Collapse",     "On",    "On",  "Off"));
+        // Off by default: the packet-holding dodge reads as lag spikes on
+        // some servers and made the module feel broken; opt-in for those
+        // who want the quantum-collapse defense.
+        addSetting(Setting.options("dodge",       "Collapse",     "Off",   "On",  "Off"));
         addSetting(Setting.range("dodgeRange",    "Dodge range",   3.5,   2.0,  5.0, 0.5, "b"));
         addSetting(Setting.options("showOwn",     "Own position", "Off",    "On",  "Off"));		addSetting(Setting.options("showEnemies", "Server boxes", "Off",    "On",  "Off"));
 		addSetting(Setting.options("ghostBox",    "Ghost box",    "Off",    "On",  "Off"));
